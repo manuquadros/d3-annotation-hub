@@ -1,0 +1,8 @@
+span[typeof="ncbitaxon:Species"] {
+  background-color: #6DB1B6;
+}
+
+span[typeof="ncbitaxon:Strain"] {
+  background-color: #F39A9D;
+}
+
