@@ -1,8 +1,55 @@
+body {
+  margin: 10px;
+}
+
+#container {
+  display: grid;
+  grid-template-columns: 60% 30%;
+  grid-template-rows: auto;
+  column-gap: 5%;
+}
+
+#chunk {
+  line-height: 2;
+}
+
+#summary {
+  line-height: 3;
+}
+
+span[typeof="ncbitaxon:Strain"],
 span[typeof="ncbitaxon:Species"] {
-  background-color: #6DB1B6;
+  padding: 0.35em 0.35em 0.5em;
+  border-radius: 5px;
 }
 
 span[typeof="ncbitaxon:Strain"] {
   background-color: #F39A9D;
 }
 
+span[typeof="ncbitaxon:Species"] {
+  background-color: #CAE591;
+}
+
+span.entity::after {
+  position: relative;
+  bottom: -8px;
+  left: 0.5ex;
+  font-size: 90%;
+  font-weight: bold;
+  padding-right: 0.25em;
+}
+
+span[class="entity"][typeof="ncbitaxon:Strain"]::after {
+  content: "Strain";
+  color: #36155D;
+}
+
+span[class="entity"][typeof="ncbitaxon:Species"]::after {
+  content: "Species";
+  color: #5A249B;
+}
+
+.entitySummary {
+  margin-right: 1em;
+}
