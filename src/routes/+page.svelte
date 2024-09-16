@@ -9,16 +9,14 @@
     let entities: { type: string; text: string; resource: string }[] = [];
     let strains: { type: string; text: string; resource: string }[] = [];
     let species: { type: string; text: string; resource: string }[] = [];
-    const enzymes: { type: string; text: string; resource: string }[] = [];
+    let enzymes: { type: string; text: string; resource: string }[] = [];
 
     function handleEntityFound(event: CustomEvent) {
         const { type, text, resource } = event.detail;
         entities = [...entities, { type, text, resource }];
         strains = entities.filter((entity) => entity.type == "d3o:Strain");
         species = entities.filter((entity) => entity.type == "d3o:Bacteria");
-        enzymes.push(
-            ...entities.filter((entity) => entity.type == "d3o:Enzyme"),
-        );
+        enzymes = entities.filter((entity) => entity.type == "d3o:Enzyme");
     }
 </script>
 

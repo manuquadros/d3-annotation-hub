@@ -7,7 +7,7 @@
     let showDropdown = false;
     let dropdownPosition = { x: 0, y: 0 };
     let selectedText = "";
-    const resources = new Map<string, string>();
+    const resources: string[] = [];
 
     async function loadChunk() {
         let url: string;
@@ -33,19 +33,12 @@
             const type = span.getAttribute("typeof");
             const resource = span.getAttribute("resource");
             const text = span.textContent;
-            const typeText = type + text!;
 
-            console.log(typeText);
-
-            if (typeText !== null && resource !== null) {
-                const existentResource = resources.get(typeText);
-                if (existentResource !== undefined) {
-                    span.setAttribute("resource", existentResource);
-                } else {
-                    resources.set(typeText, resource);
+            if (resource !== null) {
+                if (!resources.includes(resource)) {
+                    resources.push(resource);
+                    dispatch("entityFound", { type, text, resource });
                 }
-
-                dispatch("entityFound", { type, text, resource });
             }
         });
 
