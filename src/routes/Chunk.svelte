@@ -5,8 +5,10 @@
     export let id: string = "";
     let promise;
     let showDropdown = false;
+    let showRemoveDropdown = false;
     let dropdownPosition = { x: 0, y: 0 };
     let selectedText = "";
+    let selectedSpan: HTMLSpanElement | null = null;
     const resources: string[] = [];
 
     async function loadChunk() {
@@ -55,6 +57,7 @@
         });
 
         document.addEventListener("mouseup", handleTextSelection);
+        document.addEventListener("click", handleSpanClick);
     });
 
     function handleTextSelection(event: MouseEvent) {
@@ -63,10 +66,24 @@
             selectedText = selection.toString().trim();
             if (selectedText) {
                 showDropdown = true;
+                showRemoveDropdown = false;
                 dropdownPosition = { x: event.clientX, y: event.clientY };
             }
         } else {
             showDropdown = false;
+        }
+    }
+
+    function handleSpanClick(event: MouseEvent) {
+        const target = event.target as HTMLElement;
+        if (target.classList.contains("entity")) {
+            event.stopPropagation();
+            selectedSpan = target as HTMLSpanElement;
+            showRemoveDropdown = true;
+            showDropdown = false;
+            dropdownPosition = { x: event.clientX, y: event.clientY };
+        } else {
+            showRemoveDropdown = false;
         }
     }
 
@@ -81,6 +98,19 @@
             selection.removeAllRanges();
         }
         showDropdown = false;
+    }
+
+    function handleRemoveAnnotation() {
+        if (selectedSpan) {
+            const parent = selectedSpan.parentNode;
+            if (parent) {
+                while (selectedSpan.firstChild) {
+                    parent.insertBefore(selectedSpan.firstChild, selectedSpan);
+                }
+                parent.removeChild(selectedSpan);
+            }
+        }
+        showRemoveDropdown = false;
     }
 </script>
 
@@ -104,5 +134,14 @@
         <button on:click={() => handleOptionClick("Enzyme")}>Enzyme</button>
         <button on:click={() => handleOptionClick("Bacteria")}>Bacteria</button>
         <button on:click={() => handleOptionClick("Strain")}>Strain</button>
+    </div>
+{/if}
+
+{#if showRemoveDropdown}
+    <div
+        class="dropdown"
+        style="position: absolute; left: {dropdownPosition.x}px; top: {dropdownPosition.y}px;"
+    >
+        <button on:click={handleRemoveAnnotation}>Remove annotation</button>
     </div>
 {/if}
