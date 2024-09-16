@@ -28,11 +28,24 @@
         const parser = new DOMParser();
         const doc = parser.parseFromString(content, "text/html");
         const spans = doc.querySelectorAll("span[typeof]");
+        const resources = new Map<string, string>();
 
         spans.forEach((span) => {
             const type = span.getAttribute("typeof");
+            const resource = span.getAttribute("resource");
             const text = span.textContent;
-            dispatch("entityFound", { type, text });
+            const typeText = type + text!;
+
+            if (typeText !== null && resource !== null) {
+                const existentResource = resources.get(typeText);
+                if (existentResource !== undefined) {
+                    span.setAttribute("resource", existentResource);
+                } else {
+                    resources.set(typeText, resource);
+                }
+
+                dispatch("entityFound", { type, text, resource });
+            }
         });
 
         return content;
@@ -47,12 +60,16 @@
             return null;
         });
     });
+
+    const logHtml = (el: Element) => {
+        console.log(el.innerHTML);
+    };
 </script>
 
 {#await promise}
     <p>Loading...</p>
 {:then content}
-    <div>
+    <div use:logHtml>
         {#if content}
             {@html content}
         {/if}

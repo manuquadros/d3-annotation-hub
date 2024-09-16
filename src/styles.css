@@ -17,18 +17,21 @@ body {
   line-height: 3;
 }
 
-span[typeof="ncbitaxon:Strain"],
-span[typeof="ncbitaxon:Species"] {
+span.entity {
   padding: 0.35em 0.35em 0.5em;
   border-radius: 5px;
 }
 
-span[typeof="ncbitaxon:Strain"] {
+span[typeof="d3o:Strain"] {
   background-color: #F39A9D;
 }
 
-span[typeof="ncbitaxon:Species"] {
+span[typeof="d3o:Bacteria"] {
   background-color: #CAE591;
+}
+
+span[typeof="d3o:Enzyme"] {
+  background-color: #9BD1E5;
 }
 
 span.entity::after {
@@ -40,14 +43,19 @@ span.entity::after {
   padding-right: 0.25em;
 }
 
-span[class="entity"][typeof="ncbitaxon:Strain"]::after {
+span.entity[typeof="d3o:Strain"]::after {
   content: "Strain";
   color: #36155D;
 }
 
-span[class="entity"][typeof="ncbitaxon:Species"]::after {
-  content: "Species";
+span.entity[typeof="d3o:Bacteria"]::after {
+  content: "Bacteria";
   color: #5A249B;
+}
+
+span.entity[typeof="d3o:Enzyme"]::after {
+  content: "Enzyme";
+  color: #4B1E83;
 }
 
 .entitySummary {

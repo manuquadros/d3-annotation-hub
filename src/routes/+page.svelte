@@ -6,18 +6,18 @@
     const annotator = $page.url.searchParams.get("annotator");
     const id = $page.url.searchParams.get("id");
 
-    let entities: { type: string; text: string }[] = [];
-    let strains: { type: string; text: string }[] = [];
-    let species: { type: string; text: string }[] = [];
+    let entities: { type: string; text: string; resource: string }[] = [];
+    let strains: { type: string; text: string; resource: string }[] = [];
+    let species: { type: string; text: string; resource: string }[] = [];
+    const enzymes: { type: string; text: string; resource: string }[] = [];
 
     function handleEntityFound(event: CustomEvent) {
-        const { type, text } = event.detail;
-        entities = [...entities, { type, text }];
-        strains = entities.filter(
-            (entity) => entity.type == "ncbitaxon:Strain",
-        );
-        species = entities.filter(
-            (entity) => entity.type == "ncbitaxon:Species",
+        const { type, text, resource } = event.detail;
+        entities = [...entities, { type, text, resource }];
+        strains = entities.filter((entity) => entity.type == "d3o:Strain");
+        species = entities.filter((entity) => entity.type == "d3o:Bacteria");
+        enzymes.push(
+            ...entities.filter((entity) => entity.type == "d3o:Enzyme"),
         );
     }
 </script>
@@ -31,19 +31,42 @@
         <h2>Summary</h2>
 
         {#if entities.length > 0}
+            {#if enzymes.length > 0}
+                <h3>Enzymes</h3>
+                {#each enzymes as entity}
+                    <span
+                        class="entitySummary"
+                        typeof={entity.type}
+                        property="sameAs"
+                        resource={entity.resource}
+                    >
+                        {entity.text}
+                    </span>
+                {/each}
+            {/if}
             {#if strains.length > 0}
                 <h3>Strains</h3>
                 {#each strains as entity}
-                    <span class="entitySummary" typeof={entity.type}>
+                    <span
+                        class="entitySummary"
+                        typeof={entity.type}
+                        property="sameAs"
+                        resource={entity.resource}
+                    >
                         {entity.text}
                     </span>
                 {/each}
             {/if}
 
             {#if species.length > 0}
-                <h3>Species</h3>
+                <h3>Bacteria</h3>
                 {#each species as entity}
-                    <span class="entitySummary" typeof={entity.type}>
+                    <span
+                        class="entitySummary"
+                        typeof={entity.type}
+                        property="sameAs"
+                        resource={entity.resource}
+                    >
                         {entity.text}
                     </span>
                 {/each}
