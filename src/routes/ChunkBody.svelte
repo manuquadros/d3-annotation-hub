@@ -1,64 +1,31 @@
 <script lang="ts">
     import { onMount, createEventDispatcher } from "svelte";
+
+    export let body: HTMLDivElement | null;
+
     const dispatch = createEventDispatcher();
-    export let annotator: string = "";
-    export let id: string = "";
-    let promise;
+    let processedResources = new Set<string>();
+
+    let selectedText = "";
+    let selectedSpan: HTMLSpanElement | null = null;
     let showDropdown = false;
     let showRemoveDropdown = false;
     let dropdownPosition = { x: 0, y: 0 };
-    let selectedText = "";
-    let selectedSpan: HTMLSpanElement | null = null;
-    const resources: string[] = [];
 
-    async function loadChunk() {
-        let url: string;
-        if (annotator && id) {
-            url = `http://localhost:8000/annotation/?annotator=${annotator}&id=${id}`;
-        } else if (id) {
-            console.log(`loading article ${id}`);
-            url = `http://localhost:8000/segment/?pmid=${id}`;
-        } else {
-            console.log("start and pmid are null");
-            url = "http://localhost:8000/segment/";
-        }
-        let response = await fetch(url);
-        return response.json();
-    }
-
-    function processTags(content: string) {
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(content, "text/html");
-        const spans = doc.querySelectorAll("span[typeof]");
+    function processTags(element: HTMLElement): void {
+        const spans = element.querySelectorAll("span[typeof]");
 
         spans.forEach((span) => {
             const type = span.getAttribute("typeof");
             const resource = span.getAttribute("resource");
             const text = span.textContent;
 
-            if (resource !== null) {
-                if (!resources.includes(resource)) {
-                    resources.push(resource);
-                    dispatch("entityFound", { type, text, resource });
-                }
+            if (resource && !processedResources.has(resource)) {
+                processedResources.add(resource);
+                dispatch("entityFound", { type, text, resource });
             }
         });
-
-        return content;
     }
-
-    onMount(() => {
-        promise = loadChunk().then((data) => {
-            if (data) {
-                const content = JSON.parse(data).content;
-                return processTags(content);
-            }
-            return null;
-        });
-
-        document.addEventListener("mouseup", handleTextSelection);
-        document.addEventListener("click", handleSpanClick);
-    });
 
     function handleTextSelection(event: MouseEvent) {
         const selection = window.getSelection();
@@ -112,19 +79,19 @@
         }
         showRemoveDropdown = false;
     }
+
+    onMount(() => {
+        if (body) {
+            processTags(body);
+        }
+    });
 </script>
 
-{#await promise}
-    <p>Loading...</p>
-{:then content}
-    <div>
-        {#if content}
-            {@html content}
-        {/if}
-    </div>
-{:catch error}
-    <p style="color: red">{error.message}</p>
-{/await}
+<div on:click={handleSpanClick} on:mouseup={handleTextSelection}>
+    {#if body}
+        {@html body.innerHTML}
+    {/if}
+</div>
 
 {#if showDropdown}
     <div
