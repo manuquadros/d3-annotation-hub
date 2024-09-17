@@ -76,3 +76,16 @@ span.entity[typeof="d3o:Enzyme"]::after {
   margin: 2px 0;
   text-align: left;
 }
+
+/* Tables */
+table-wrap {
+  display: grid;
+  grid-template-colums: auto;
+  justify-items: center;
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+td {
+  padding: 1ex;
+}
