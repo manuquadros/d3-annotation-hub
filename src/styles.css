@@ -21,6 +21,13 @@ body {
   box-sizing: border-box;
   padding: 0.35em 0.35em 0.5em;
   border-radius: 5px;
+  margin-left: -0.125em;
+  margin-right: -0.125em;
+}
+
+.in-word-left, .in-word-right{
+    margin-left: 0em;
+    margin-right: 0em;
 }
 
 .in-word-left {
