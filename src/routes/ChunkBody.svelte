@@ -1,7 +1,7 @@
 <script lang="ts">
     import { onMount } from "svelte";
     import { entities, removeEntity, storeEntitySpan } from "./resources.ts";
-    import { rangeToClass } from "../ranges.ts";
+    import { rangeToClass, trimRange } from "../ranges.ts";
 
     export let body: HTMLDivElement | null;
 
@@ -49,7 +49,7 @@
     function handleOptionClick(option: string) {
         const selection = window.getSelection();
         if (selection && !selection.isCollapsed) {
-            const range = selection.getRangeAt(0);
+            const range = trimRange(selection.getRangeAt(0));
             const span = document.createElement("span");
             const label = `d3o:${option}`;
             span.className = rangeToClass(range);
@@ -57,7 +57,6 @@
             range.surroundContents(span);
             selection.removeAllRanges();
             storeEntitySpan(span);
-            console.log($entities);
         }
         showDropdown = false;
     }
@@ -77,7 +76,6 @@
             }
         }
         showRemoveDropdown = false;
-        console.log($entities);
     }
 
     onMount(() => {
