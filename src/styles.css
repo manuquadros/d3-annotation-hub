@@ -18,8 +18,17 @@ body {
 }
 
 .entity {
+  box-sizing: border-box;
   padding: 0.35em 0.35em 0.5em;
   border-radius: 5px;
+}
+
+.in-word-left {
+  padding-left: 0;
+}
+
+.in-word-right {
+  padding-right: 0;
 }
 
 span[typeof="d3o:Strain"] {

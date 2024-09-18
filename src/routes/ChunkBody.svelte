@@ -1,6 +1,7 @@
 <script lang="ts">
     import { onMount } from "svelte";
     import { entities, removeEntity, storeEntitySpan } from "./resources.ts";
+    import { rangeToClass } from "../ranges.ts";
 
     export let body: HTMLDivElement | null;
 
@@ -51,7 +52,7 @@
             const range = selection.getRangeAt(0);
             const span = document.createElement("span");
             const label = `d3o:${option}`;
-            span.className = "entity";
+            span.className = rangeToClass(range);
             span.setAttribute("typeof", label);
             range.surroundContents(span);
             selection.removeAllRanges();
