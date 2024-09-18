@@ -1,10 +1,8 @@
 <script lang="ts">
-    import { onMount, createEventDispatcher } from "svelte";
+    import { onMount } from "svelte";
+    import { entities, removeEntity, storeEntitySpan } from "./resources.ts";
 
     export let body: HTMLDivElement | null;
-
-    const dispatch = createEventDispatcher();
-    let processedResources = new Set<string>();
 
     let selectedText = "";
     let selectedSpan: HTMLSpanElement | null = null;
@@ -16,14 +14,7 @@
         const spans = element.querySelectorAll("span[typeof]");
 
         spans.forEach((span) => {
-            const type = span.getAttribute("typeof");
-            const resource = span.getAttribute("resource");
-            const text = span.textContent;
-
-            if (resource && !processedResources.has(resource)) {
-                processedResources.add(resource);
-                dispatch("entityFound", { type, text, resource });
-            }
+            storeEntitySpan(span);
         });
     }
 
@@ -59,10 +50,13 @@
         if (selection && !selection.isCollapsed) {
             const range = selection.getRangeAt(0);
             const span = document.createElement("span");
+            const label = `d3o:${option}`;
             span.className = "entity";
-            span.setAttribute("typeof", `d3o:${option}`);
+            span.setAttribute("typeof", label);
             range.surroundContents(span);
             selection.removeAllRanges();
+            storeEntitySpan(span);
+            console.log($entities);
         }
         showDropdown = false;
     }
@@ -70,6 +64,10 @@
     function handleRemoveAnnotation() {
         if (selectedSpan) {
             const parent = selectedSpan.parentNode;
+            removeEntity(
+                selectedSpan.getAttribute("typeof") as string,
+                selectedSpan.getAttribute("resource") as string,
+            );
             if (parent) {
                 while (selectedSpan.firstChild) {
                     parent.insertBefore(selectedSpan.firstChild, selectedSpan);
@@ -78,6 +76,7 @@
             }
         }
         showRemoveDropdown = false;
+        console.log($entities);
     }
 
     onMount(() => {
