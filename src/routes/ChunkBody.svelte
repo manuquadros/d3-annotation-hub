@@ -1,6 +1,6 @@
 <script lang="ts">
     import { onMount } from "svelte";
-    import { entities, removeEntity, storeEntitySpan } from "./resources.ts";
+    import { removeEntity, storeEntitySpan } from "./resources.ts";
     import { rangeToClass, trimRange } from "../ranges.ts";
 
     export let body: HTMLDivElement | null;
