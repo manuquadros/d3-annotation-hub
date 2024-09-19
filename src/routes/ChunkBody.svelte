@@ -1,6 +1,6 @@
 <script lang="ts">
     import { onMount } from "svelte";
-    import { removeEntity, storeEntitySpan } from "./resources.ts";
+    import { removeEntitySpan, storeEntitySpan } from "./resources.ts";
     import { rangeToClass, trimRange } from "../ranges.ts";
 
     export let body: HTMLDivElement | null;
@@ -64,10 +64,7 @@
     function handleRemoveAnnotation() {
         if (selectedSpan) {
             const parent = selectedSpan.parentNode;
-            removeEntity(
-                selectedSpan.getAttribute("typeof") as string,
-                selectedSpan.getAttribute("resource") as string,
-            );
+            removeEntitySpan(selectedSpan);
             if (parent) {
                 while (selectedSpan.firstChild) {
                     parent.insertBefore(selectedSpan.firstChild, selectedSpan);

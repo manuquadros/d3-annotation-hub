@@ -38,6 +38,16 @@ export function removeEntity(label: string, resource: string) {
         });
 }
 
+export function removeEntitySpan(span: HTMLSpanElement): void {
+        const label = span.getAttribute("typeof");
+        const resource = span.getAttribute("resource");
+        if (label && resource) {
+                removeEntity(label, resource);
+        } else {
+                console.log(span, "Malformed span");
+        }
+}
+
 export function storeEntity(label: string, resource: string, text: string) {
         entities.update((entities) => {
                 let resources = entities.get(label);
