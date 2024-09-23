@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { entities } from "./resources.ts";
+    import { resources } from "$lib/resources.ts";
     function plural(singular: string): string {
         if (singular === "Bacteria") {
             return singular;
