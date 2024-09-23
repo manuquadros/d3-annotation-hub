@@ -63,7 +63,9 @@
             <ChunkBody {body} />
         </div>
 
-        <div id="summary"><Summary /></div>
+        <div id="summary">
+            <Summary />
+        </div>
     {:else}
         <p>Nothing to show here.</p>
     {/if}
