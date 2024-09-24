@@ -25,6 +25,10 @@ body {
     margin-right: -0.125em;
 }
 
+button.entity {
+    border: none;
+}
+
 .in-word-left,
 .in-word-right {
     margin-left: 0em;
@@ -39,15 +43,15 @@ body {
     padding-right: 0;
 }
 
-span[typeof="d3o:Strain"] {
+[typeof="d3o:Strain"] {
     background-color: #f39a9d;
 }
 
-span[typeof="d3o:Bacteria"] {
+[typeof="d3o:Bacteria"] {
     background-color: #cae591;
 }
 
-span[typeof="d3o:Enzyme"] {
+[typeof="d3o:Enzyme"] {
     background-color: #9bd1e5;
 }
 
@@ -86,7 +90,7 @@ span.entity[typeof="d3o:Enzyme"]::after :not(.entitySummary) {
     z-index: 1000;
 }
 
-.dropdown button {
+.dropdown-button {
     display: block;
     width: 100%;
     padding: 5px;
