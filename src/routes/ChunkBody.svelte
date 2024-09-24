@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { onMount } from "svelte";
-  import { resources } from "$lib/resources.ts"
+    import { onMount } from "svelte";
+    import { resources } from "$lib/resources.ts";
     import {
         showDropdown,
         showRemoveDropdown,
@@ -11,13 +11,13 @@
         handleRemoveAnnotation,
     } from "$lib/handlers.ts";
 
-  export let body: HTMLDivElement | null;
+    export let body: HTMLDivElement | null;
 
-  function processTags(content: HTMLDivElement) {
+    function processTags(content: HTMLDivElement): void {
         const spans = content.querySelectorAll("span[typeof]");
 
         spans.forEach((span) => {
-          resources.storeEntitySpan(span);
+            resources.storeEntitySpan(span);
         });
     }
 
@@ -50,6 +50,8 @@
         class="dropdown"
         style="position: absolute; left: {dropdownPosition.x}px; top: {dropdownPosition.y}px;"
     >
-        <button on:click={handleRemoveAnnotation}>Remove annotation</button>
+        <button class="dropdown-button" on:click={handleRemoveAnnotation}
+            >Remove annotation</button
+        >
     </div>
 {/if}
