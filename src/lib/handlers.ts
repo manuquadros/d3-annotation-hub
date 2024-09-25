@@ -7,7 +7,7 @@ import {
     isEnzyme,
 } from "$lib/resources.ts";
 import type { Resource } from "$lib/resources.ts";
-import { rangeToClass, trimRange } from "../ranges.ts";
+import { rangeToClass, trimRange } from "$lib/ranges.ts";
 import { optionsDropdown, removeDropdown } from "$lib/dropdown";
 
 let selectedText = "";
