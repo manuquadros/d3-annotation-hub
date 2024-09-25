@@ -27,6 +27,8 @@ body {
 
 button.entity {
     border: none;
+    -webkit-user-select: text; /* Safari */
+    user-select: text;
 }
 
 .in-word-left,
