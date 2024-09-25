@@ -19,6 +19,15 @@ export const resources = {
     merge: _mergeResources,
 };
 
+const nextResourceID = derived(resources, ($resources) =>
+    incrementLastKey(Array.from($resources.keys())),
+);
+
+function incrementLastKey(arr: Array<string>): string {
+    const nextNumber = 1 + Number(arr.at(-1).slice(2));
+    return "#T" + String(nextNumber);
+}
+
 export class Resource {
     label: string;
     count: number;
@@ -48,11 +57,6 @@ export class Resource {
         }
     }
 }
-
-export const resourceCounter = derived(
-    resources,
-    ($resources) => $resources.size,
-);
 
 export function sameClass(a: Resource, b: Resource): boolean {
     return a.label == b.label;
@@ -125,7 +129,8 @@ function getOrCreateResource(label: string, name: string): string {
     if (existingResource) {
         return existingResource;
     } else {
-        return "#T" + (entityCount + 1);
+        console.log(get(nextResourceID));
+        return get(nextResourceID);
     }
 }
 

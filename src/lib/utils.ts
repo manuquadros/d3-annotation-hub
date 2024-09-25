@@ -5,6 +5,8 @@ import {
     handleSpanClick,
 } from "$lib/handlers.ts";
 import { resources } from "$lib/resources.ts";
+import { rangeToClass } from "$lib/ranges.ts";
+import { get } from "svelte/store";
 
 const outOfScope = "OOS";
 
@@ -24,6 +26,22 @@ export function processTags(content: HTMLDivElement): HTMLDivElement {
     });
 
     return content;
+}
+
+export function annotateRange(label: string, range: Range): HTMLSpanElement {
+    let span = newSpan(label, rangeToClass(range, "entity"));
+    range.surroundContents(span);
+    resources.storeEntitySpan(span);
+
+    return spanWrappedButton(span);
+}
+
+export function newSpan(label: string, className: string) {
+    const span = document.createElement("span");
+    span.className = className;
+    span.setAttribute("typeof", label);
+
+    return span;
 }
 
 export function spanWrappedButton(span: HTMLSpanElement): HTMLSpanElement {

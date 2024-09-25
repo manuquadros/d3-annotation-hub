@@ -7,21 +7,15 @@ import {
     isEnzyme,
 } from "$lib/resources.ts";
 import type { Resource } from "$lib/resources.ts";
-import { rangeToClass, trimRange } from "$lib/ranges.ts";
+import { trimRange } from "$lib/ranges.ts";
 import { optionsDropdown, removeDropdown } from "$lib/dropdown";
+import { newSpan, spanWrappedButton, annotateRange } from "$lib/utils";
+import { get } from "svelte/store";
 
 let selectedText = "";
 let selectedSpan: HTMLSpanElement | null = null;
 let sourceRes: Resource | null;
 let targetRes: Resource | null;
-
-function processTags(element: HTMLElement): void {
-    const spans = element.querySelectorAll("span[typeof]");
-
-    spans.forEach((span) => {
-        resources.storeEntitySpan(span);
-    });
-}
 
 export function setOptionsDropdown(event: MouseEvent) {
     optionsDropdown.show();
@@ -60,19 +54,16 @@ export function handleSpanClick(event: MouseEvent) {
     }
 }
 
-export function handleOptionClick(option: string) {
+export function handleOptionClick(option: string): void {
     const selection = window.getSelection();
     if (selection && !selection.isCollapsed) {
         const range = trimRange(selection.getRangeAt(0));
-        const span = document.createElement("span");
         const label = `d3o:${option}`;
-        span.className = rangeToClass(range);
-        span.setAttribute("typeof", label);
-        range.surroundContents(span);
+
+        annotateRange(label, range);
         selection.removeAllRanges();
-        resources.storeEntitySpan(span);
     }
-    showDropdown = false;
+    optionsDropdown.hide();
 }
 
 export function handleRemoveAnnotation() {
