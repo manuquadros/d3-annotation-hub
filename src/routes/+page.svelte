@@ -3,7 +3,7 @@
     import ChunkHeader from "./ChunkHeader.svelte";
     import ChunkBody from "./ChunkBody.svelte";
     import Summary from "./Summary.svelte";
-    import { onMount, SvelteComponent } from "svelte";
+    import { onMount } from "svelte";
     import { page } from "$app/stores";
     let promise;
 

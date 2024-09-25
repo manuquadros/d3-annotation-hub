@@ -29,8 +29,6 @@
 
     return map;
   });
-
-  console.log($classes);
 </script>
 
 <h2>Entities</h2>
