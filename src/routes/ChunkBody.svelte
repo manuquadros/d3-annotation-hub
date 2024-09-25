@@ -1,6 +1,5 @@
 <script lang="ts">
     import { onMount } from "svelte";
-    import { resources } from "$lib/resources.ts";
     import {
         handleOptionClick,
         handleSpanClick,
@@ -8,20 +7,13 @@
         handleRemoveAnnotation,
     } from "$lib/handlers.ts";
     import { optionsDropdown, removeDropdown } from "$lib/dropdown.ts";
+    import { processTags } from "$lib/utils.ts";
 
-    export let body: HTMLDivElement | null;
-
-    function processTags(content: HTMLDivElement): void {
-        const spans = content.querySelectorAll("span[typeof]");
-
-        spans.forEach((span) => {
-            resources.storeEntitySpan(span);
-        });
-    }
+    export let body: HTMLDivElement;
 
     onMount(() => {
         if (body) {
-            processTags(body);
+            body = processTags(body);
         }
     });
 </script>
