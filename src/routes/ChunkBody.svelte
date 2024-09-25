@@ -4,6 +4,7 @@
         handleOptionClick,
         handleSpanClick,
         handleTextSelection,
+        handleKeyPress,
         handleRemoveAnnotation,
     } from "$lib/handlers.ts";
     import { optionsDropdown, removeDropdown } from "$lib/dropdown.ts";
@@ -23,6 +24,8 @@
         {@html body.innerHTML}
     {/if}
 </div>
+
+<svelte:window on:keyup|preventDefault={handleKeyPress} />
 
 {#if $optionsDropdown.visible}
     <div

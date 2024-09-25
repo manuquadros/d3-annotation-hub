@@ -38,20 +38,26 @@ export function handleTextSelection(event: Event) {
     }
 }
 
+export function handleKeyPress(event: KeyboardEvent) {
+    if (/[Aa]/.test(event.key)) {
+        handleTextSelection(event);
+    }
 }
 
 export function handleSpanClick(event: MouseEvent) {
-    const target = event.target as HTMLElement;
-    if (target.classList.contains("entity")) {
-        event.stopPropagation();
-        selectedSpan = target as HTMLSpanElement;
-        showRemoveDropdown = true;
-        showDropdown = false;
-        dropdownPosition = { x: event.clientX, y: event.clientY };
-        setOptionsDropdown(event);
-    } else {
-        showRemoveDropdown = false;
-    }
+    console.log(get(resources));
+    console.log("click");
+    // const target = event.target as HTMLElement;
+    // if (target.classList.contains("entity")) {
+    //     event.stopPropagation();
+    //     selectedSpan = target as HTMLSpanElement;
+    //     showRemoveDropdown = true;
+    //     showDropdown = false;
+    //     dropdownPosition = { x: event.clientX, y: event.clientY };
+    //     setOptionsDropdown(event);
+    // } else {
+    //     showRemoveDropdown = false;
+    // }
 }
 
 export function handleOptionClick(option: string): void {
