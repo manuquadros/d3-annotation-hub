@@ -25,7 +25,7 @@ export function setOptionsDropdown(event: MouseEvent) {
 
 export function handleTextSelection(event: Event) {
     const selection = window.getSelection();
-    const body = document.querySelector("#chunk-body");
+    const body = document.querySelector("div.chunk-body");
     if (selection && !selection.isCollapsed) {
         if (body && body.contains(selection.anchorNode.parentNode)) {
             selectedText = selection.toString().trim();
