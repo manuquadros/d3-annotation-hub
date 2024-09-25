@@ -4,28 +4,35 @@ import {
     handleDrop,
     handleSpanClick,
 } from "$lib/handlers.ts";
-import { resources, outOfScope } from "$lib/resources.ts";
+import { resources } from "$lib/resources.ts";
+
+const outOfScope = "OOS";
+
+function isValidEntitySpan(span: HTMLSpanElement): boolean {
+    const label = span.getAttribute("typeof");
+    return span.getAttribute("resource") && label && label !== outOfScope;
+}
 
 export function processTags(content: HTMLDivElement): HTMLDivElement {
-    const spans = content.querySelectorAll("span[typeof]");
+    const spans = content.querySelectorAll("span");
 
     spans.forEach((span) => {
-        span = spanWrappedButton(span);
+        if (isValidEntitySpan(span)) {
+            span = spanWrappedButton(span);
+            resources.storeEntitySpan(span);
+        }
     });
 
     return content;
 }
 
-function spanWrappedButton(span: HTMLSpanElement): HTMLSpanElementxo {
-    const label = span.getAttribute("typeof") as string;
-    if (label !== outOfScope) {
-        resources.storeEntitySpan(span);
-        const button = createButton(
-            span.className,
-            span.getAttribute("typeof") as string,
-        );
-        span = wrapButton(span, button);
-    }
+export function spanWrappedButton(span: HTMLSpanElement): HTMLSpanElement {
+    const button = createButton(
+        span.className,
+        span.getAttribute("typeof") as string,
+    );
+
+    return wrapButton(span, button);
 }
 
 function createButton(

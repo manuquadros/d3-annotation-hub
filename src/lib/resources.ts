@@ -4,7 +4,6 @@ import type { Writable } from "svelte/store";
 export const strainLabel = "d3o:Strain";
 export const enzymeLabel = "d3o:Enzyme";
 export const bacteriaLabel = "d3o:Bacteria";
-const outOfScope = "OOS";
 
 const { subscribe, update } = writable(new Map()) as Writable<
     Map<string, Resource>
@@ -109,13 +108,11 @@ function _storeEntitySpan(span: Element): void {
 
         if (label && text) {
             let resourceId = span.getAttribute("resource");
-            if (resourceId) {
-                if (label !== "d3o:OOS" && label !== "OOS") {
-                    _storeEntity(label, resourceId, text);
-                }
-            } else {
-                span.setAttribute("resource", getOrCreateResource(label, text));
+            if (!resourceId) {
+                resourceId = getOrCreateResource(label, text);
+                span.setAttribute("resource", resourceId);
             }
+            _storeEntity(label, resourceId, text);
         } else {
             console.log("Malformed span");
         }
