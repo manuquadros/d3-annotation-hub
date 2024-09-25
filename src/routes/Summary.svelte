@@ -1,22 +1,24 @@
 <script lang="ts">
-  import {
-    bacteriaLabel,
-    enzymeLabel,
-    strainLabel,
-    resources,
-  } from "$lib/resources.ts";
-  import { derived, get } from "svelte/store";
-  import { dragStart, dragOver, handleDrop } from "$lib/handlers.ts";
+    import {
+        bacteriaLabel,
+        enzymeLabel,
+        strainLabel,
+        resources,
+    } from "$lib/resources.ts";
+    import { derived } from "svelte/store";
+    import type { Readable } from "svelte/store";
+    import { dragStart, dragOver, handleDrop } from "$lib/handlers.ts";
+    import { onMount } from "svelte";
 
-  function plural(singular: string): string {
-    if (singular === "Bacteria") {
-      return singular;
-    } else {
-      return singular + "s";
+    function plural(singular: string): string {
+        if (singular === "Bacteria") {
+            return singular;
+        } else {
+            return singular + "s";
+        }
     }
-  }
 
-  const classLabels = [enzymeLabel, strainLabel, bacteriaLabel];
+    const classLabels = [enzymeLabel, strainLabel, bacteriaLabel];
 
   const classes = derived(resources, ($resources) => {
     const map = new Map();
