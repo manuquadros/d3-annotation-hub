@@ -18,19 +18,25 @@
         }
     }
 
-    const classLabels = [enzymeLabel, strainLabel, bacteriaLabel];
+    const labels = [enzymeLabel, strainLabel, bacteriaLabel];
 
-  const classes = derived(resources, ($resources) => {
-    const map = new Map();
-    classLabels.forEach((label) =>
-      map.set(
-        label,
-        Array.from($resources.values()).filter((res) => res.label === label),
-      ),
+    type labelToResources = Map<string, Array<string>>;
+    const classes: Readable<labelToResources> = derived(
+        resources,
+        ($resources) => {
+            const m = new Map();
+            labels.forEach((label) =>
+                m.set(
+                    label,
+                    Array.from($resources.values()).filter(
+                        (res) => res.label === label,
+                    ),
+                ),
+            );
+
+            return m;
+        },
     );
-
-    return map;
-  });
 </script>
 
 <h2>Entities</h2>
@@ -56,15 +62,3 @@
         {/each}
     {/if}
 {/each}
-
-<!-- {#if showDropdown} -->
-<!--     <div -->
-<!--         class="dropdown" -->
-<!--         style="position: absolute; left: {dropdownPosition.x}px; top: {dropdownPosition.y}px;" -->
-<!--     > -->
-<!--         {#each getOptions() as relation} -->
-<!--             <button on:click={handleRelationChoice(relation)}>{relation}</button -->
-<!--             > -->
-<!--         {/each} -->
-<!--     </div> -->
-<!-- {/if} -->
