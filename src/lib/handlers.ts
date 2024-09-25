@@ -8,14 +8,12 @@ import {
 } from "$lib/resources.ts";
 import type { Resource } from "$lib/resources.ts";
 import { rangeToClass, trimRange } from "../ranges.ts";
+import { optionsDropdown, removeDropdown } from "$lib/dropdown";
 
 let selectedText = "";
 let selectedSpan: HTMLSpanElement | null = null;
 let sourceRes: Resource | null;
 let targetRes: Resource | null;
-export let showDropdown = false;
-export let showRemoveDropdown = false;
-export let dropdownPosition = { x: 0, y: 0 };
 
 function processTags(element: HTMLElement): void {
     const spans = element.querySelectorAll("span[typeof]");
@@ -25,22 +23,27 @@ function processTags(element: HTMLElement): void {
     });
 }
 
-export function handleTextSelection(event: MouseEvent) {
+export function setOptionsDropdown(event: MouseEvent) {
+    optionsDropdown.show();
+    removeDropdown.hide();
+    optionsDropdown.position(event.clientX, event.clientY);
+}
+
+export function handleTextSelection(event: Event) {
     const selection = window.getSelection();
+    const body = document.querySelector("#chunk-body");
     if (selection && !selection.isCollapsed) {
-        selectedText = selection.toString().trim();
-        if (selectedText) {
-            setOptionsDropdown(event);
+        if (body && body.contains(selection.anchorNode.parentNode)) {
+            selectedText = selection.toString().trim();
+            if (selectedText) {
+                setOptionsDropdown(event);
+            }
         }
     } else {
-        showDropdown = false;
+        optionsDropdown.hide();
     }
 }
 
-export function setOptionsDropdown(event: MouseEvent) {
-    showDropdown = true;
-    showRemoveDropdown = false;
-    dropdownPosition = { x: event.clientX, y: event.clientY };
 }
 
 export function handleSpanClick(event: MouseEvent) {

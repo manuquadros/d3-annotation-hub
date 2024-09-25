@@ -2,14 +2,12 @@
     import { onMount } from "svelte";
     import { resources } from "$lib/resources.ts";
     import {
-        showDropdown,
-        showRemoveDropdown,
-        dropdownPosition,
         handleOptionClick,
         handleSpanClick,
         handleTextSelection,
         handleRemoveAnnotation,
     } from "$lib/handlers.ts";
+    import { optionsDropdown, removeDropdown } from "$lib/dropdown.ts";
 
     export let body: HTMLDivElement | null;
 
@@ -28,16 +26,18 @@
     });
 </script>
 
-<div on:click={handleSpanClick} on:mouseup={handleTextSelection}>
+<div class="chunk-body" on:mouseup={handleTextSelection}>
     {#if body}
         {@html body.innerHTML}
     {/if}
 </div>
 
-{#if showDropdown}
+{#if $optionsDropdown.visible}
     <div
         class="dropdown"
-        style="position: absolute; left: {dropdownPosition.x}px; top: {dropdownPosition.y}px;"
+        style="position: absolute;
+               left: {$optionsDropdown.x}px;
+               top: {$optionsDropdown.y}px;"
     >
         <button on:click={() => handleOptionClick("Enzyme")}>Enzyme</button>
         <button on:click={() => handleOptionClick("Bacteria")}>Bacteria</button>
@@ -45,10 +45,12 @@
     </div>
 {/if}
 
-{#if showRemoveDropdown}
+{#if $removeDropdown.visible}
     <div
         class="dropdown"
-        style="position: absolute; left: {dropdownPosition.x}px; top: {dropdownPosition.y}px;"
+        style="position: absolute;
+               left: {$removeDropdown.x}px;
+               top: {$removeDropdown.y}px;"
     >
         <button class="dropdown-button" on:click={handleRemoveAnnotation}
             >Remove annotation</button
