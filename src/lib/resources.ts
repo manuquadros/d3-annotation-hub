@@ -79,19 +79,27 @@ export const classes: Readable<labelToResources> = derived(
     },
 );
 
-export function sameClass(a: Resource, b: Resource): boolean {
-    return a.label == b.label;
+function labelOf(resource: string | Resource): string {
+    if (typeof resource === "string") {
+        resource = get(resources).get(resource);
+    }
+
+    return resource.label;
 }
-export function isStrain(a: Resource): boolean {
-    return a.label === strainLabel;
+
+export function sameClass(a: string, b: String): boolean {
+    return labelOf(a) === labelOf(b);
 }
-export function isBacteria(a: Resource): boolean {
-    return a.label === bacteriaLabel;
+export function isStrain(a: string): boolean {
+    return labelOf(a) === strainLabel;
 }
-export function isEnzyme(a: Resource): boolean {
-    return a.label === enzymeLabel;
+export function isBacteria(a: string): boolean {
+    return labelOf(a) === bacteriaLabel;
 }
-export function isOrganism(a: Resource): boolean {
+export function isEnzyme(a: string): boolean {
+    return labelOf(a) === enzymeLabel;
+}
+export function isOrganism(a: string): boolean {
     return isBacteria(a) || isStrain(a);
 }
 
