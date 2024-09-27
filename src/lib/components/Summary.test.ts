@@ -74,13 +74,9 @@ test("adding relations between classes", async () => {
     await dragAndDrop(user, strain, bacteria);
     await dragAndDrop(user, strain, enzyme);
 
-    const t1 = get(resources).get("#T1");
-    const t3 = get(resources).get("#T3");
-    const t4 = get(resources).get("#T4");
-
     const hasEnzyme = get(relations).get("d3o:hasEnzyme");
     const hasSpecies = get(relations).get("d3o:hasSpecies");
 
-    expect(hasEnzyme).toContain({ subject: t1, object: t3 });
-    expect(hasSpecies).toContain({ subject: t1, object: t4 });
+    expect(hasEnzyme).toContainEqual({ subject: "#T1", object: "#T3" });
+    expect(hasSpecies).toContainEqual({ subject: "#T1", object: "#T4" });
 });
