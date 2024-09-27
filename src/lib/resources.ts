@@ -69,8 +69,8 @@ export const classes: Readable<labelToResources> = derived(
         labels.forEach((label) =>
             m.set(
                 label,
-                Array.from($resources.values()).filter(
-                    (res) => res.label === label,
+                Array.from($resources.keys()).filter(
+                    (key) => $resources.get(key).label === label,
                 ),
             ),
         );

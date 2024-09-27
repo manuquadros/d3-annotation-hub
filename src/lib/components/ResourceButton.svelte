@@ -2,6 +2,7 @@
     import { dragStart, dragOver, handleDrop } from "$lib/handlers";
     import type { Resource } from "$lib/resources.ts";
 
+    export let key: string;
     export let resource: Resource;
 </script>
 
@@ -10,6 +11,7 @@
     typeof={resource.label}
     type="button"
     draggable="true"
+    resource={key}
     on:dragstart={dragStart}
     on:dragover={dragOver}
     on:drop={handleDrop}
