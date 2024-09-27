@@ -5,7 +5,7 @@ export const strainLabel = "d3o:Strain";
 export const enzymeLabel = "d3o:Enzyme";
 export const bacteriaLabel = "d3o:Bacteria";
 
-const { subscribe, update } = writable(new Map()) as Writable<
+const { subscribe, set, update } = writable(new Map()) as Writable<
     Map<string, Resource>
 >;
 
@@ -17,6 +17,7 @@ export const resources = {
     removeEntitySpan: _removeEntitySpan,
     find: _findResource,
     merge: _mergeResources,
+    reset: () => set(new Map()),
 };
 
 const nextResourceID = derived(resources, ($resources) =>

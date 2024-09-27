@@ -18,7 +18,7 @@ global.document = mockdoc.window.document;
 const span = document.querySelector("span");
 
 let resourceCount: number;
-resourceCounter.subscribe((count) => (resourceCount = count));
+resources.subscribe((resources) => (resourceCount = resources.size));
 
 resources.storeEntity(strainLabel, "#T1", "ATC25544");
 resources.storeEntity(strainLabel, "#T1", "ATC 25544");
