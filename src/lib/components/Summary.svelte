@@ -1,14 +1,14 @@
 <script lang="ts">
+    import { derived } from "svelte/store";
+    import type { Readable } from "svelte/store";
+
     import {
         bacteriaLabel,
         enzymeLabel,
         strainLabel,
         resources,
     } from "$lib/resources.ts";
-    import { derived } from "svelte/store";
-    import type { Readable } from "svelte/store";
-    import { dragStart, dragOver, handleDrop } from "$lib/handlers.ts";
-    import { onMount } from "svelte";
+    import ResourceButton from "$lib/components/ResourceButton.svelte";
 
     function plural(singular: string): string {
         if (singular === "Bacteria") {
@@ -46,18 +46,7 @@
         <h3>{plural(label.split(":")[1])}</h3>
         {#each resources as resource}
             {#if resource.count}
-                <button
-                    type="button"
-                    class="entity entitySummary"
-                    resource={resource.id}
-                    typeof={label}
-                    draggable="true"
-                    on:dragstart={dragStart}
-                    on:dragover={dragOver}
-                    on:drop={handleDrop}
-                >
-                    {resource.name}
-                </button>
+                <ResourceButton {resource} />
             {/if}
         {/each}
     {/if}
