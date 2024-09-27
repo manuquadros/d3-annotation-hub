@@ -1,13 +1,5 @@
 <script lang="ts">
-    import { derived } from "svelte/store";
-    import type { Readable } from "svelte/store";
-
-    import {
-        bacteriaLabel,
-        enzymeLabel,
-        strainLabel,
-        resources,
-    } from "$lib/resources.ts";
+    import { classes } from "$lib/resources.ts";
     import ResourceButton from "$lib/components/ResourceButton.svelte";
 
     function plural(singular: string): string {
@@ -17,26 +9,6 @@
             return singular + "s";
         }
     }
-
-    const labels = [enzymeLabel, strainLabel, bacteriaLabel];
-
-    type labelToResources = Map<string, Array<string>>;
-    const classes: Readable<labelToResources> = derived(
-        resources,
-        ($resources) => {
-            const m = new Map();
-            labels.forEach((label) =>
-                m.set(
-                    label,
-                    Array.from($resources.values()).filter(
-                        (res) => res.label === label,
-                    ),
-                ),
-            );
-
-            return m;
-        },
-    );
 </script>
 
 <h2>Entities</h2>
