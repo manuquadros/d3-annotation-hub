@@ -1,8 +1,8 @@
 <script lang="ts">
     import "../styles.css";
-    import ChunkHeader from "./ChunkHeader.svelte";
-    import ChunkBody from "./ChunkBody.svelte";
-    import Summary from "./Summary.svelte";
+    import ChunkHeader from "$lib/components/ChunkHeader.svelte";
+    import ChunkBody from "$lib/components/ChunkBody.svelte";
+    import Summary from "$lib/components/Summary.svelte";
     import { onMount } from "svelte";
     import { page } from "$app/stores";
     let promise;
