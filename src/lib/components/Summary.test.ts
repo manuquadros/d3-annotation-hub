@@ -12,6 +12,7 @@ import {
     enzymeLabel,
 } from "$lib/resources.ts";
 import { relations } from "$lib/relations.ts";
+import { dragAndDrop } from "$lib/test_utils.ts";
 
 test("no initial entities", () => {
     resources.reset();
@@ -22,7 +23,7 @@ test("no initial entities", () => {
 });
 
 test("with entities", () => {
-    resources.storeEntity(strainLabel, "#T1", "ATC 25544");
+    resources.storeEntity(strainLabel, "#T1", "ATCC 25544");
     render(Summary);
     //render(html`<${Summary}` bind);
 
@@ -34,8 +35,8 @@ function setup() {
     const user = userEvent.setup();
 
     resources.reset();
-    resources.storeEntity(strainLabel, "#T1", "ATC 25544");
-    resources.storeEntity(strainLabel, "#T2", "ATC25544");
+    resources.storeEntity(strainLabel, "#T1", "ATCC 25544");
+    resources.storeEntity(strainLabel, "#T2", "ATCC25544");
     resources.storeEntity(enzymeLabel, "#T3", "cholesterol oxidase");
     resources.storeEntity(bacteriaLabel, "#T4", "Rhodococcus erythropolis");
 
@@ -47,41 +48,31 @@ function setup() {
 test("merging terms under the same resource", async () => {
     const user = setup();
 
-    const strain1 = screen.getByRole("button", { name: "ATC 25544" });
-    const strain2 = screen.getByRole("button", { name: "ATC25544" });
+    const strain1 = screen.getByRole("button", { name: "ATCC 25544" });
+    const strain2 = screen.getByRole("button", { name: "ATCC25544" });
 
-    await user.pointer([
-        { target: strain1, keys: "[MouseLeft>]" },
-        { target: strain2 },
-        { target: strain2, keys: "[/MouseLeft]" },
-    ]);
+    await dragAndDrop(user, strain2, strain1);
 
     const t1 = get(resources).get("#T1");
     const t2 = get(resources).get("#T2");
 
-    expect(t1).toBeUndefined;
-    expect(t2.names).toContain("ATC 25544");
-    expect(t2.names).toContain("ATC25544");
-    expect(t2.name).toBe("ATC 25544");
+    expect(t2).toBeUndefined();
+    expect(t1.names).toContain("ATCC 25544");
+    expect(t1.names).toContain("ATCC25544");
+    expect(t1.name).toBe("ATCC 25544");
 });
 
 test("adding relations between classes", async () => {
     const user = setup();
 
-    const strain = screen.getByRole("button", { name: "ATC 25544" });
+    const strain = screen.getByRole("button", { name: "ATCC 25544" });
     const bacteria = screen.getByRole("button", {
         name: "Rhodococcus erythropolis",
     });
     const enzyme = screen.getByRole("button", { name: "cholesterol oxidase" });
 
-    await user.pointer([
-        { target: strain, keys: "[MouseLeft>]" },
-        { target: bacteria },
-        { target: bacteria, keys: "[/MouseLeft]" },
-        { target: strain, keys: "[MouseLeft>]" },
-        { target: enzyme },
-        { target: enzyme, keys: "[/MouseLeft]" },
-    ]);
+    await dragAndDrop(user, strain, bacteria);
+    await dragAndDrop(user, strain, enzyme);
 
     const t1 = get(resources).get("#T1");
     const t3 = get(resources).get("#T3");
