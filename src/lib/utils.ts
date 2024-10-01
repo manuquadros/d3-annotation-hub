@@ -10,22 +10,9 @@ import { get } from "svelte/store";
 
 const outOfScope = "OOS";
 
-function isValidEntitySpan(span: HTMLSpanElement): boolean {
+export function isValidEntitySpan(span: HTMLSpanElement): boolean {
     const label = span.getAttribute("typeof");
     return span.getAttribute("resource") && label && label !== outOfScope;
-}
-
-export function processTags(content: HTMLDivElement): HTMLDivElement {
-    const spans = content.querySelectorAll("span");
-
-    spans.forEach((span) => {
-        if (isValidEntitySpan(span)) {
-            span = spanWrappedButton(span);
-            resources.storeEntitySpan(span);
-        }
-    });
-
-    return content;
 }
 
 export function annotateRange(label: string, range: Range): HTMLSpanElement {

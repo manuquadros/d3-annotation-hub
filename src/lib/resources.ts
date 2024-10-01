@@ -158,7 +158,6 @@ function getOrCreateResource(label: string, name: string): string {
     if (existingResource) {
         return existingResource;
     } else {
-        console.log(get(nextResourceID));
         return get(nextResourceID);
     }
 }
