@@ -9,6 +9,7 @@ export const body = {
     subscribe,
     set,
     initialize: _processTags,
+    replaceResource: _replaceResource,
 };
 
 function _processTags(): void {
@@ -22,6 +23,18 @@ function _processTags(): void {
                     resources.storeEntitySpan(span);
                 }
             });
+
+            return body;
+        }
+    });
+}
+
+function _replaceResource(source: string, target: string): void {
+    update((body) => {
+        if (body) {
+            const spans = body.querySelectorAll(`span[resource="${source}"]`);
+
+            spans.forEach((span) => span.setAttribute("resource", target));
 
             return body;
         }

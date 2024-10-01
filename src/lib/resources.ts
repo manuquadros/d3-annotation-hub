@@ -5,6 +5,8 @@ export const strainLabel = "d3o:Strain";
 export const enzymeLabel = "d3o:Enzyme";
 export const bacteriaLabel = "d3o:Bacteria";
 
+import { body } from "$lib/body.ts";
+
 const { subscribe, set, update } = writable(new Map()) as Writable<
     Map<string, Resource>
 >;
@@ -180,6 +182,7 @@ export function _mergeResources(source: string, target: string): void {
             resTarget.count += resSource.count;
             resSource.names.forEach((name) => resTarget.addName(name));
             resources.delete(source);
+            body.replaceResource(source, target);
         }
 
         return resources;
