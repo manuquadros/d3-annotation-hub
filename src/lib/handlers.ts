@@ -10,7 +10,8 @@ import type { Resource } from "$lib/resources.ts";
 import { relations } from "$lib/relations.ts";
 import { trimRange } from "$lib/ranges.ts";
 import { optionsDropdown, removeDropdown } from "$lib/dropdown";
-import { newSpan, spanWrappedButton, annotateRange } from "$lib/utils";
+import { newSpan, spanWrappedButton } from "$lib/utils";
+import { annotateRange } from "$lib/body";
 
 let selectedText = "";
 let selectedSpan: HTMLSpanElement | null = null;
@@ -62,7 +63,7 @@ export function handleOptionClick(option: string): void {
         const range = trimRange(selection.getRangeAt(0));
         const label = `d3o:${option}`;
 
-        annotateRange(label, range);
+        const { resource } = annotateRange(label, range);
         selection.removeAllRanges();
     }
     optionsDropdown.hide();

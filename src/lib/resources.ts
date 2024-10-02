@@ -121,22 +121,33 @@ export function _removeEntitySpan(span: HTMLSpanElement): void {
     }
 }
 
-function _storeEntity(label: string, resourceId: string, text: string) {
+function _storeEntity(
+    label: string,
+    resourceId: string,
+    text: string,
+): Resource {
+    let res: Resource;
+
     update((resources) => {
-        let res = resources.get(resourceId);
+        res = resources.get(resourceId);
 
         if (res) {
             res.count += 1;
             res.addName(text);
         } else {
-            resources.set(resourceId, new Resource(label, text));
+            res = new Resource(label, text);
+            resources.set(resourceId, res);
         }
 
         return resources;
     });
+
+    return res;
 }
 
-function _storeEntitySpan(span: Element): void {
+function _storeEntitySpan(span: Element): Resource {
+    let res: Resource;
+
     update((resources) => {
         const label = span.getAttribute("typeof");
         const text = span.textContent;
@@ -147,12 +158,14 @@ function _storeEntitySpan(span: Element): void {
                 resourceId = getOrCreateResource(label, text);
                 span.setAttribute("resource", resourceId);
             }
-            _storeEntity(label, resourceId, text);
+            res = _storeEntity(label, resourceId, text);
         } else {
             console.log("Malformed span");
         }
         return resources;
     });
+
+    return res;
 }
 
 function getOrCreateResource(label: string, name: string): string {

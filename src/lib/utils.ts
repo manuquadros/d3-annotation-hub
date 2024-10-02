@@ -5,22 +5,14 @@ import {
     handleSpanClick,
 } from "$lib/handlers.ts";
 import { resources } from "$lib/resources.ts";
-import { rangeToClass } from "$lib/ranges.ts";
 import { get } from "svelte/store";
+import { rangeToClass } from "$lib/ranges.ts";
 
 const outOfScope = "OOS";
 
 export function isValidEntitySpan(span: HTMLSpanElement): boolean {
     const label = span.getAttribute("typeof");
     return span.getAttribute("resource") && label && label !== outOfScope;
-}
-
-export function annotateRange(label: string, range: Range): HTMLSpanElement {
-    let span = newSpan(label, rangeToClass(range, "entity"));
-    range.surroundContents(span);
-    resources.storeEntitySpan(span);
-
-    return spanWrappedButton(span);
 }
 
 export function newSpan(label: string, className: string) {
@@ -69,4 +61,13 @@ function wrapButton(parent: Element, button: HTMLButtonElement): Element {
     parent.textContent = "";
     parent.appendChild(button);
     return parent;
+}
+
+export function wrapRange(range: Range, resource: Resource): HTMLSpanElement {
+    const span = newSpan(resource.label, rangeToClass(range, "entity"));
+    span.setAttribute("resource", resource.name);
+    range.surroundContents(span);
+    spanWrappedButton(span);
+
+    return span;
 }
