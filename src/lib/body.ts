@@ -5,6 +5,7 @@ import {
     spanWrappedButton,
     newSpan,
     wrapRange,
+    entID,
 } from "$lib/utils.ts";
 import { resources } from "$lib/resources.ts";
 import { rangeToClass } from "$lib/ranges.ts";
@@ -14,25 +15,41 @@ const { subscribe, set, update } = writable();
 export const body = {
     subscribe,
     set,
-    initialize: _processTags,
+    initialize: _processEntities,
+    generateButtons: _generateButtons,
     replaceResource: _replaceResource,
     propagate: _propagate,
 };
 
-function _processTags(): void {
+function _processEntities(): void {
     update((body) => {
         if (body) {
             const spans = body.querySelectorAll("span");
 
             spans.forEach((span) => {
                 if (isValidEntitySpan(span)) {
-                    span = spanWrappedButton(span);
+                    span.id = entID();
                     resources.storeEntitySpan(span);
                 }
             });
 
             return body;
         }
+    });
+}
+
+function _generateButtons(): void {
+    update((body) => {
+        if (body) {
+            const spans = body.querySelectorAll("span");
+            spans.forEach((span) => {
+                if (isValidEntitySpan(span)) {
+                    spanWrappedButton(span);
+                }
+            });
+        }
+
+        return body;
     });
 }
 

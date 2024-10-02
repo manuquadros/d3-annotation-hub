@@ -38,7 +38,8 @@
                 "text/html",
             );
             header = content.querySelector(".metadata");
-            body.set(content.querySelector(".chunk-body"));
+          body.set(content.querySelector(".chunk-body"));
+          body.initialize();
         } catch (err) {
             console.error(err);
             error =

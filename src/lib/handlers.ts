@@ -44,17 +44,16 @@ export function handleKeyPress(event: KeyboardEvent) {
 }
 
 export function handleSpanClick(event: MouseEvent) {
-    // const target = event.target as HTMLElement;
-    // if (target.classList.contains("entity")) {
-    //     event.stopPropagation();
-    //     selectedSpan = target as HTMLSpanElement;
-    //     showRemoveDropdown = true;
-    //     showDropdown = false;
-    //     dropdownPosition = { x: event.clientX, y: event.clientY };
-    //     setOptionsDropdown(event);
-    // } else {
-    //     showRemoveDropdown = false;
-    // }
+    const target = event.target as Element;
+    if (target.classList.contains("entity")) {
+        event.stopPropagation();
+        selectedSpan = target as Element;
+        removeDropdown.show();
+        optionsDropdown.hide();
+        removeDropdown.position(event.clientX, event.clientY);
+    } else {
+        removeDropdown.hide();
+    }
 }
 
 export function handleOptionClick(option: string): void {

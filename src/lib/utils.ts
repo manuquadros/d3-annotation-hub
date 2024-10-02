@@ -8,7 +8,14 @@ import { resources } from "$lib/resources.ts";
 import { get } from "svelte/store";
 import { rangeToClass } from "$lib/ranges.ts";
 
+import ChunkButton from "$lib/components/ChunkButton.svelte";
+
 const outOfScope = "OOS";
+let currID = 1;
+
+export function entID(): number {
+    return currID++;
+}
 
 export function isValidEntitySpan(span: HTMLSpanElement): boolean {
     const label = span.getAttribute("typeof");
@@ -19,17 +26,22 @@ export function newSpan(label: string, className: string) {
     const span = document.createElement("span");
     span.className = className;
     span.setAttribute("typeof", label);
+    span.id = entID();
 
     return span;
 }
 
-export function spanWrappedButton(span: HTMLSpanElement): HTMLSpanElement {
-    const button = createButton(
-        span.className,
-        span.getAttribute("typeof") as string,
-    );
+export function spanWrappedButton(span: HTMLElement): HTMLSpanElement {
+    const resourceId = span.getAttribute("resource");
 
-    return wrapButton(span, button);
+    const button = new ChunkButton({
+        target: document.getElementById(span.id),
+        props: {
+            key: resourceId,
+            resource: get(resources).get(resourceId),
+        },
+        hydrate: true,
+    });
 }
 
 export function createButton(
