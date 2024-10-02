@@ -3,6 +3,7 @@
     import ChunkHeader from "$lib/components/ChunkHeader.svelte";
     import ChunkBody from "$lib/components/ChunkBody.svelte";
     import Summary from "$lib/components/Summary.svelte";
+    import Relations from "$lib/components/Relations.svelte";
     import { onMount } from "svelte";
     import { page } from "$app/stores";
 
@@ -67,6 +68,10 @@
 
         <div id="summary">
             <Summary />
+        </div>
+
+        <div id="relations">
+            <Relations />
         </div>
     {:else}
         <p>Nothing to show here.</p>

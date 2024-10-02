@@ -1,4 +1,7 @@
-import { writable } from "svelte/store";
+import { writable, get } from "svelte/store";
+import type { Writable } from "svelte/store";
+
+import { resources } from "$lib/resources.ts";
 import type { Resource } from "$lib/resources.ts";
 
 interface Pair {
@@ -7,7 +10,7 @@ interface Pair {
 }
 
 const { subscribe, update } = writable(new Map());
-export const relations = {
+export const relations: Writable<Map<string, Set<Pair>>> = {
     subscribe,
     add: _addRelation,
 };
@@ -15,10 +18,11 @@ export const relations = {
 function _addRelation(subj: Resource, predicate: string, obj: Resource): void {
     update((relations) => {
         const pair: Pair = {
-            subject: subj,
-            object: obj,
+            subject: get(resources).get(subj),
+            object: get(resources).get(obj),
         };
         const rel = relations.get(predicate);
+
         if (rel) {
             rel.add(pair);
         } else {
@@ -26,4 +30,13 @@ function _addRelation(subj: Resource, predicate: string, obj: Resource): void {
         }
         return relations;
     });
+}
+
+export function displayPredicate(predicate: string): string {
+    switch (predicate) {
+        case "d3o:hasSpecies":
+            return "is a strain of";
+        case "d3o:hasEnzyme":
+            return "has enzyme";
+    }
 }
