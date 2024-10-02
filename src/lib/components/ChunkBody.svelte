@@ -8,20 +8,16 @@
         handleRemoveAnnotation,
     } from "$lib/handlers.ts";
     import { optionsDropdown, removeDropdown } from "$lib/dropdown.ts";
-    import { processTags } from "$lib/utils.ts";
-
-    export let body: HTMLDivElement;
+    import { body } from "$lib/body.ts";
 
     onMount(() => {
-        if (body) {
-            body = processTags(body);
-        }
+        body.initialize();
     });
 </script>
 
 <div class="chunk-body" on:mouseup={handleTextSelection}>
-    {#if body}
-        {@html body.innerHTML}
+    {#if $body}
+        {@html $body.innerHTML}
     {/if}
 </div>
 

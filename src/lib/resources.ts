@@ -5,7 +5,9 @@ export const strainLabel = "d3o:Strain";
 export const enzymeLabel = "d3o:Enzyme";
 export const bacteriaLabel = "d3o:Bacteria";
 
-const { subscribe, update } = writable(new Map()) as Writable<
+import { body } from "$lib/body.ts";
+
+const { subscribe, set, update } = writable(new Map()) as Writable<
     Map<string, Resource>
 >;
 
@@ -17,6 +19,7 @@ export const resources = {
     removeEntitySpan: _removeEntitySpan,
     find: _findResource,
     merge: _mergeResources,
+    reset: () => set(new Map()),
 };
 
 const nextResourceID = derived(resources, ($resources) =>
@@ -58,19 +61,47 @@ export class Resource {
     }
 }
 
-export function sameClass(a: Resource, b: Resource): boolean {
-    return a.label == b.label;
+const labels = [enzymeLabel, strainLabel, bacteriaLabel];
+
+type labelToResources = Map<string, Array<string>>;
+export const classes: Readable<labelToResources> = derived(
+    resources,
+    ($resources) => {
+        const m = new Map();
+        labels.forEach((label) =>
+            m.set(
+                label,
+                Array.from($resources.keys()).filter(
+                    (key) => $resources.get(key).label === label,
+                ),
+            ),
+        );
+
+        return m;
+    },
+);
+
+function labelOf(resource: string | Resource): string {
+    if (typeof resource === "string") {
+        resource = get(resources).get(resource);
+    }
+
+    return resource.label;
 }
-export function isStrain(a: Resource): boolean {
-    return a.label === strainLabel;
+
+export function sameClass(a: string, b: String): boolean {
+    return labelOf(a) === labelOf(b);
 }
-export function isBacteria(a: Resource): boolean {
-    return a.label === bacteriaLabel;
+export function isStrain(a: string): boolean {
+    return labelOf(a) === strainLabel;
 }
-export function isEnzyme(a: Resource): boolean {
-    return a.label === enzymeLabel;
+export function isBacteria(a: string): boolean {
+    return labelOf(a) === bacteriaLabel;
 }
-export function isOrganism(a: Resource): boolean {
+export function isEnzyme(a: string): boolean {
+    return labelOf(a) === enzymeLabel;
+}
+export function isOrganism(a: string): boolean {
     return isBacteria(a) || isStrain(a);
 }
 
@@ -90,22 +121,33 @@ export function _removeEntitySpan(span: HTMLSpanElement): void {
     }
 }
 
-function _storeEntity(label: string, resourceId: string, text: string) {
+function _storeEntity(
+    label: string,
+    resourceId: string,
+    text: string,
+): Resource {
+    let res: Resource;
+
     update((resources) => {
-        let res = resources.get(resourceId);
+        res = resources.get(resourceId);
 
         if (res) {
             res.count += 1;
             res.addName(text);
         } else {
-            resources.set(resourceId, new Resource(label, text));
+            res = new Resource(label, text);
+            resources.set(resourceId, res);
         }
 
         return resources;
     });
+
+    return res;
 }
 
-function _storeEntitySpan(span: Element): void {
+function _storeEntitySpan(span: Element): Resource {
+    let res: Resource;
+
     update((resources) => {
         const label = span.getAttribute("typeof");
         const text = span.textContent;
@@ -116,12 +158,14 @@ function _storeEntitySpan(span: Element): void {
                 resourceId = getOrCreateResource(label, text);
                 span.setAttribute("resource", resourceId);
             }
-            _storeEntity(label, resourceId, text);
+            res = _storeEntity(label, resourceId, text);
         } else {
             console.log("Malformed span");
         }
         return resources;
     });
+
+    return res;
 }
 
 function getOrCreateResource(label: string, name: string): string {
@@ -129,7 +173,6 @@ function getOrCreateResource(label: string, name: string): string {
     if (existingResource) {
         return existingResource;
     } else {
-        console.log(get(nextResourceID));
         return get(nextResourceID);
     }
 }
@@ -152,6 +195,7 @@ export function _mergeResources(source: string, target: string): void {
             resTarget.count += resSource.count;
             resSource.names.forEach((name) => resTarget.addName(name));
             resources.delete(source);
+            body.replaceResource(source, target);
         }
 
         return resources;

@@ -7,15 +7,14 @@ import {
     isEnzyme,
 } from "$lib/resources.ts";
 import type { Resource } from "$lib/resources.ts";
+import { relations } from "$lib/relations.ts";
 import { trimRange } from "$lib/ranges.ts";
 import { optionsDropdown, removeDropdown } from "$lib/dropdown";
-import { newSpan, spanWrappedButton, annotateRange } from "$lib/utils";
-import { get } from "svelte/store";
+import { newSpan, spanWrappedButton } from "$lib/utils";
+import { annotateRange } from "$lib/body";
 
 let selectedText = "";
 let selectedSpan: HTMLSpanElement | null = null;
-let sourceRes: Resource | null;
-let targetRes: Resource | null;
 
 export function setOptionsDropdown(event: MouseEvent) {
     optionsDropdown.show();
@@ -45,8 +44,6 @@ export function handleKeyPress(event: KeyboardEvent) {
 }
 
 export function handleSpanClick(event: MouseEvent) {
-    console.log(get(resources));
-    console.log("click");
     // const target = event.target as HTMLElement;
     // if (target.classList.contains("entity")) {
     //     event.stopPropagation();
@@ -66,7 +63,7 @@ export function handleOptionClick(option: string): void {
         const range = trimRange(selection.getRangeAt(0));
         const label = `d3o:${option}`;
 
-        annotateRange(label, range);
+        const { resource } = annotateRange(label, range);
         selection.removeAllRanges();
     }
     optionsDropdown.hide();
@@ -87,29 +84,29 @@ export function handleRemoveAnnotation() {
 }
 
 export function handleDrop(e: DragEvent): void {
-    targetRes = resourceFromTarget(e.target);
+    const sourceRes = e.dataTransfer.getData("text/plain");
+    const targetRes = resourceFromTarget(e.target);
     if (sourceRes && targetRes) {
         if (sameClass(sourceRes, targetRes)) {
             resources.merge(sourceRes, targetRes);
         } else if (isStrain(sourceRes) && isBacteria(targetRes)) {
-            relations.add(sourceRes, "strainOf", targetRes);
+            relations.add(sourceRes, "d3o:hasSpecies", targetRes);
         } else if (isBacteria(sourceRes) && isStrain(targetRes)) {
-            relations.add(targetRes, "strainOf", sourceRes);
+            relations.add(targetRes, "d3o:hasSpecies", sourceRes);
         } else if (isEnzyme(sourceRes) && isOrganism(targetRes)) {
-            relations.add(targetRes, "has", sourceRes);
+            relations.add(targetRes, "d3o:hasEnzyme", sourceRes);
         } else if (isOrganism(sourceRes) && isEnzyme(targetRes)) {
-            relations.add(sourceRes, "has", targetRes);
+            relations.add(sourceRes, "d3o:hasEnzyme", targetRes);
         }
     }
 }
 
-function resourceFromTarget(target: EventTarget | null): Resource | null {
+function resourceFromTarget(target: EventTarget | null): string {
     if (target && target instanceof Element) {
         const id = target.getAttribute("resource");
-        const label = target.getAttribute("typeof");
 
-        if (id && label) {
-            return { id: id, label: label };
+        if (id) {
+            return id;
         }
     }
     return null;
@@ -135,7 +132,8 @@ export function getOptions(): Array<string> {
 }
 
 export function dragStart(e: DragEvent): void {
-    sourceRes = resourceFromTarget(e.target);
+    e.dataTransfer.clearData();
+    e.dataTransfer.setData("text/plain", resourceFromTarget(e.target));
 }
 
 export function dragOver(e: DragEvent): void {

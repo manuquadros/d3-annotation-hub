@@ -1,10 +1,14 @@
 <script lang="ts">
     import "../styles.css";
-    import ChunkHeader from "./ChunkHeader.svelte";
-    import ChunkBody from "./ChunkBody.svelte";
-    import Summary from "./Summary.svelte";
+    import ChunkHeader from "$lib/components/ChunkHeader.svelte";
+    import ChunkBody from "$lib/components/ChunkBody.svelte";
+    import Summary from "$lib/components/Summary.svelte";
+    import Relations from "$lib/components/Relations.svelte";
     import { onMount } from "svelte";
     import { page } from "$app/stores";
+
+    import { body } from "$lib/body.ts";
+
     let promise;
 
     const annotator = $page.url.searchParams.get("annotator");
@@ -14,7 +18,6 @@
     let loading = true;
     let error: Error | null = null;
     let header: HTMLDivElement | null = null;
-    let body: HTMLDivElement | null = null;
 
     async function loadChunk(): Promise<void> {
         try {
@@ -35,7 +38,7 @@
                 "text/html",
             );
             header = content.querySelector(".metadata");
-            body = content.querySelector(".chunk-body");
+            body.set(content.querySelector(".chunk-body"));
         } catch (err) {
             console.error(err);
             error =
@@ -60,11 +63,15 @@
     {:else if content}
         <div id="chunk">
             <ChunkHeader {header} />
-            <ChunkBody {body} />
+            <ChunkBody />
         </div>
 
         <div id="summary">
             <Summary />
+        </div>
+
+        <div id="relations">
+            <Relations />
         </div>
     {:else}
         <p>Nothing to show here.</p>
