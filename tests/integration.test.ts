@@ -1,11 +1,11 @@
-import { render, screen, cleanup } from "@testing-library/svelte";
+import { render } from "@testing-library/svelte";
 import { get } from "svelte/store";
 import userEvent from "@testing-library/user-event";
 import { expect, test } from "vitest";
 
 import Summary from "$lib/components/Summary.svelte";
 import ChunkBody from "$lib/components/ChunkBody.svelte";
-import { resources, strainLabel, classes, labels } from "$lib/resources.ts";
+import { resources } from "$lib/resources.ts";
 import { dragAndDrop } from "$lib/test_utils.ts";
 import { body } from "$lib/body.ts";
 
@@ -54,8 +54,6 @@ function setup() {
 
 test("Entities are loaded onto the summary", () => {
     setup();
-
-    render(Summary);
 
     const t2 = get(resources).get("#T2");
     expect(t2).toBeDefined();
