@@ -55,8 +55,6 @@ function setup() {
 test("Entities are loaded onto the summary", () => {
     setup();
 
-    render(Summary);
-
     const t2 = get(resources).get("#T2");
     expect(t2).toBeDefined();
 });
