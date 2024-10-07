@@ -35,7 +35,7 @@ export function spanWrappedButton(span: HTMLElement): HTMLSpanElement {
     const resourceId = span.getAttribute("resource");
 
     const button = new ChunkButton({
-        target: document.getElementById(span.id),
+        target: span,
         props: {
             key: resourceId,
             resource: get(resources).get(resourceId),

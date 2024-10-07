@@ -1,4 +1,4 @@
-import { writable } from "svelte/store";
+import { writable, derived, get } from "svelte/store";
 
 import {
     isValidEntitySpan,
@@ -16,40 +16,20 @@ export const body = {
     subscribe,
     set,
     initialize: _processEntities,
-    generateButtons: _generateButtons,
     replaceResource: _replaceResource,
     propagate: _propagate,
 };
 
+const entitySpans = derived(body, ($body) => {
+    const spans = Array.from($body.querySelectorAll("span"));
+    return spans.filter(isValidEntitySpan);
+});
+
 function _processEntities(): void {
-    update((body) => {
-        if (body) {
-            const spans = body.querySelectorAll("span");
-
-            spans.forEach((span) => {
-                if (isValidEntitySpan(span)) {
-                    span.id = entID();
-                    resources.storeEntitySpan(span);
-                }
-            });
-
-            return body;
-        }
-    });
-}
-
-function _generateButtons(): void {
-    update((body) => {
-        if (body) {
-            const spans = body.querySelectorAll("span");
-            spans.forEach((span) => {
-                if (isValidEntitySpan(span)) {
-                    spanWrappedButton(span);
-                }
-            });
-        }
-
-        return body;
+    get(entitySpans).forEach((span) => {
+        span.id = entID();
+        resources.storeEntitySpan(span);
+        spanWrappedButton(span);
     });
 }
 
