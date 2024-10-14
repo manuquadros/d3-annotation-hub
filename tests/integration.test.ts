@@ -36,7 +36,8 @@ function setup() {
     const summaryContainer = document.createElement("div");
 
     const content = new DOMParser().parseFromString(chunk3, "text/html");
-    body.set(content.querySelector(".chunk-body"));
+    body.set(content.querySelector(".chunk-body") as Element);
+    body.initialize();
 
     const chunkBody = render(ChunkBody, {
         target: chunkBodyContainer,
