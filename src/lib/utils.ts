@@ -32,17 +32,20 @@ export function newSpan(label: string, className: string) {
     return span;
 }
 
-export function spanWrappedButton(span: HTMLElement): HTMLSpanElement {
-    const resourceId = span.getAttribute("resource");
+export function spanWrappedButton(span: HTMLSpanElement): HTMLSpanElement {
+    const resourceId = span.getAttribute("resource") as string;
 
     const button = new ChunkButton({
         target: span,
         props: {
             key: resourceId,
             resource: get(resources).get(resourceId),
+            name: span.textContent,
         },
         hydrate: true,
     });
+
+    return span;
 }
 
 export function createButton(
