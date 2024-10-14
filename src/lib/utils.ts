@@ -19,14 +19,15 @@ export function entID(): number {
 
 export function isValidEntitySpan(span: HTMLSpanElement): boolean {
     const label = span.getAttribute("typeof");
-    return span.getAttribute("resource") && label && label !== outOfScope;
+    const resid = span.getAttribute("resource");
+    return label !== outOfScope && resid !== null;
 }
 
 export function newSpan(label: string, className: string) {
     const span = document.createElement("span");
     span.className = className;
     span.setAttribute("typeof", label);
-    span.id = entID();
+    span.id = String(entID());
 
     return span;
 }

@@ -18,8 +18,9 @@
         {#if ids.length}
             <h3>{plural(label.split(":")[1])}</h3>
             {#each ids as id}
-                {#if $resources.get(id).count}
-                    <ResourceButton key={id} resource={$resources.get(id)} />
+                {@const res = $resources.get(id)}
+                {#if res}
+                    <ResourceButton key={id} resource={res} />
                 {/if}
             {/each}
         {/if}
