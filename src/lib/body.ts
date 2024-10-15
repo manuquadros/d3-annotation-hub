@@ -27,6 +27,23 @@ export const body = {
             spanWrappedButton(span);
         });
     },
+
+    removeAnnotation(id: string): void {
+        update((body) => {
+            const span = body.querySelector(`#${id}`);
+
+            if (span) {
+                span.removeAttribute("resource");
+                span.removeAttribute("typeof");
+            }
+
+            return body;
+        });
+    },
+
+    removeAnnotations(ids: string[]): void {
+        ids.forEach(this.removeAnnotation);
+    },
 };
 
 export const entitySpans: Readable<HTMLSpanElement[]> = derived(
@@ -36,6 +53,18 @@ export const entitySpans: Readable<HTMLSpanElement[]> = derived(
         return spans.filter(isValidEntitySpan);
     },
 );
+
+entitySpans.subscribe((entspans) => {
+    if (entspans) {
+        // console.log(entspans.map((span) => span.outerHTML));
+        // console.log(get(resources));
+        const orphans = entspans.filter(
+            (span) => span.id && !resources.hasResource(span),
+        );
+        // console.log(orphans);
+        orphans.forEach((span) => body.removeAnnotation(span.id));
+    }
+});
 
 function _replaceResource(source: string, target: string): void {
     update((body) => {

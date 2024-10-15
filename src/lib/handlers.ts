@@ -68,6 +68,7 @@ export function handleOptionClick(option: string): void {
     optionsDropdown.hide();
 }
 
+<<<<<<< Updated upstream
 export function handleRemoveAnnotation() {
     if (selectedSpan) {
         const parent = selectedSpan.parentNode;
@@ -75,6 +76,31 @@ export function handleRemoveAnnotation() {
         if (parent) {
             while (selectedSpan.firstChild) {
                 parent.insertBefore(selectedSpan.firstChild, selectedSpan);
+=======
+export function handleRemove() {
+    const span = removeTarget;
+
+    if (span) {
+        if (span.classList.contains("entitySummary")) {
+            resources.removeEntitySpan(span);
+        } else {
+            const parent = span.parentNode;
+
+            if (parent) {
+                while (span.firstChild) {
+                    if (span.firstChild.nodeName === "BUTTON") {
+                        while (span.firstChild.firstChild) {
+                            parent.insertBefore(
+                                span.firstChild.firstChild,
+                                span,
+                            );
+                        }
+                    }
+                    parent.insertBefore(span.firstChild, span);
+                }
+
+                parent.removeChild(span);
+>>>>>>> Stashed changes
             }
             parent.removeChild(selectedSpan);
         }

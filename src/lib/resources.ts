@@ -21,6 +21,14 @@ export const resources = {
     find: _findResource,
     merge: _mergeResources,
     reset: () => set(new Map()),
+
+    hasResource(res: HTMLSpanElement | string): boolean {
+        if (res instanceof HTMLSpanElement && res.hasAttribute("resource")) {
+            return get(resources).has(res.getAttribute("resource") as string);
+        } else {
+            return get(resources).has(res as string);
+        }
+    },
 };
 
 const nextResourceID = derived(resources, ($resources) =>
@@ -113,9 +121,10 @@ export function isOrganism(a: string): boolean {
     return isBacteria(a) || isStrain(a);
 }
 
-export function _removeEntity(id: string) {
+export function _removeEntity(key: string) {
     update((resources) => {
-        resources.delete(id);
+        //body.removeAnnotations();
+        resources.delete(key);
         return resources;
     });
 }
