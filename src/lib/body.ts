@@ -1,4 +1,5 @@
 import { writable, derived, get } from "svelte/store";
+import type { Readable } from "svelte/store";
 
 import {
     isValidEntitySpan,
@@ -11,7 +12,7 @@ import { resources } from "$lib/resources.ts";
 import type { Resource } from "$lib/resources.ts";
 import { rangeToClass } from "$lib/ranges.ts";
 
-const { subscribe, set, update } = writable();
+const { subscribe, set, update } = writable<Element>();
 
 export const body = {
     subscribe,
@@ -38,13 +39,11 @@ export const entitySpans: Readable<HTMLSpanElement[]> = derived(
 
 function _replaceResource(source: string, target: string): void {
     update((body) => {
-        if (body) {
-            const spans = body.querySelectorAll(`span[resource="${source}"]`);
+        const spans = body.querySelectorAll(`span[resource="${source}"]`);
 
-            spans.forEach((span) => span.setAttribute("resource", target));
+        spans.forEach((span) => span.setAttribute("resource", target));
 
-            return body;
-        }
+        return body;
     });
 }
 

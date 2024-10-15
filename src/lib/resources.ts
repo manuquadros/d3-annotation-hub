@@ -1,11 +1,12 @@
 import { writable, get, derived } from "svelte/store";
-import type { Writable } from "svelte/store";
+import type { Writable, Readable } from "svelte/store";
 
 export const strainLabel = "d3o:Strain";
 export const enzymeLabel = "d3o:Enzyme";
 export const bacteriaLabel = "d3o:Bacteria";
 
-import { body } from "$lib/body.ts";
+import { body, entitySpans } from "$lib/body.ts";
+import { entID } from "$lib/utils.ts";
 
 const { subscribe, set, update } = writable(new Map()) as Writable<
     Map<string, Resource>
@@ -33,46 +34,53 @@ function incrementLastKey(arr: Array<string>): string {
 
 export class Resource {
     label: string;
-    count: number;
-    names: Array<string> = [];
+    ids: Set<string> = new Set([]);
+    spans: HTMLSpanElement[] = [];
 
-    constructor(label: string, text: string): void {
+    constructor(label: string, id: string) {
         this.label = label;
-        this.count = 1;
-        this.addName(text);
+        this.ids.add(id);
+
+        entitySpans.subscribe(
+            (spans) =>
+                (this.spans = spans.filter((span) => this.ids.has(span.id))),
+        );
     }
 
-    addName(term: string) {
-        if (!this.names.includes(term)) {
-            if (term.length > this.name.length) {
-                this.names.unshift(term);
-            } else {
-                this.names.push(term);
+    /**
+     * Get the resource's display name
+     *
+     * @returns The longest string among the contents of the spans corresponding
+     * to the resource.
+     */
+    get name(): string {
+        let curr = "";
+
+        for (const span of this.spans) {
+            const text = span.textContent;
+            if (text && text.length > curr.length) {
+                curr = text;
             }
         }
-    }
 
-    get name(): string {
-        if (this.names.length) {
-            return this.names[0];
-        } else {
-            return "";
-        }
+        return curr;
     }
 }
 
 const labels = [enzymeLabel, strainLabel, bacteriaLabel];
 
 type labelToResources = Map<string, Array<string>>;
+
 export const classes: Readable<labelToResources> = derived(
     resources,
     ($resources) => {
         const m = new Map();
+
         labels.forEach((label) =>
             m.set(
                 label,
                 Array.from($resources.keys()).filter(
-                    (key) => $resources.get(key).label === label,
+                    (key) => $resources.get(key)?.label === label,
                 ),
             ),
         );
@@ -124,18 +132,17 @@ export function _removeEntitySpan(span: HTMLSpanElement): void {
 function _storeEntity(
     label: string,
     resourceId: string,
-    text: string,
-): Resource {
-    let res: Resource;
+    id: string,
+): Resource | undefined {
+    let res: Resource | undefined;
 
     update((resources) => {
         res = resources.get(resourceId);
 
         if (res) {
-            res.count += 1;
-            res.addName(text);
+            res.ids.add(id);
         } else {
-            res = new Resource(label, text);
+            res = new Resource(label, id);
             resources.set(resourceId, res);
         }
 
@@ -145,8 +152,16 @@ function _storeEntity(
     return res;
 }
 
-function _storeEntitySpan(span: Element): Resource {
-    let res: Resource;
+/**
+ * Stores the entity described by an HTMLSpanElement into the resources store. If a
+ * corresponding resource already exists, the span id is added to the set of ids
+ * contained by that resource. Otherwise, a new resource is created
+ *
+ * @param span
+ * @returns The resource described by the span
+ */
+function _storeEntitySpan(span: HTMLSpanElement): Resource | undefined {
+    let res: Resource | undefined;
 
     update((resources) => {
         const label = span.getAttribute("typeof");
@@ -154,14 +169,21 @@ function _storeEntitySpan(span: Element): Resource {
 
         if (label && text) {
             let resourceId = span.getAttribute("resource");
+
             if (!resourceId) {
                 resourceId = getOrCreateResource(label, text);
                 span.setAttribute("resource", resourceId);
             }
-            res = _storeEntity(label, resourceId, text);
+
+            if (!span.id) {
+                span.id = String(entID());
+            }
+
+            res = _storeEntity(label, resourceId, span.id);
         } else {
-            console.log("Malformed span");
+            console.log("Malformed span: ", span.outerHTML);
         }
+
         return resources;
     });
 
@@ -191,9 +213,8 @@ export function _mergeResources(source: string, target: string): void {
         const resSource = resources.get(source);
         const resTarget = resources.get(target);
 
-        if (resSource.label === resTarget.label) {
-            resTarget.count += resSource.count;
-            resSource.names.forEach((name) => resTarget.addName(name));
+        if (resSource && resSource.label === resTarget?.label) {
+            resSource.ids.forEach((id) => resTarget.ids.add(id));
             resources.delete(source);
             body.replaceResource(source, target);
         }
