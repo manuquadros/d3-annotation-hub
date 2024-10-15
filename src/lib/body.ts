@@ -8,6 +8,7 @@ import {
     entID,
 } from "$lib/utils.ts";
 import { resources } from "$lib/resources.ts";
+import type { Resource } from "$lib/resources.ts";
 import { rangeToClass } from "$lib/ranges.ts";
 
 const { subscribe, set, update } = writable();
@@ -15,43 +16,25 @@ const { subscribe, set, update } = writable();
 export const body = {
     subscribe,
     set,
-    initialize: _processEntities,
-    generateButtons: _generateButtons,
     replaceResource: _replaceResource,
     propagate: _propagate,
+
+    initialize(): void {
+        get(entitySpans).forEach((span) => {
+            span.id = String(entID());
+            resources.storeEntitySpan(span);
+            spanWrappedButton(span);
+        });
+    },
 };
 
-function _processEntities(): void {
-    update((body) => {
-        if (body) {
-            const spans = body.querySelectorAll("span");
-
-            spans.forEach((span) => {
-                if (isValidEntitySpan(span)) {
-                    span.id = entID();
-                    resources.storeEntitySpan(span);
-                }
-            });
-
-            return body;
-        }
-    });
-}
-
-function _generateButtons(): void {
-    update((body) => {
-        if (body) {
-            const spans = body.querySelectorAll("span");
-            spans.forEach((span) => {
-                if (isValidEntitySpan(span)) {
-                    spanWrappedButton(span);
-                }
-            });
-        }
-
-        return body;
-    });
-}
+export const entitySpans: Readable<HTMLSpanElement[]> = derived(
+    body,
+    ($body) => {
+        const spans = Array.from($body.querySelectorAll("span"));
+        return spans.filter(isValidEntitySpan);
+    },
+);
 
 function _replaceResource(source: string, target: string): void {
     update((body) => {
@@ -68,7 +51,7 @@ function _replaceResource(source: string, target: string): void {
 export async function annotateRange(
     label: string,
     range: Range,
-): { button: HTMLButtonElement; resource: Resource } {
+): Promise<{ button: HTMLButtonElement; resource: Resource }> {
     let span = newSpan(label, rangeToClass(range, "entity"));
 
     range.surroundContents(span);
