@@ -49,8 +49,12 @@ export const body = {
 export const entitySpans: Readable<HTMLSpanElement[]> = derived(
     body,
     ($body) => {
-        const spans = Array.from($body.querySelectorAll("span"));
-        return spans.filter(isValidEntitySpan);
+        if ($body) {
+            const spans = Array.from($body.querySelectorAll("span"));
+            return spans.filter(isValidEntitySpan);
+        }
+
+        return [];
     },
 );
 
