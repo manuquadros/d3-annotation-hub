@@ -30,18 +30,27 @@ export const body = {
 
     removeAnnotation(id: string): void {
         update((body) => {
-            const span = body.querySelector(`#${id}`);
+            const span = body.querySelector(`#${CSS.escape(id)}`);
+            const parent = span?.parentNode as Node;
 
             if (span) {
-                span.removeAttribute("resource");
-                span.removeAttribute("typeof");
+                span.childNodes.forEach((node) => {
+                    if (node.nodeName === "BUTTON") {
+                        node.childNodes.forEach((child) =>
+                            parent.insertBefore(child, span),
+                        );
+                    } else {
+                        parent.insertBefore(node, span);
+                    }
+                });
+                parent.removeChild(span);
             }
 
             return body;
         });
     },
 
-    removeAnnotations(ids: string[]): void {
+    removeAnnotations(ids: string[] | Set<string>): void {
         ids.forEach(this.removeAnnotation);
     },
 };
@@ -57,18 +66,6 @@ export const entitySpans: Readable<HTMLSpanElement[]> = derived(
         return [];
     },
 );
-
-entitySpans.subscribe((entspans) => {
-    if (entspans) {
-        // console.log(entspans.map((span) => span.outerHTML));
-        // console.log(get(resources));
-        const orphans = entspans.filter(
-            (span) => span.id && !resources.hasResource(span),
-        );
-        // console.log(orphans);
-        orphans.forEach((span) => body.removeAnnotation(span.id));
-    }
-});
 
 function _replaceResource(source: string, target: string): void {
     update((body) => {

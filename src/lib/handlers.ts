@@ -45,6 +45,7 @@ export function handleKeyPress(event: KeyboardEvent) {
 
 export function handleSpanClick(event: MouseEvent) {
     const target = event.target as Element;
+
     if (target.classList.contains("entity")) {
         event.stopPropagation();
         selectedSpan = target as Element;
@@ -69,7 +70,7 @@ export function handleOptionClick(option: string): void {
 }
 
 export function handleRemove() {
-    const span = removeTarget;
+    const span = selectedSpan;
 
     if (span) {
         if (span.classList.contains("entitySummary")) {
@@ -92,10 +93,10 @@ export function handleRemove() {
 
                 parent.removeChild(span);
             }
-            parent.removeChild(selectedSpan);
+            parent?.removeChild(span);
         }
     }
-    showRemoveDropdown = false;
+    removeDropdown.hide();
 }
 
 export function handleDrop(e: DragEvent): void {

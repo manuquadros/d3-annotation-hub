@@ -12,6 +12,11 @@ const { subscribe, set, update } = writable(new Map()) as Writable<
     Map<string, Resource>
 >;
 
+type PairIdResource = {
+    id: string;
+    resource: Resource;
+};
+
 export const resources = {
     subscribe,
     storeEntitySpan: _storeEntitySpan,
@@ -21,6 +26,13 @@ export const resources = {
     find: _findResource,
     merge: _mergeResources,
     reset: () => set(new Map()),
+
+    querySpan(span: HTMLSpanElement): PairIdResource | null {
+        const rid = span.getAttribute("resource");
+        const res = rid ? get(resources).get(rid) : null;
+
+        return rid && res ? { id: rid, resource: res } : null;
+    },
 
     hasResource(res: HTMLSpanElement | string): boolean {
         if (res instanceof HTMLSpanElement && res.hasAttribute("resource")) {
@@ -130,9 +142,11 @@ export function _removeEntity(key: string) {
 }
 
 export function _removeEntitySpan(span: HTMLSpanElement): void {
-    const resource = span.getAttribute("resource");
-    if (resource) {
-        resources.removeEntity(resource);
+    const result = resources.querySpan(span);
+
+    if (result) {
+        body.removeAnnotations(result.resource.ids);
+        resources.removeEntity(result.id);
     } else {
         console.log(span, "Malformed span");
     }
