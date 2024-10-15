@@ -11,7 +11,7 @@
     import { body } from "$lib/body.ts";
 
     onMount(() => {
-        body.generateButtons();
+        body.initialize();
     });
 </script>
 
