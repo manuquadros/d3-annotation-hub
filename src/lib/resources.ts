@@ -152,11 +152,7 @@ export function _removeEntitySpan(span: HTMLSpanElement): void {
     }
 }
 
-function _storeEntity(
-    label: string,
-    resourceId: string,
-    id: string,
-): Resource | undefined {
+function _storeEntity(label: string, resourceId: string, id: string): Resource {
     let res: Resource | undefined;
 
     update((resources) => {
@@ -223,9 +219,9 @@ function getOrCreateResource(label: string, name: string): string {
 }
 
 function _findResource(name: string): string | null {
-    for (const [id, res] of get(resources)) {
-        if (res.names.includes(name)) {
-            return id;
+    for (const [key, res] of get(resources)) {
+        if (res.names.has(name)) {
+            return key;
         }
     }
     return null;

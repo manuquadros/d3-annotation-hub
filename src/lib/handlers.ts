@@ -63,7 +63,7 @@ export function handleOptionClick(option: string): void {
         const range = trimRange(selection.getRangeAt(0));
         const label = `d3o:${option}`;
 
-        const { resource } = annotateRange(label, range);
+        annotateRange(label, range);
         selection.removeAllRanges();
     }
     optionsDropdown.hide();

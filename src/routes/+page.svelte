@@ -9,8 +9,6 @@
 
     import { body } from "$lib/body.ts";
 
-    let promise;
-
     const annotator = $page.url.searchParams.get("annotator");
     const id = $page.url.searchParams.get("id");
 
@@ -38,8 +36,7 @@
                 "text/html",
             );
             header = content.querySelector(".metadata");
-          body.set(content.querySelector(".chunk-body"));
-          body.initialize();
+            body.set(content.querySelector(".chunk-body"));
         } catch (err) {
             console.error(err);
             error =
@@ -52,7 +49,7 @@
     }
 
     onMount(() => {
-        promise = loadChunk();
+        loadChunk();
     });
 </script>
 
