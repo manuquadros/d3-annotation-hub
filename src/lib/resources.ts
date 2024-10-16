@@ -76,14 +76,23 @@ export class Resource {
     get name(): string {
         let curr = "";
 
-        for (const span of this.spans) {
-            const text = span.textContent;
-            if (text && text.length > curr.length) {
-                curr = text;
-            }
+        for (const str of this.names) {
+            curr = str.length > curr.length ? str : curr;
         }
 
         return curr;
+    }
+
+    get names(): Set<string> {
+        const _names = new Set<string>();
+
+        for (const span of this.spans) {
+            const text = span.textContent;
+
+            if (text) _names.add(text);
+        }
+
+        return _names;
     }
 }
 
@@ -168,7 +177,9 @@ function _storeEntity(label: string, resourceId: string, id: string): Resource {
         return resources;
     });
 
-    return res;
+    console.log(res);
+
+    return res as Resource;
 }
 
 /**
