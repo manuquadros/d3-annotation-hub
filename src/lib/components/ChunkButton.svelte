@@ -1,14 +1,10 @@
 <script lang="ts">
-    import {
-        dragStart,
-        dragOver,
-        handleDrop,
-        handleSpanClick,
-    } from "$lib/handlers";
+    import { handleSpanClick } from "$lib/handlers";
     import type { Resource } from "$lib/resources.ts";
 
     export let key: string;
     export let resource: Resource;
+    export let name: string;
 </script>
 
 <button
@@ -18,5 +14,5 @@
     resource={key}
     on:click={handleSpanClick}
 >
-    {resource.name}
+    {name}
 </button>

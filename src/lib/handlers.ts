@@ -45,6 +45,7 @@ export function handleKeyPress(event: KeyboardEvent) {
 
 export function handleSpanClick(event: MouseEvent) {
     const target = event.target as Element;
+
     if (target.classList.contains("entity")) {
         event.stopPropagation();
         selectedSpan = target as Element;
@@ -62,24 +63,40 @@ export function handleOptionClick(option: string): void {
         const range = trimRange(selection.getRangeAt(0));
         const label = `d3o:${option}`;
 
-        const { resource } = annotateRange(label, range);
+        annotateRange(label, range);
         selection.removeAllRanges();
     }
     optionsDropdown.hide();
 }
 
-export function handleRemoveAnnotation() {
-    if (selectedSpan) {
-        const parent = selectedSpan.parentNode;
-        removeEntitySpan(selectedSpan);
-        if (parent) {
-            while (selectedSpan.firstChild) {
-                parent.insertBefore(selectedSpan.firstChild, selectedSpan);
+export function handleRemove() {
+    const span = selectedSpan;
+
+    if (span) {
+        if (span.classList.contains("entitySummary")) {
+            resources.removeEntitySpan(span);
+        } else {
+            const parent = span.parentNode;
+
+            if (parent) {
+                while (span.firstChild) {
+                    if (span.firstChild.nodeName === "BUTTON") {
+                        while (span.firstChild.firstChild) {
+                            parent.insertBefore(
+                                span.firstChild.firstChild,
+                                span,
+                            );
+                        }
+                    }
+                    parent.insertBefore(span.firstChild, span);
+                }
+
+                parent.removeChild(span);
             }
-            parent.removeChild(selectedSpan);
+            parent?.removeChild(span);
         }
     }
-    showRemoveDropdown = false;
+    removeDropdown.hide();
 }
 
 export function handleDrop(e: DragEvent): void {

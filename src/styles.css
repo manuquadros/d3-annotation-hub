@@ -13,13 +13,25 @@ body {
     grid-row: 1 / 5;
 }
 
-#summary #relations {
+/* Summary styling */
+#summary,
+#relations {
     line-height: 3;
     grid-column: 2 / 3;
 }
 
+/** Relations styling **/
 #relations {
     grid-row 3 / 5;
+}
+
+.relations-summary {
+    margin: 1em auto;
+}
+
+.subject,
+.object {
+    font-weight: bold;
 }
 
 .entity {

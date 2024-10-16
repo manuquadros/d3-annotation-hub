@@ -16,10 +16,11 @@
 
     {#each $classes as [label, ids]}
         {#if ids.length}
-            <h3>{plural(label.split(":")[1])}</h3>
+            <h4>{plural(label.split(":")[1])}</h4>
             {#each ids as id}
-                {#if $resources.get(id).count}
-                    <ResourceButton key={id} resource={$resources.get(id)} />
+                {@const res = $resources.get(id)}
+                {#if res}
+                    <ResourceButton key={id} resource={res} />
                 {/if}
             {/each}
         {/if}

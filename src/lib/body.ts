@@ -1,4 +1,5 @@
 import { writable, derived, get } from "svelte/store";
+import type { Readable } from "svelte/store";
 
 import {
     isValidEntitySpan,
@@ -8,47 +9,78 @@ import {
     entID,
 } from "$lib/utils.ts";
 import { resources } from "$lib/resources.ts";
+import type { Resource } from "$lib/resources.ts";
 import { rangeToClass } from "$lib/ranges.ts";
 
-const { subscribe, set, update } = writable();
+const { subscribe, set, update } = writable<Element>();
 
 export const body = {
     subscribe,
     set,
-    initialize: _processEntities,
     replaceResource: _replaceResource,
     propagate: _propagate,
+
+    initialize(): void {
+        get(entitySpans).forEach((span) => {
+            span.id = String(entID());
+            resources.storeEntitySpan(span);
+            spanWrappedButton(span);
+        });
+    },
+
+    removeAnnotation(id: string): void {
+        update((body) => {
+            const span = body.querySelector(`#${CSS.escape(id)}`);
+            const parent = span?.parentNode as Node;
+
+            if (span) {
+                span.childNodes.forEach((node) => {
+                    if (node.nodeName === "BUTTON") {
+                        node.childNodes.forEach((child) =>
+                            parent.insertBefore(child, span),
+                        );
+                    } else {
+                        parent.insertBefore(node, span);
+                    }
+                });
+                parent.removeChild(span);
+            }
+
+            return body;
+        });
+    },
+
+    removeAnnotations(ids: string[] | Set<string>): void {
+        ids.forEach(this.removeAnnotation);
+    },
 };
 
-const entitySpans = derived(body, ($body) => {
-    const spans = Array.from($body.querySelectorAll("span"));
-    return spans.filter(isValidEntitySpan);
-});
+export const entitySpans: Readable<HTMLSpanElement[]> = derived(
+    body,
+    ($body) => {
+        if ($body) {
+            const spans = Array.from($body.querySelectorAll("span"));
+            return spans.filter(isValidEntitySpan);
+        }
 
-function _processEntities(): void {
-    get(entitySpans).forEach((span) => {
-        span.id = entID();
-        resources.storeEntitySpan(span);
-        spanWrappedButton(span);
-    });
-}
+        return [];
+    },
+);
 
 function _replaceResource(source: string, target: string): void {
     update((body) => {
-        if (body) {
-            const spans = body.querySelectorAll(`span[resource="${source}"]`);
+        const spans = body.querySelectorAll(`span[resource="${source}"]`);
 
-            spans.forEach((span) => span.setAttribute("resource", target));
+        spans.forEach((span) => span.setAttribute("resource", target));
 
-            return body;
-        }
+        return body;
     });
 }
 
 export async function annotateRange(
     label: string,
     range: Range,
-): { button: HTMLButtonElement; resource: Resource } {
+): Promise<{ button: HTMLButtonElement; resource: Resource }> {
     let span = newSpan(label, rangeToClass(range, "entity"));
 
     range.surroundContents(span);

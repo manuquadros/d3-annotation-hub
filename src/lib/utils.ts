@@ -19,29 +19,33 @@ export function entID(): number {
 
 export function isValidEntitySpan(span: HTMLSpanElement): boolean {
     const label = span.getAttribute("typeof");
-    return span.getAttribute("resource") && label && label !== outOfScope;
+    const resid = span.getAttribute("resource");
+    return label !== outOfScope && resid !== null;
 }
 
 export function newSpan(label: string, className: string) {
     const span = document.createElement("span");
     span.className = className;
     span.setAttribute("typeof", label);
-    span.id = entID();
+    span.id = String(entID());
 
     return span;
 }
 
-export function spanWrappedButton(span: HTMLElement): HTMLSpanElement {
-    const resourceId = span.getAttribute("resource");
+export function spanWrappedButton(span: HTMLSpanElement): HTMLSpanElement {
+    const resourceId = span.getAttribute("resource") as string;
 
     const button = new ChunkButton({
         target: span,
         props: {
             key: resourceId,
             resource: get(resources).get(resourceId),
+            name: span.textContent,
         },
         hydrate: true,
     });
+
+    return span;
 }
 
 export function createButton(

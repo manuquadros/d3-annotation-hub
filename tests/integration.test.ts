@@ -1,11 +1,11 @@
-import { render, screen, cleanup } from "@testing-library/svelte";
+import { render } from "@testing-library/svelte";
 import { get } from "svelte/store";
 import userEvent from "@testing-library/user-event";
 import { expect, test } from "vitest";
 
 import Summary from "$lib/components/Summary.svelte";
 import ChunkBody from "$lib/components/ChunkBody.svelte";
-import { resources, strainLabel, classes, labels } from "$lib/resources.ts";
+import { resources } from "$lib/resources.ts";
 import { dragAndDrop } from "$lib/test_utils.ts";
 import { body } from "$lib/body.ts";
 
@@ -36,7 +36,8 @@ function setup() {
     const summaryContainer = document.createElement("div");
 
     const content = new DOMParser().parseFromString(chunk3, "text/html");
-    body.set(content.querySelector(".chunk-body"));
+    body.set(content.querySelector(".chunk-body") as Element);
+    body.initialize();
 
     const chunkBody = render(ChunkBody, {
         target: chunkBodyContainer,

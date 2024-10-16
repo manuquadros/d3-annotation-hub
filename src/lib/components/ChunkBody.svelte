@@ -2,10 +2,9 @@
     import { onMount } from "svelte";
     import {
         handleOptionClick,
-        handleSpanClick,
         handleTextSelection,
+        handleRemove,
         handleKeyPress,
-        handleRemoveAnnotation,
     } from "$lib/handlers.ts";
     import { optionsDropdown, removeDropdown } from "$lib/dropdown.ts";
     import { body } from "$lib/body.ts";
@@ -43,7 +42,7 @@
                left: {$removeDropdown.x}px;
                top: {$removeDropdown.y}px;"
     >
-        <button class="dropdown-button" on:click={handleRemoveAnnotation}
+        <button class="dropdown-button" on:click={handleRemove}
             >Remove annotation</button
         >
     </div>
