@@ -1,6 +1,5 @@
 <script lang="ts">
-  import { relations, displayPredicate } from "$lib/relations.ts";
-    //import ResourceButton from "$lib/components/ResourceButton.svelte";
+    import { relations, displayPredicate } from "$lib/relations.ts";
 </script>
 
 {#if $relations.size}
@@ -8,19 +7,21 @@
 
     {#each $relations as [predicate, pairs]}
         {#if pairs.size}
-            {#each pairs as { subject, object }}
-                <span class="relation">
-                    <span class="subject">
-                        {subject.name}
-                    </span>
-                    <span class="predicate">
-                        {displayPredicate(predicate)}
-                    </span>
-                    <span class="object">
-                        {object.name}
-                    </span>
-                </span>
-            {/each}
+            <div class="relations-summary">
+                {#each pairs as { subject, object }}
+                    <div class="relation">
+                        <span class="subject">
+                            {subject.name}
+                        </span>
+                        <span class="predicate">
+                            {displayPredicate(predicate)}
+                        </span>
+                        <span class="object">
+                            {object.name}
+                        </span>
+                    </div>
+                {/each}
+            </div>
         {/if}
     {/each}
 {/if}
