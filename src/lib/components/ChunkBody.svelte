@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { onMount } from "svelte";
+    import { getContext, onMount } from "svelte";
     import {
         handleOptionClick,
         handleTextSelection,
@@ -7,16 +7,13 @@
         handleKeyPress,
     } from "$lib/handlers.ts";
     import { optionsDropdown, removeDropdown } from "$lib/dropdown.ts";
-    import { body } from "$lib/body.ts";
 
-    onMount(() => {
-        body.initialize();
-    });
+    const body = getContext("body");
 </script>
 
 <div class="chunk-body" on:mouseup={handleTextSelection}>
-    {#if $body}
-        {@html $body.innerHTML}
+    {#if body}
+        {@html $body.outerHTML}
     {/if}
 </div>
 

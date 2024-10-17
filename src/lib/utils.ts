@@ -10,7 +10,7 @@ import { rangeToClass } from "$lib/ranges.ts";
 
 import ChunkButton from "$lib/components/ChunkButton.svelte";
 
-const outOfScope = "OOS";
+export const outOfScope = "OOS";
 let currID = 1;
 
 export function entID(): number {

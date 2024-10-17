@@ -4,10 +4,11 @@
     import ChunkBody from "$lib/components/ChunkBody.svelte";
     import Summary from "$lib/components/Summary.svelte";
     import Relations from "$lib/components/Relations.svelte";
-    import { onMount } from "svelte";
+    import { onMount, setContext } from "svelte";
     import { page } from "$app/stores";
 
-    import { body } from "$lib/body.ts";
+    import { bodyStore } from "$lib/body.ts";
+    import type { Readable } from "svelte/motion";
 
     const annotator = $page.url.searchParams.get("annotator");
     const id = $page.url.searchParams.get("id");
@@ -16,6 +17,7 @@
     let loading = true;
     let error: Error | null = null;
     let header: HTMLDivElement | null = null;
+    let body: Readable<Element>;
 
     async function loadChunk(): Promise<void> {
         try {
@@ -36,7 +38,8 @@
                 "text/html",
             );
             header = content.querySelector(".metadata");
-            body.set(content.querySelector(".chunk-body"));
+            body = bodyStore(content.querySelector(".chunk-body") as Element);
+            setContext("body", body);
         } catch (err) {
             console.error(err);
             error =

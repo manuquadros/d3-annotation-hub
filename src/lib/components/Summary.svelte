@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { classes, resources } from "$lib/resources.ts";
+    import { getContext } from "svelte";
     import ResourceButton from "$lib/components/ResourceButton.svelte";
 
     function plural(singular: string): string {
@@ -9,20 +9,21 @@
             return singular + "s";
         }
     }
+
+    const body = getContext("body");
+    const resources = body.resources;
+    const classes = body.classes;
 </script>
 
-{#if $classes.size}
+{#if classes.size}
     <h2>Entities</h2>
 
-    {#each $classes as [label, ids]}
-        {#if ids.length}
-            <h4>{plural(label.split(":")[1])}</h4>
-            {#each ids as id}
-                {@const res = $resources.get(id)}
-                {#if res}
-                    <ResourceButton key={id} resource={res} />
-                {/if}
-            {/each}
-        {/if}
+    {#each classes as label}
+        <h4>{plural(label.split(":")[1])}</h4>
+        {#each $resources.entries() as [key, resource]}
+            {#if resource.label === label}
+                <ResourceButton {key} {resource} />
+            {/if}
+        {/each}
     {/each}
 {/if}
