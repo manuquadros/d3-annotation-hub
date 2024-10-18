@@ -1,5 +1,5 @@
 import { writable, derived, get } from "svelte/store";
-import type { Writable } from "svelte/store";
+import type { Readable } from "svelte/store";
 
 import {
     isValidEntitySpan,
@@ -11,8 +11,8 @@ import {
 import { resourceMap } from "$lib/resources.ts";
 import type { Resource } from "$lib/resources.ts";
 import { relationStore } from "$lib/relations.ts";
+import type { ResourcePair } from "$lib/resources.ts";
 import { rangeToClass } from "$lib/ranges.ts";
-import type { Readable } from "svelte/motion";
 
 export function bodyStore(content: Element) {
     const spans = content.querySelectorAll("span");
@@ -30,10 +30,11 @@ export function bodyStore(content: Element) {
         return spans.filter((span) => isValidEntitySpan(span));
     });
 
-    const resources: Map<string, Resource> = resourceMap(entitySpans);
+    const resources: Readable<Map<string, Resource>> = resourceMap(entitySpans);
     const relations = new relationStore(resources);
 
     const methods = {
+        // TODO: update the relations store as well!
         mergeResources(_source: string, _target: string): void {
             update((body) => {
                 const source = resources.get(_source);

@@ -1,3 +1,4 @@
+import { derived } from "svelte/store";
 import type { Readable, Unsubscriber } from "svelte/store";
 
 export const strainLabel = "d3o:Strain";
@@ -78,29 +79,35 @@ export class Resource {
  */
 export function resourceMap(
     entspans: Readable<HTMLSpanElement[]>,
-): ResourceMap {
-    const resources: ResourceMap = new Map();
+): Readable<ResourceMap> {
+    return derived(
+        entspans,
+        ($entspans, set, update) => {
+            const resourceIDs = new Set(
+                $entspans.map(
+                    (span) => span.getAttribute("resource") as string,
+                ),
+            );
 
-    entspans.subscribe(($entspans) => {
-        const resourceIDs = new Set(
-            $entspans.map((span) => span.getAttribute("resource") as string),
-        );
+            update((resources) => {
+                Array.from(resources.keys()).forEach((key) => {
+                    if (!resourceIDs.has(key)) {
+                        resources.get(key)?.unsubscribe();
+                        resources.delete(key);
+                    }
+                });
 
-        Array.from(resources.keys()).forEach((key) => {
-            if (!resourceIDs.has(key)) {
-                resources.get(key)?.unsubscribe();
-                resources.delete(key);
-            }
-        });
+                resourceIDs.forEach((key) => {
+                    if (!resources.has(key)) {
+                        resources.set(key, new Resource(key, entspans));
+                    }
+                });
 
-        resourceIDs.forEach((key) => {
-            if (!resources.has(key)) {
-                resources.set(key, new Resource(key, entspans));
-            }
-        });
-    });
-
-    return resources;
+                return resources;
+            });
+        },
+        new Map<string, Resource>(),
+    );
 }
 
 function nextResourceID(resources: ResourceMap): string {
