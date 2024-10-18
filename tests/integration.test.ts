@@ -35,14 +35,17 @@ function setup() {
 
     const content = new DOMParser().parseFromString(chunk3, "text/html");
     const body = new bodyStore(content.querySelector(".chunk-body") as Element);
+    const context = new Map([["body", body]]);
 
     const chunkBody = render(ChunkBody, {
         target: chunkBodyContainer,
+        context,
     });
-    const summary = render(Summary, { target: summaryContainer });
+    const summary = render(Summary, { target: summaryContainer, context });
 
     return {
         user,
+        body,
         chunkBody,
         summary,
         chunkBodyContainer,
@@ -51,9 +54,9 @@ function setup() {
 }
 
 test("Entities are loaded onto the summary", () => {
-    setup();
+    const { body } = setup();
 
-    const t2 = get(resources).get("#T2");
+    const t2 = get(body.resources).get("#T2");
     expect(t2).toBeDefined();
 });
 
