@@ -6,12 +6,10 @@ import {
     isOrganism,
     isEnzyme,
 } from "$lib/resources.ts";
-import type { Resource } from "$lib/resources.ts";
 import { relations } from "$lib/relations.ts";
 import { trimRange } from "$lib/ranges.ts";
 import { optionsDropdown, removeDropdown } from "$lib/dropdown";
-import { newSpan, spanWrappedButton } from "$lib/utils";
-import { annotateRange } from "$lib/body";
+import type { bodyStore } from "$lib/body.ts";
 
 let selectedText = "";
 let selectedSpan: HTMLSpanElement | null = null;
@@ -99,12 +97,13 @@ export function handleRemove() {
     removeDropdown.hide();
 }
 
-export function handleDrop(e: DragEvent): void {
+export function handleDrop(e: DragEvent, context: bodyStore): void {
     const sourceRes = e.dataTransfer.getData("text/plain");
     const targetRes = resourceFromTarget(e.target);
+    const { relations } = context;
     if (sourceRes && targetRes) {
         if (sameClass(sourceRes, targetRes)) {
-            resources.merge(sourceRes, targetRes);
+            context.mergeResources(sourceRes, targetRes);
         } else if (isStrain(sourceRes) && isBacteria(targetRes)) {
             relations.add(sourceRes, "d3o:hasSpecies", targetRes);
         } else if (isBacteria(sourceRes) && isStrain(targetRes)) {

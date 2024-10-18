@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { getContext } from "svelte";
     import {
         dragStart,
         dragOver,
@@ -9,6 +10,8 @@
 
     export let key: string;
     export let resource: Resource;
+
+    const body = getContext("body");
 </script>
 
 <button
@@ -19,7 +22,7 @@
     resource={key}
     on:dragstart={dragStart}
     on:dragover={dragOver}
-    on:drop={handleDrop}
+    on:drop={(e) => handleDrop(e, body)}
     on:click={handleSpanClick}
 >
     {resource.name}
