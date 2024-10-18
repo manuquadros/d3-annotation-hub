@@ -22,7 +22,7 @@ body {
 
 /** Relations styling **/
 #relations {
-    grid-row 3 / 5;
+    grid-row: 3 / 5;
 }
 
 .relations-summary {
