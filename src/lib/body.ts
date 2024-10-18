@@ -10,6 +10,7 @@ import {
 } from "$lib/utils.ts";
 import { resourceMap } from "$lib/resources.ts";
 import type { Resource } from "$lib/resources.ts";
+import { relationStore } from "$lib/relations.ts";
 import { rangeToClass } from "$lib/ranges.ts";
 import type { Readable } from "svelte/motion";
 
@@ -30,6 +31,7 @@ export function bodyStore(content: Element) {
     });
 
     const resources: Map<string, Resource> = resourceMap(entitySpans);
+    const relations = new relationStore(resources);
 
     const methods = {
         mergeResources(_source: string, _target: string): void {
@@ -165,6 +167,7 @@ export function bodyStore(content: Element) {
         subscribe,
         entitySpans,
         resources,
+        relations,
         ...methods,
     };
 }

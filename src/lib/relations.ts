@@ -1,35 +1,75 @@
-import { writable, get } from "svelte/store";
-import type { Writable } from "svelte/store";
+import { writable } from "svelte/store";
+import type { Readable } from "svelte/store";
 
-import { resources } from "$lib/resources.ts";
 import type { Resource } from "$lib/resources.ts";
 
-interface Pair {
+export interface ResourcePair {
     subject: Resource;
     object: Resource;
 }
 
-const { subscribe, update } = writable(new Map());
-export const relations: Writable<Map<string, Set<Pair>>> = {
-    subscribe,
-    add: _addRelation,
-};
+export interface Triple {
+    subject: Resource;
+    predicate: Resource;
+    object: Resource;
+}
 
-function _addRelation(subj: Resource, predicate: string, obj: Resource): void {
-    update((relations) => {
-        const pair: Pair = {
-            subject: get(resources).get(subj),
-            object: get(resources).get(obj),
-        };
-        const rel = relations.get(predicate);
+/**
+ * Class of Svelte stores containing relations between Resources, indexed by
+ * a predicate, corresponding to RDF triples.
+ * The store keeps track of updates to the resource store, in order to remove
+ * relations referring to resources that have been removed.
+ */
+export class relationStore {
+    vertices = new Set<Resource>();
 
-        if (rel) {
-            rel.add(pair);
-        } else {
-            relations.set(predicate, new Set([pair]));
-        }
-        return relations;
-    });
+    /**
+     * Generates the relation store and subscribes to the resource store.
+     *
+     * @constructor
+     * @param {Readable<Map<string, Resource>>} Svelte resource store
+     */
+    constructor(resources: Readable<Map<string, Resource>>) {
+        const { subscribe, set, update } = writable<Set<Triple>>(new Set());
+
+        this.subscribe = subscribe;
+        this.update = update;
+
+        this.subscribe((relations) =>
+            relations.forEach((triple) => {
+                const { subj, obj } = triple;
+                this.vertices.add(subj);
+                this.vertices.add(obj);
+            }),
+        );
+
+        resources.subscribe((resources) =>
+            this.vertices.forEach((res) => {
+                if (!resources.has(res.resid)) this.removeVertex(res);
+            }),
+        );
+    }
+
+    add(subject: Resource, predicate: string, object: Resource): void {
+        this.update((relations) =>
+            relations.add({ subject, predicate, object }),
+        );
+    }
+
+    remove(subject: Resource, predicate: string, object: Resource): void {
+        this.update((relations) =>
+            relations.delete({ subject, predicate, object }),
+        );
+    }
+
+    removeVertex(vertex: Resource): void {
+        this.update((relations) =>
+            relations.forEach((triple) => {
+                if (triple.subject === vertex || triple.object === vertex)
+                    relations.delete(triple);
+            }),
+        );
+    }
 }
 
 export function displayPredicate(predicate: string): string {
