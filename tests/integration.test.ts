@@ -5,9 +5,8 @@ import { expect, test } from "vitest";
 
 import Summary from "$lib/components/Summary.svelte";
 import ChunkBody from "$lib/components/ChunkBody.svelte";
-import { resources } from "$lib/resources.ts";
 import { dragAndDrop } from "$lib/test_utils.ts";
-import { body } from "$lib/body.ts";
+import { bodyStore } from "$lib/body.ts";
 
 const chunk3 = `<annotation>
   <div class="metadata">
@@ -30,14 +29,12 @@ const chunk3 = `<annotation>
 
 function setup() {
     const user = userEvent.setup();
-    resources.reset();
 
     const chunkBodyContainer = document.createElement("div");
     const summaryContainer = document.createElement("div");
 
     const content = new DOMParser().parseFromString(chunk3, "text/html");
-    body.set(content.querySelector(".chunk-body") as Element);
-    body.initialize();
+    const body = new bodyStore(content.querySelector(".chunk-body") as Element);
 
     const chunkBody = render(ChunkBody, {
         target: chunkBodyContainer,

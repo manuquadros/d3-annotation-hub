@@ -38,7 +38,7 @@
                 "text/html",
             );
             header = content.querySelector(".metadata");
-            body = bodyStore(content.querySelector(".chunk-body") as Element);
+            body = new bodyStore(content.querySelector(".chunk-body") as Element);
             setContext("body", body);
         } catch (err) {
             console.error(err);

@@ -5,8 +5,6 @@ export const strainLabel = "d3o:Strain";
 export const enzymeLabel = "d3o:Enzyme";
 export const bacteriaLabel = "d3o:Bacteria";
 
-type ResourceMap = Map<string, Resource>;
-
 export class Resource {
     resid: string;
     label: string = "";
@@ -77,9 +75,9 @@ export class Resource {
  * // - Existing resources are maintained for unchanged spans
  * // - Resources are cleaned up (unsubscribed) when their spans are removed
  */
-export function resourceMap(
+export function resourceStore(
     entspans: Readable<HTMLSpanElement[]>,
-): Readable<ResourceMap> {
+): Readable<Map<string, Resource>> {
     return derived(
         entspans,
         ($entspans, set, update) => {

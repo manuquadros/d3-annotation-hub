@@ -8,181 +8,174 @@ import {
     wrapRange,
     entID,
 } from "$lib/utils.ts";
-import { resourceMap } from "$lib/resources.ts";
-import type { Resource } from "$lib/resources.ts";
-import { relationStore } from "$lib/relations.ts";
-import type { ResourcePair } from "$lib/resources.ts";
+import { resourceStore } from "$lib/resources.ts";
+import type { Resource, ResourcePair } from "$lib/resources.ts";
+import { RelationStore } from "$lib/relations.ts";
 import { rangeToClass } from "$lib/ranges.ts";
 
-export function bodyStore(content: Element) {
-    const spans = content.querySelectorAll("span");
+export class bodyStore {
+    entspans: Readable<HTMLSpanElementp[]>;
+    resources: Readable<Map<string, Resource>>;
+    classes: Set<string>;
 
-    spans.forEach((span) => {
-        span.id = String(entID());
-        spanWrappedButton(span);
-    });
+    constructor(content: Element) {
+        // Initialize all entity spans, making sure they have an ID and a button.
+        const spans = content.querySelectorAll("span");
 
-    const body = writable(content);
-    const { subscribe, update } = body;
+        spans.forEach((span) => {
+            span.id = String(entID());
+            spanWrappedButton(span);
+        });
 
-    const entitySpans: Readable<HTMLSpanElement[]> = derived(body, (body) => {
-        const spans = Array.from(body.querySelectorAll("span"));
-        return spans.filter((span) => isValidEntitySpan(span));
-    });
+        // Initialize the body store proper
+        const body = writable(content);
+        const { subscribe, set, update } = body;
+        this.subscribe = subscribe;
+        this.set = set;
+        this.update = update;
 
-    const resources: Readable<Map<string, Resource>> = resourceMap(entitySpans);
-    const relations = new relationStore(resources);
+        // Initialize stores for entity spans, resources and relations
+        this.entspans = derived(body, (body) => {
+            const spans = Array.from(body.querySelectorAll("span"));
+            return spans.filter((span) => isValidEntitySpan(span));
+        });
+        this.resources = resourceStore(this.entspans);
+        this.relations = new RelationStore(this.resources);
 
-    const methods = {
-        // TODO: update the relations store as well!
-        mergeResources(_source: string, _target: string): void {
-            update((body) => {
-                const source = resources.get(_source);
-                const target = resources.get(_target);
+        // Create a subscription for this.classes
+        this.classes = new Set();
+        this.resources.subscribe((resources) =>
+            resources.forEach((res) => this.classes.add(res.label)),
+        );
+    }
 
-                if (source && source.label === target?.label)
-                    this.replaceResource(_source, _target);
+    // TODO: update the relations store as well!
+    mergeResources(_source: string, _target: string): void {
+        this.update((body) => {
+            const source = get(this.resources).get(_source);
+            const target = get(this.resources).get(_target);
 
-                return body;
-            });
-        },
+            if (source && source.label === target?.label)
+                this.replaceResource(_source, _target);
 
-        removeAnnotation(id: string) {
-            update((body) => {
-                const span = body.querySelector(`#${CSS.escape(id)}`);
-                const parent = span?.parentNode as Node;
+            return body;
+        });
+    }
 
-                if (span) {
-                    span.childNodes.forEach((node) => {
-                        if (node.nodeName === "BUTTON") {
-                            node.childNodes.forEach((child) =>
-                                parent.insertBefore(child, span),
+    removeAnnotation(id: string) {
+        this.update((body) => {
+            const span = body.querySelector(`#${CSS.escape(id)}`);
+            const parent = span?.parentNode as Node;
+
+            if (span) {
+                span.childNodes.forEach((node) => {
+                    if (node.nodeName === "BUTTON") {
+                        node.childNodes.forEach((child) =>
+                            parent.insertBefore(child, span),
+                        );
+                    } else {
+                        parent.insertBefore(node, span);
+                    }
+                });
+                parent.removeChild(span);
+            }
+
+            return body;
+        });
+    }
+
+    removeAnnotations(ids: string[] | Set<string>): void {
+        ids.forEach(this.removeAnnotation);
+    }
+
+    removeResource(resourceID: string): void {
+        this.update((body) => {
+            const spans = entitySpans.filter(
+                (span) => span.getAttribute("resource") === resourceID,
+            );
+
+            this.removeAnnotations(spans.map((span) => span.id as string));
+
+            return body;
+        });
+    }
+
+    annotateRange(label: string, range: Range) {
+        this.update((body) => {
+            let span = newSpan(label, rangeToClass(range, "entity"));
+
+            range.surroundContents(span);
+            resources.storeEntitySpan(span) as Resource;
+            //body.propagate(resource);
+
+            spanWrappedButton(span) as HTMLButtonElement;
+
+            return document.querySelector(".chunk-body") as Element;
+        });
+    }
+
+    replaceResource(source: string, target: string): void {
+        this.update((body) => {
+            const spans = body.querySelectorAll(`span[resource="${source}"]`);
+
+            spans.forEach((span) => span.setAttribute("resource", target));
+
+            return body;
+        });
+    }
+
+    propagate(resource: Resource): void {
+        const getRange = function (startIndex, endIndex, textNode) {
+            const range = document.createRange();
+            range.setStart(textNode, startIndex);
+            range.setEnd(textNode, Math.min(endIndex, textNode.length));
+            return range;
+        };
+
+        this.update((body) => {
+            if (body) {
+                const textNodes = getAllTextNodes(body);
+
+                for (let i = 0; i < textNodes.length; i++) {
+                    let textNode = textNodes[i];
+                    let text = textNode.textContent;
+
+                    for (const name of resource.names) {
+                        const regex = new RegExp(
+                            `\\b${escapeRegExp(name)}\\b`,
+                            "gi",
+                        );
+                        let match;
+
+                        while ((match = regex.exec(text)) !== null) {
+                            const range = getRange(
+                                match.index,
+                                regex.lastIndex,
+                                textNode,
                             );
-                        } else {
-                            parent.insertBefore(node, span);
-                        }
-                    });
-                    parent.removeChild(span);
-                }
 
-                return body;
-            });
-        },
+                            if (!isWithinEntitySpan(range)) {
+                                const span = wrapRange(range, resource);
 
-        removeAnnotations(ids: string[] | Set<string>): void {
-            ids.forEach(this.removeAnnotation);
-        },
-
-        removeResource(resourceID: string): void {
-            update((body) => {
-                const spans = entitySpans.filter(
-                    (span) => span.getAttribute("resource") === resourceID,
-                );
-
-                this.removeAnnotations(spans.map((span) => span.id as string));
-
-                return body;
-            });
-        },
-
-        annotateRange(label: string, range: Range) {
-            update((body) => {
-                let span = newSpan(label, rangeToClass(range, "entity"));
-
-                range.surroundContents(span);
-                resources.storeEntitySpan(span) as Resource;
-                //body.propagate(resource);
-
-                spanWrappedButton(span) as HTMLButtonElement;
-
-                return document.querySelector(".chunk-body") as Element;
-            });
-        },
-
-        replaceResource(source: string, target: string): void {
-            update((body) => {
-                const spans = body.querySelectorAll(
-                    `span[resource="${source}"]`,
-                );
-
-                spans.forEach((span) => span.setAttribute("resource", target));
-
-                return body;
-            });
-        },
-
-        propagate(resource: Resource): void {
-            const getRange = function (startIndex, endIndex, textNode) {
-                const range = document.createRange();
-                range.setStart(textNode, startIndex);
-                range.setEnd(textNode, Math.min(endIndex, textNode.length));
-                return range;
-            };
-
-            update((body) => {
-                if (body) {
-                    const textNodes = getAllTextNodes(body);
-
-                    for (let i = 0; i < textNodes.length; i++) {
-                        let textNode = textNodes[i];
-                        let text = textNode.textContent;
-
-                        for (const name of resource.names) {
-                            const regex = new RegExp(
-                                `\\b${escapeRegExp(name)}\\b`,
-                                "gi",
-                            );
-                            let match;
-
-                            while ((match = regex.exec(text)) !== null) {
-                                const range = getRange(
-                                    match.index,
-                                    regex.lastIndex,
-                                    textNode,
-                                );
-
-                                if (!isWithinEntitySpan(range)) {
-                                    const span = wrapRange(range, resource);
-
-                                    // Update text node reference and content
-                                    textNode = span.nextSibling as Node;
-                                    if (
-                                        !textNode ||
-                                        textNode.nodeType !== Node.TEXT_NODE
-                                    )
-                                        break; // No more text in this node
-                                    text = textNode.textContent || "";
-                                    // Reset regex to search from the beginning of the new text
-                                    regex.lastIndex = 0;
-                                }
+                                // Update text node reference and content
+                                textNode = span.nextSibling as Node;
+                                if (
+                                    !textNode ||
+                                    textNode.nodeType !== Node.TEXT_NODE
+                                )
+                                    break; // No more text in this node
+                                text = textNode.textContent || "";
+                                // Reset regex to search from the beginning of the new text
+                                regex.lastIndex = 0;
                             }
                         }
                     }
                 }
-                return body;
-            });
-        },
-    };
-
-    return {
-        subscribe,
-        entitySpans,
-        resources,
-        relations,
-        ...methods,
-    };
+            }
+            return body;
+        });
+    }
 }
-
-// export function entitySpans(body: Readable<Element>) {
-//     return derived(body, ($body) => {
-//         if ($body) {
-//             const spans = Array.from($body.querySelectorAll("span"));
-//             return spans.filter(isValidEntitySpan);
-//         }
-
-//         return [];
-//     });
-// }
 
 function getAllTextNodes(element: Element): Node[] {
     const textNodes: Node[] = [];

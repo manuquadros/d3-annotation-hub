@@ -20,7 +20,7 @@ export interface Triple {
  * The store keeps track of updates to the resource store, in order to remove
  * relations referring to resources that have been removed.
  */
-export class relationStore {
+export class RelationStore {
     vertices = new Set<Resource>();
 
     /**
