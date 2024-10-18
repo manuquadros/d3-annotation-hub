@@ -3,14 +3,14 @@
     import type { Resource } from "$lib/resources.ts";
 
     export let key: string;
-    export let resource: Resource;
+    export let label: string;
     export let name: string;
 </script>
 
 <button
     class="entity"
     type="button"
-    typeof={resource.label}
+    typeof={label}
     resource={key}
     on:click={handleSpanClick}
 >

@@ -33,15 +33,13 @@ export function newSpan(label: string, className: string) {
 }
 
 export function spanWrappedButton(span: HTMLSpanElement): HTMLSpanElement {
-    const resourceId = span.getAttribute("resource") as string;
+    const key = span.getAttribute("resource") as string;
+    const label = span.getAttribute("typeof") as string;
+    const name = span.textContent;
 
     const button = new ChunkButton({
         target: span,
-        props: {
-            key: resourceId,
-            resource: get(resources).get(resourceId),
-            name: span.textContent,
-        },
+        props: { key, label, name },
         hydrate: true,
     });
 
