@@ -1,6 +1,7 @@
 <script lang="ts">
     import { getContext } from "svelte";
     import ResourceButton from "$lib/components/ResourceButton.svelte";
+    import type { bodyStore } from "$lib/body.ts";
 
     function plural(singular: string): string {
         if (singular === "Bacteria") {
@@ -10,7 +11,7 @@
         }
     }
 
-    const body = getContext("body");
+    const body: bodyStore = getContext("body");
     const resources = body.resources;
     const classes = body.classes;
 </script>
