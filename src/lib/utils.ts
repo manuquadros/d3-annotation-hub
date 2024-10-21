@@ -4,8 +4,6 @@ import {
     handleDrop,
     handleSpanClick,
 } from "$lib/handlers.ts";
-import { resources } from "$lib/resources.ts";
-import { get } from "svelte/store";
 import { rangeToClass } from "$lib/ranges.ts";
 
 import ChunkButton from "$lib/components/ChunkButton.svelte";
@@ -37,7 +35,7 @@ export function spanWrappedButton(span: HTMLSpanElement): HTMLSpanElement {
     const label = span.getAttribute("typeof") as string;
     const name = span.textContent;
 
-    const button = new ChunkButton({
+    new ChunkButton({
         target: span,
         props: { key, label, name },
         hydrate: true,
@@ -68,13 +66,6 @@ export function createButton(
     button.addEventListener("click", handleSpanClick);
 
     return button;
-}
-
-function wrapButton(parent: Element, button: HTMLButtonElement): Element {
-    button.textContent = parent.textContent;
-    parent.textContent = "";
-    parent.appendChild(button);
-    return parent;
 }
 
 export function wrapRange(range: Range, resource: Resource): HTMLSpanElement {
