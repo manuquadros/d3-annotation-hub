@@ -8,11 +8,19 @@ export interface ResourcePair {
     object: Resource;
 }
 
-export interface Triple {
+export type Triple = {
+    [index: string]: Resource | string;
     subject: Resource;
     predicate: string;
     object: Resource;
-}
+};
+
+export type TripleQuery = {
+    [index: string]: Resource | string | undefined;
+    subject?: Resource;
+    predicate?: string;
+    object?: Resource;
+};
 
 /**
  * Class of Svelte stores containing relations between Resources, indexed by
@@ -22,6 +30,7 @@ export interface Triple {
  */
 export class RelationStore implements Readable<Set<Triple>> {
     vertices = new Set<Resource>();
+    predicates = new Set<string>();
     subscribe;
     update;
 
@@ -29,7 +38,7 @@ export class RelationStore implements Readable<Set<Triple>> {
      * Generates the relation store and subscribes to the resource store.
      *
      * @constructor
-     * @param {Readable<Map<string, Resource>>} Svelte resource store
+     * @param {Readable<Map<string, Resource>>} resources - Svelte resource store
      */
     constructor(resources: Readable<Map<string, Resource>>) {
         const { subscribe, update } = writable<Set<Triple>>(new Set());
@@ -37,13 +46,17 @@ export class RelationStore implements Readable<Set<Triple>> {
         this.subscribe = subscribe;
         this.update = update;
 
-        this.subscribe((relations) =>
+        this.subscribe((relations) => {
             relations.forEach((triple) => {
                 const { subject, object } = triple;
                 this.vertices.add(subject);
                 this.vertices.add(object);
-            }),
-        );
+            });
+
+            this.predicates = new Set(
+                relations[Symbol.iterator]().map((triple) => triple.predicate),
+            );
+        });
 
         resources.subscribe((resources) =>
             this.vertices.forEach((res) => {
@@ -52,33 +65,43 @@ export class RelationStore implements Readable<Set<Triple>> {
         );
     }
 
-    add(subject: Resource, predicate: string, object: Resource): void {
+    add(triple: Triple): void {
         this.update((relations) => {
-            relations.add({ subject, predicate, object });
+            relations.add(triple);
             return relations;
         });
     }
 
-    remove(subject: Resource, predicate: string, object: Resource): void {
-        this.update((relations) => {
-            relations.delete({ subject, predicate, object });
+    /**
+     * Remove from the store all triples matching the query. If the query consists
+     * of a complete triple, with subject, predicate, and object, remove that triple
+     * from the store. If it only contains one or two of those elements,
+     * remove from the store all triples satisfying all of the given constraints.
+     *
+     * @param query -
+     * @returns -
+     */
+    remove(query: TripleQuery): void {
+        const { subject, predicate, object } = query;
 
-            return relations;
-        });
-    }
-
-    removeVertex(vertex: Resource): void {
         this.update((relations) => {
-            relations.forEach((triple) => {
-                if (triple.subject === vertex || triple.object === vertex)
-                    relations.delete(triple);
-            });
+            if (subject && predicate && object) {
+                relations.delete({ subject, predicate, object });
+            } else {
+                const constraints = Object.keys(query).filter(Boolean);
+                relations.forEach((triple) => {
+                    if (constraints.every((c) => triple[c] === query[c])) {
+                        relations.delete(triple);
+                    }
+                });
+            }
+
             return relations;
         });
     }
 }
 
-export function displayPredicate(predicate: string): string {
+export function displayPredicate(predicate: string): string | undefined {
     switch (predicate) {
         case "d3o:hasSpecies":
             return "is a strain of";

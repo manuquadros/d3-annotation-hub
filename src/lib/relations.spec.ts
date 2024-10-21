@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 import { get } from "svelte/store";
 import { bodyStore } from "$lib/body.ts";
+import type { Resource } from "./resources";
 
 const chunk = `<annotation>
   <div class="metadata">
@@ -24,23 +25,46 @@ const chunk = `<annotation>
 function setup() {
     const content = new DOMParser().parseFromString(chunk, "text/html");
 
-    return new bodyStore(content);
+    return new bodyStore(content.querySelector(".chunk-body") as Element);
 }
 
 describe("relations", () => {
     const body = setup();
+    const relations = body.relations;
 
     let size: number;
-    let otherSize: number;
 
-    const t3 = get(body.resources).get("#T3");
-    const t7 = get(body.resources).get("#T7");
+    const t1 = get(body.resources).get("#T1") as Resource;
+    const t2 = get(body.resources).get("#T2") as Resource;
+    const t3 = get(body.resources).get("#T3") as Resource;
 
     body.relations.subscribe((relations) => (size = relations.size));
 
-    body.relations.add(t3, "strainOf", t7);
+    const t3t2 = {
+        subject: t3,
+        predicate: "d3o:hasSpecies",
+        object: t2,
+    };
+
+    body.relations.add(t3t2);
 
     test("relations store works", () => {
         expect(size).toBe(1);
+    });
+
+    test("relations are added correctly", () => {
+        body.relations.add({
+            subject: t3,
+            predicate: "d3o:hasEnzyme",
+            object: t1,
+        });
+
+        expect(size).toBe(2);
+    });
+
+    test("remove by object", () => {
+        body.relations.remove({ object: t2 });
+        expect(size).toBe(1);
+        expect(body.relations.predicates).not.toContain("d3o:hasSpecies");
     });
 });
