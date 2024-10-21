@@ -1,5 +1,5 @@
-import { writable } from "svelte/store";
-import type { Readable, Subscriber } from "svelte/store";
+import { writable, get } from "svelte/store";
+import type { Readable } from "svelte/store";
 
 import type { Resource } from "$lib/resources.ts";
 
@@ -88,16 +88,25 @@ export class RelationStore implements Readable<Set<Triple>> {
             if (subject && predicate && object) {
                 relations.delete({ subject, predicate, object });
             } else {
-                const constraints = Object.keys(query).filter(Boolean);
-                relations.forEach((triple) => {
-                    if (constraints.every((c) => triple[c] === query[c])) {
-                        relations.delete(triple);
-                    }
-                });
+                this.subset(query).forEach((triple) =>
+                    relations.delete(triple),
+                );
             }
 
             return relations;
         });
+    }
+
+    subset(query: TripleQuery): Set<Triple> {
+        const constraints = Object.keys(query).filter(Boolean);
+        const values = new Set<Triple>();
+
+        get(this).forEach((triple) => {
+            if (constraints.every((c) => triple[c] === query[c]))
+                values.add(triple);
+        });
+
+        return values;
     }
 }
 
