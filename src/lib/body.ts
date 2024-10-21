@@ -13,11 +13,13 @@ import type { Resource } from "$lib/resources.ts";
 import { RelationStore } from "$lib/relations.ts";
 import { rangeToClass } from "$lib/ranges.ts";
 
-export class bodyStore {
-    entspans: Readable<HTMLSpanElementp[]>;
+export class bodyStore implements Readable<Element> {
+    entspans: Readable<HTMLSpanElement[]>;
     resources: Readable<Map<string, Resource>>;
     relations: RelationStore;
     classes: Set<string>;
+    subscribe;
+    update;
 
     constructor(content: Element) {
         // Initialize all entity spans, making sure they have an ID and a button.
@@ -30,9 +32,8 @@ export class bodyStore {
 
         // Initialize the body store proper
         const body = writable(content);
-        const { subscribe, set, update } = body;
+        const { subscribe, update } = body;
         this.subscribe = subscribe;
-        this.set = set;
         this.update = update;
 
         // Initialize stores for entity spans, resources and relations
