@@ -1,5 +1,5 @@
 import { writable } from "svelte/store";
-import type { Readable } from "svelte/store";
+import type { Readable, Subscriber } from "svelte/store";
 
 import type { Resource } from "$lib/resources.ts";
 
@@ -10,7 +10,7 @@ export interface ResourcePair {
 
 export interface Triple {
     subject: Resource;
-    predicate: Resource;
+    predicate: string;
     object: Resource;
 }
 
@@ -20,8 +20,10 @@ export interface Triple {
  * The store keeps track of updates to the resource store, in order to remove
  * relations referring to resources that have been removed.
  */
-export class RelationStore {
+export class RelationStore implements Readable<Set<Triple>> {
     vertices = new Set<Resource>();
+    subscribe;
+    update;
 
     /**
      * Generates the relation store and subscribes to the resource store.
@@ -30,16 +32,16 @@ export class RelationStore {
      * @param {Readable<Map<string, Resource>>} Svelte resource store
      */
     constructor(resources: Readable<Map<string, Resource>>) {
-        const { subscribe, set, update } = writable<Set<Triple>>(new Set());
+        const { subscribe, update } = writable<Set<Triple>>(new Set());
 
         this.subscribe = subscribe;
         this.update = update;
 
         this.subscribe((relations) =>
             relations.forEach((triple) => {
-                const { subj, obj } = triple;
-                this.vertices.add(subj);
-                this.vertices.add(obj);
+                const { subject, object } = triple;
+                this.vertices.add(subject);
+                this.vertices.add(object);
             }),
         );
 
@@ -51,24 +53,28 @@ export class RelationStore {
     }
 
     add(subject: Resource, predicate: string, object: Resource): void {
-        this.update((relations) =>
-            relations.add({ subject, predicate, object }),
-        );
+        this.update((relations) => {
+            relations.add({ subject, predicate, object });
+            return relations;
+        });
     }
 
     remove(subject: Resource, predicate: string, object: Resource): void {
-        this.update((relations) =>
-            relations.delete({ subject, predicate, object }),
-        );
+        this.update((relations) => {
+            relations.delete({ subject, predicate, object });
+
+            return relations;
+        });
     }
 
     removeVertex(vertex: Resource): void {
-        this.update((relations) =>
+        this.update((relations) => {
             relations.forEach((triple) => {
                 if (triple.subject === vertex || triple.object === vertex)
                     relations.delete(triple);
-            }),
-        );
+            });
+            return relations;
+        });
     }
 }
 

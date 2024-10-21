@@ -1,5 +1,5 @@
 <script lang="ts">
-    export let header: Document | null = null;
+    export let header: Element | null = null;
 </script>
 
 {#if header}

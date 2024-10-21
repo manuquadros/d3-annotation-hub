@@ -9,13 +9,14 @@ import {
     entID,
 } from "$lib/utils.ts";
 import { resourceStore } from "$lib/resources.ts";
-import type { Resource, ResourcePair } from "$lib/resources.ts";
+import type { Resource } from "$lib/resources.ts";
 import { RelationStore } from "$lib/relations.ts";
 import { rangeToClass } from "$lib/ranges.ts";
 
 export class bodyStore {
     entspans: Readable<HTMLSpanElementp[]>;
     resources: Readable<Map<string, Resource>>;
+    relations: RelationStore;
     classes: Set<string>;
 
     constructor(content: Element) {
