@@ -6,26 +6,29 @@ export const enzymeLabel = "d3o:Enzyme";
 export const bacteriaLabel = "d3o:Bacteria";
 
 export class Resource {
-    resid: string;
-    label: string = "";
-    ids: Set<string> = new Set();
-    spans: HTMLSpanElement[] = [];
-    unsubscribe: Unsubscriber;
+    resourceid: string;
+    label: string;
+    spanids = new Set<string>();
+    spans: HTMLSpanElement[];
 
-    constructor(resourceID: string, entspans: Readable<HTMLSpanElement[]>) {
-        this.resid = resourceID;
+    /**
+     * Build a Resource instance from an HTMLSpanElement array
+     *
+     * @param spans HTMLSpanElement[] - Span elements
+     */
+    constructor(spans: HTMLSpanElement[] | NodeListOf<HTMLSpanElement>) {
+        this.resourceid = "";
+        this.label = "";
 
-        this.unsubscribe = entspans.subscribe((entspans) => {
-            const spans = entspans.filter(
-                (span) => span.getAttribute("resource") === resourceID,
-            );
+        this.spans = spans instanceof Array ? spans : Array.from(spans);
 
-            this.spans = spans;
+        this.spans.forEach((span) => {
+            if (!this.resourceid || !this.label) {
+                this.resourceid = span.getAttribute("resource") as string;
+                this.label = span.getAttribute("typeof") as string;
+            }
 
-            if (!this.label && spans.length)
-                this.label = spans[0].getAttribute("typeof") as string;
-
-            spans.forEach((span) => this.ids.add(span.id as string));
+            this.spanids.add(span.id);
         });
     }
 
@@ -72,8 +75,7 @@ export class Resource {
  *
  * // The resources map will automatically update when spans change:
  * // - New resources are created for new span elements
- * // - Existing resources are maintained for unchanged spans
- * // - Resources are cleaned up (unsubscribed) when their spans are removed
+ * // - Resources are cleaned up when their spans are removed
  */
 export function resourceStore(
     entspans: Readable<HTMLSpanElement[]>,
@@ -81,28 +83,29 @@ export function resourceStore(
     return derived(
         entspans,
         ($entspans, set, update) => {
-            const resourceIDs = new Set(
-                $entspans.map(
-                    (span) => span.getAttribute("resource") as string,
-                ),
-            );
+            for (const span of $entspans) {
+                const resourceid = span.getAttribute("resource") as string;
 
-            update((resources) => {
-                Array.from(resources.keys()).forEach((key) => {
-                    if (!resourceIDs.has(key)) {
-                        resources.get(key)?.unsubscribe();
-                        resources.delete(key);
+                update((resources) => {
+                    if (!resources.has(resourceid)) {
+                        entspans.subscribe((spans) => {
+                            const subset = spans.filter(
+                                (span) =>
+                                    span.getAttribute("resource") ===
+                                    resourceid,
+                            );
+
+                            resources.set(resourceid, new Resource(subset));
+                        });
                     }
-                });
 
-                resourceIDs.forEach((key) => {
-                    if (!resources.has(key)) {
-                        resources.set(key, new Resource(key, entspans));
-                    }
-                });
+                    resources.forEach((res, key, map) => {
+                        if (!res.spanids.size) map.delete(key);
+                    });
 
-                return resources;
-            });
+                    return resources;
+                });
+            }
         },
         new Map<string, Resource>(),
     );
