@@ -18,6 +18,7 @@
     let error: Error | null = null;
     let header: HTMLDivElement | null = null;
     let body: Readable<Element>;
+    setContext("body", body);
 
     async function loadChunk(): Promise<void> {
         try {
@@ -38,8 +39,6 @@
                 "text/html",
             );
             header = content.querySelector(".metadata");
-            body = new bodyStore(content.querySelector(".chunk-body") as Element);
-            setContext("body", body);
         } catch (err) {
             console.error(err);
             error =
@@ -51,8 +50,9 @@
         }
     }
 
-    onMount(() => {
-        loadChunk();
+    onMount(async () => {
+        await loadChunk();
+        body = new bodyStore(content?.querySelector(".chunk-body") as Element);
     });
 </script>
 
