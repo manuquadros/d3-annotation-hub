@@ -27,7 +27,6 @@ export class bodyStore implements Readable<Element> {
 
         spans.forEach((span) => {
             span.id = String(entID());
-            spanWrappedButton(span);
         });
 
         // Initialize the body store proper
@@ -49,6 +48,14 @@ export class bodyStore implements Readable<Element> {
         this.resources.subscribe((resources) =>
             resources.forEach((res) => this.classes.add(res.label)),
         );
+    }
+
+    buttonize() {
+        this.update((body) => {
+            const spans = body.querySelectorAll("span");
+            spans.forEach(spanWrappedButton);
+            return body;
+        });
     }
 
     // TODO: update the relations store as well!
