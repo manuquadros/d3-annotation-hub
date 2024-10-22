@@ -27,7 +27,8 @@ export function newSpan(label: string, className: string) {
 export function spanWrappedButton(span: HTMLSpanElement): HTMLSpanElement {
     const key = span.getAttribute("resource") as string;
     const label = span.getAttribute("typeof") as string;
-    const name = span.textContent;
+    const name = span.textContent as string;
+    span.textContent = "";
 
     new ChunkButton({
         target: span,

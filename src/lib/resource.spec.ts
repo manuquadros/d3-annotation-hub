@@ -2,7 +2,7 @@ import { expect, test } from "vitest";
 import { Resource } from "$lib/resources.ts";
 
 const doc = new DOMParser().parseFromString(
-    '<span class="entity" resource="#T2" typeof="d3o:Bacteria", id="1">R. erythropolis</span><span class="entity" resource="#T2" typeof="d3o:Bacteria", id="2">R. erythropolis</span><span class="entity" resource="#T2" typeof="d3o:Bacteria", id="3">Rhodococcus erythropolis</span>',
+    '<span class="entity" resource="#T2" typeof="d3o:Bacteria" id="1">R. erythropolis</span><span class="entity" resource="#T2" typeof="d3o:Bacteria" id="2">R. erythropolis</span><span class="entity" resource="#T2" typeof="d3o:Bacteria" id="3"><button class="entity" resource="#T2" typeof="d3o:Bacteria" type="button">Rhodococcus erythropolis</button></span>',
     "text/html",
 );
 
