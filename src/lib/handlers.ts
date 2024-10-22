@@ -1,12 +1,10 @@
 import {
-    resources,
     sameClass,
     isStrain,
     isBacteria,
     isOrganism,
     isEnzyme,
 } from "$lib/resources.ts";
-import { relations } from "$lib/relations.ts";
 import { trimRange } from "$lib/ranges.ts";
 import { optionsDropdown, removeDropdown } from "$lib/dropdown";
 import type { bodyStore } from "$lib/body.ts";

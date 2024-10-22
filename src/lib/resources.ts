@@ -125,28 +125,6 @@ function nextResourceID(resources: ResourceMap): string {
     }
 }
 
-// const labels = [enzymeLabel, strainLabel, bacteriaLabel];
-
-// type labelToResources = Map<string, Array<string>>;
-
-// export const classes: Readable<labelToResources> = derived(
-//     resources,
-//     ($resources) => {
-//         const m = new Map();
-
-//         labels.forEach((label) =>
-//             m.set(
-//                 label,
-//                 Array.from($resources.keys()).filter(
-//                     (key) => $resources.get(key)?.label === label,
-//                 ),
-//             ),
-//         );
-
-//         return m;
-//     },
-// );
-
 export function sameClass(a: Resource, b: Resource): boolean {
     return a.label === b.label;
 }

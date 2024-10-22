@@ -1,9 +1,3 @@
-import {
-    dragStart,
-    dragOver,
-    handleDrop,
-    handleSpanClick,
-} from "$lib/handlers.ts";
 import { rangeToClass } from "$lib/ranges.ts";
 
 import ChunkButton from "$lib/components/ChunkButton.svelte";
@@ -38,34 +32,9 @@ export function spanWrappedButton(span: HTMLSpanElement): HTMLSpanElement {
     new ChunkButton({
         target: span,
         props: { key, label, name },
-        hydrate: true,
     });
 
     return span;
-}
-
-export function createButton(
-    className: string,
-    label: string,
-    draggable: boolean = false,
-    name: string,
-): HTMLButtonElement {
-    const button = document.createElement("button");
-
-    button.type = "button";
-    if (draggable) {
-        button.draggable = true;
-        button.addEventListener("dragstart", dragStart);
-        button.addEventListener("dragover", dragOver);
-        button.addEventListener("drop", handleDrop);
-    }
-
-    button.className = className;
-    button.setAttribute("typeof", label);
-    button.textContent = name;
-    button.addEventListener("click", handleSpanClick);
-
-    return button;
 }
 
 export function wrapRange(range: Range, resource: Resource): HTMLSpanElement {

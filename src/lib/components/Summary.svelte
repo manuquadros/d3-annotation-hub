@@ -30,7 +30,6 @@
         <h4>{plural(label.split(":")[1])}</h4>
         {#each $resources.entries() as [key, resource]}
             {#if resource.label === label}
-                {resource.name}
                 <ResourceButton {key} {resource} />
             {/if}
         {/each}
