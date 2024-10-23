@@ -7,6 +7,7 @@ import Summary from "$lib/components/Summary.svelte";
 import ChunkBody from "$lib/components/ChunkBody.svelte";
 import { dragAndDrop } from "$lib/test_utils.ts";
 import { bodyStore } from "$lib/body.ts";
+import { strainLabel } from "$lib/resources";
 
 const chunk3 = `<annotation>
   <div class="metadata">
@@ -96,9 +97,17 @@ test("merging ATCC 25544", async () => {
         .getAllByText("25544")
         .map((b) => b.parentElement);
 
-    atccSpans.forEach((span) =>
-        expect(span?.getAttribute("resource")).toEqual("#T10"),
-    );
+    atccSpans.forEach((span) => {
+        expect(span?.getAttribute("resource")).toEqual("#T10");
+        expect(span?.getAttribute("typeof")).toEqual(strainLabel);
+
+        expect(span?.firstElementChild?.getAttribute("resource")).toEqual(
+            "#T10",
+        );
+        expect(span?.firstElementChild?.getAttribute("typeof")).toEqual(
+            strainLabel,
+        );
+    });
     numberSpans.forEach((span) =>
         expect(span?.getAttribute("resource")).toEqual("#T10"),
     );
