@@ -44,8 +44,6 @@ function setup() {
     });
     const summary = render(Summary, { target: summaryContainer, context });
 
-    body.buttonify();
-
     return {
         user,
         body,

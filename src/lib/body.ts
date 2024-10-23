@@ -1,25 +1,21 @@
 import { writable, derived, get } from "svelte/store";
-import type { Readable } from "svelte/store";
+import type { Readable, Writable } from "svelte/store";
 
-import {
-    isValidEntitySpan,
-    spanWrappedButton,
-    newSpan,
-    wrapRange,
-    entID,
-} from "$lib/utils.ts";
+import { isValidEntitySpan, newSpan, wrapRange, entID } from "$lib/utils.ts";
 import { resourceStore } from "$lib/resources.ts";
 import type { Resource } from "$lib/resources.ts";
 import { RelationStore } from "$lib/relations.ts";
 import { rangeToClass } from "$lib/ranges.ts";
 
-export class bodyStore implements Readable<Element> {
-    entspans: Readable<HTMLSpanElement[]>;
+export class bodyStore implements Writable<Element> {
+    entspans: Readable<Map<string, HTMLSpanElement>>;
+    spans: HTMLSpanElement[] = [];
     resources: Readable<Map<string, Resource>>;
     relations: RelationStore;
     classes: Set<string>;
     subscribe;
     update;
+    set;
 
     constructor(content: Element) {
         // Initialize all entity spans, making sure they have an ID and a button.
@@ -31,31 +27,29 @@ export class bodyStore implements Readable<Element> {
 
         // Initialize the body store proper
         const body = writable(content);
-        const { subscribe, update } = body;
+        const { subscribe, set, update } = body;
         this.subscribe = subscribe;
         this.update = update;
+        this.set = set;
 
         // Initialize stores for entity spans, resources and relations
         this.entspans = derived(body, (body) => {
-            const spans = Array.from(body.querySelectorAll("span"));
-            return spans.filter((span) => isValidEntitySpan(span));
+            let spans = Array.from(body.querySelectorAll("span"));
+            spans = spans.filter((span) => isValidEntitySpan(span));
+            return new Map(spans.map((span) => [span.id, span]));
         });
         this.resources = resourceStore(this.entspans);
         this.relations = new RelationStore(this.resources);
 
-        // Create a subscription for this.classes
+        // Create subscriptions for this.classes and this.spans
         this.classes = new Set();
         this.resources.subscribe((resources) =>
             resources.forEach((res) => this.classes.add(res.label)),
         );
-    }
 
-    buttonify() {
-        this.update((body) => {
-            const spans = body.querySelectorAll("span");
-            spans.forEach(spanWrappedButton);
-            return body;
-        });
+        this.entspans.subscribe(
+            (spans) => (this.spans = Array.from(spans.values())),
+        );
     }
 
     // TODO: update the relations store as well!
@@ -106,7 +100,7 @@ export class bodyStore implements Readable<Element> {
 
     removeResource(resourceID: string): void {
         this.update((body) => {
-            const spans = entitySpans.filter(
+            const spans = this.spans.filter(
                 (span) => span.getAttribute("resource") === resourceID,
             );
 

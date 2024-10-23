@@ -78,18 +78,19 @@ export class Resource {
  * // - Resources are cleaned up when their spans are removed
  */
 export function resourceStore(
-    entspans: Readable<HTMLSpanElement[]>,
+    entspans: Readable<Map<string, HTMLSpanElement>>,
 ): Readable<Map<string, Resource>> {
     return derived(
         entspans,
         ($entspans, set, update) => {
-            for (const span of $entspans) {
+            for (const span of $entspans.values()) {
                 const resourceid = span.getAttribute("resource") as string;
 
                 update((resources) => {
                     if (!resources.has(resourceid)) {
                         entspans.subscribe((spans) => {
-                            const subset = spans.filter(
+                            const htmlspans = Array.from(spans.values());
+                            const subset = htmlspans.filter(
                                 (span) =>
                                     span.getAttribute("resource") ===
                                     resourceid,

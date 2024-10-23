@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { getContext } from "svelte";
+    import { getContext, onMount } from "svelte";
     import {
         handleOptionClick,
         handleTextSelection,
@@ -7,16 +7,37 @@
         handleKeyPress,
     } from "$lib/handlers.ts";
     import { optionsDropdown, removeDropdown } from "$lib/dropdown.ts";
-    import type { Readable } from "svelte/store";
+    import type { bodyStore } from "$lib/body";
+    import ChunkButton from "$lib/components/ChunkButton.svelte";
 
-    const body: Readable<Element> = getContext("body");
+    let body: bodyStore = getContext("body");
+    $: entspans = body.entspans;
+
+    onMount(() => {
+        if ($body) {
+            const spans = body.spans;
+            body.update((body) => {
+                spans.forEach((span) => {
+                    const spanid = span.id as string;
+                    const name = span.textContent || "";
+                    span.textContent = "";
+                    new ChunkButton({
+                        target: span,
+                        props: { spanid, name },
+                        context: new Map([["entspans", entspans]]),
+                    });
+                });
+                return body;
+            });
+        }
+    });
+
+    $: bodyHTML = $body?.outerHTML || "";
 </script>
 
 <div class="chunk-body">
     <!-- on:mouseup={handleTextSelection}> -->
-    {#if body}
-        {@html $body.outerHTML}
-    {/if}
+    {@html bodyHTML}
 </div>
 
 <svelte:window on:keyup|preventDefault={handleKeyPress} />

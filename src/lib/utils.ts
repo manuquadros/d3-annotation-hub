@@ -24,20 +24,6 @@ export function newSpan(label: string, className: string) {
     return span;
 }
 
-export function spanWrappedButton(span: HTMLSpanElement): HTMLSpanElement {
-    const key = span.getAttribute("resource") as string;
-    const label = span.getAttribute("typeof") as string;
-    const name = span.textContent as string;
-    span.textContent = "";
-
-    new ChunkButton({
-        target: span,
-        props: { key, label, name },
-    });
-
-    return span;
-}
-
 export function wrapRange(range: Range, resource: Resource): HTMLSpanElement {
     const span = newSpan(resource.label, rangeToClass(range, "entity"));
     span.setAttribute("resource", resource.name);
