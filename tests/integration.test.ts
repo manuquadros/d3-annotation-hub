@@ -95,9 +95,9 @@ test("merging ATCC 25544", async () => {
         .map((b) => b.parentElement);
 
     atccSpans.forEach((span) =>
-        expect(span.getAttribute("resource")).toEqual("#T10"),
+        expect(span?.getAttribute("resource")).toEqual("#T10"),
     );
     numberSpans.forEach((span) =>
-        expect(span.getAttribute("resource")).toEqual("#T10"),
+        expect(span?.getAttribute("resource")).toEqual("#T10"),
     );
 });
