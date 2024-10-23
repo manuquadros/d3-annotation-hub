@@ -48,14 +48,16 @@ export class RelationStore implements Readable<Set<Triple>> {
 
         this.subscribe((relations) => {
             relations.forEach((triple) => {
-                const { subject, object } = triple;
+                const { subject, predicate, object } = triple;
                 this.vertices.add(subject);
                 this.vertices.add(object);
+                this.predicates.add(predicate);
             });
 
-            this.predicates = new Set(
-                relations[Symbol.iterator]().map((triple) => triple.predicate),
-            );
+            this.predicates.forEach((pred) => {
+                if (!Array.from(relations).find((t) => t.predicate === pred))
+                    this.predicates.delete(pred);
+            });
         });
 
         // subscription for removing triples referencing nonexistent resources

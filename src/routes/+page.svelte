@@ -35,6 +35,6 @@
     onMount(async () => await parse(document));
 </script>
 
-{#if header && $body}
+{#if header && body.content}
     <App {header} bind:body />
 {/if}

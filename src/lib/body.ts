@@ -7,15 +7,13 @@ import type { Resource } from "$lib/resources.ts";
 import { RelationStore } from "$lib/relations.ts";
 import { rangeToClass } from "$lib/ranges.ts";
 
-export class bodyStore implements Writable<Element> {
+export class bodyStore {
+    content: Writable<Element>;
     entspans: Readable<Map<string, HTMLSpanElement>>;
     spans: HTMLSpanElement[] = [];
     resources: Readable<Map<string, Resource>>;
     relations: RelationStore;
     classes: Set<string>;
-    subscribe;
-    update;
-    set;
 
     constructor(content: Element) {
         // Initialize all entity spans, making sure they have an ID and a button.
@@ -26,17 +24,14 @@ export class bodyStore implements Writable<Element> {
         });
 
         // Initialize the body store proper
-        const body = writable(content);
-        const { subscribe, set, update } = body;
-        this.subscribe = subscribe;
-        this.update = update;
-        this.set = set;
+        this.content = writable(content);
 
         // Initialize stores for entity spans, resources and relations
-        this.entspans = derived(body, (body) => {
+        this.entspans = derived(this.content, (body) => {
             let spans = Array.from(body.querySelectorAll("span"));
             spans = spans.filter((span) => isValidEntitySpan(span));
-            return new Map(spans.map((span) => [span.id, span]));
+            const spanMap = new Map(spans.map((span) => [span.id, span]));
+            return spanMap;
         });
         this.resources = resourceStore(this.entspans);
         this.relations = new RelationStore(this.resources);
@@ -60,7 +55,7 @@ export class bodyStore implements Writable<Element> {
         const source = this.getResource(_source);
         const target = this.getResource(_target);
 
-        this.update((body) => {
+        this.content.update((body) => {
             if (source && source.label === target?.label)
                 this.replaceResource(source, target);
 
@@ -73,7 +68,7 @@ export class bodyStore implements Writable<Element> {
     }
 
     removeAnnotation(id: string) {
-        this.update((body) => {
+        this.content.update((body) => {
             const span = body.querySelector(`#${CSS.escape(id)}`);
             const parent = span?.parentNode as Node;
 
@@ -99,7 +94,7 @@ export class bodyStore implements Writable<Element> {
     }
 
     removeResource(resourceID: string): void {
-        this.update((body) => {
+        this.content.update((body) => {
             const spans = this.spans.filter(
                 (span) => span.getAttribute("resource") === resourceID,
             );
@@ -111,17 +106,11 @@ export class bodyStore implements Writable<Element> {
     }
 
     annotateRange(label: string, range: Range) {
-        this.update((body) => {
-            let span = newSpan(label, rangeToClass(range, "entity"));
+        const span = newSpan(label, rangeToClass(range, "entity"));
 
-            range.surroundContents(span);
-            resources.storeEntitySpan(span) as Resource;
-            //body.propagate(resource);
+        range.surroundContents(span);
 
-            spanWrappedButton(span) as HTMLButtonElement;
-
-            return document.querySelector(".chunk-body") as Element;
-        });
+        //propagate
     }
 
     replaceResource(
@@ -133,7 +122,7 @@ export class bodyStore implements Writable<Element> {
         const target =
             typeof _target === "string" ? _target : _target.resourceid;
 
-        this.update((body) => {
+        this.content.update((body) => {
             const spans = body.querySelectorAll(`span[resource="${source}"]`);
 
             spans.forEach((span) => span.setAttribute("resource", target));
@@ -154,7 +143,7 @@ export class bodyStore implements Writable<Element> {
             return range;
         }
 
-        this.update((body) => {
+        this.content.update((body) => {
             if (body) {
                 const textNodes = getAllTextNodes(body);
 

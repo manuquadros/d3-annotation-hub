@@ -10,13 +10,21 @@
     import type { bodyStore } from "$lib/body";
     import ChunkButton from "$lib/components/ChunkButton.svelte";
 
-    let body: bodyStore = getContext("body");
-    $: entspans = body.entspans;
+    const body: bodyStore = getContext("body");
+    let bodyDiv: HTMLElement;
 
-    onMount(() => {
-        if ($body) {
-            const spans = body.spans;
-            body.update((body) => {
+    $: if (bodyDiv) {
+        body.content.update((body) => bodyDiv);
+    }
+
+    $: entspanStore = body.entspans;
+    $: entspans = $entspanStore;
+    $: {
+        if (body.content) {
+            const spans = body.spans.filter(
+                (span) => span.firstChild?.nodeName !== "BUTTON",
+            );
+            body.content.update((body) => {
                 spans.forEach((span) => {
                     const spanid = span.id as string;
                     const name = span.textContent || "";
@@ -30,14 +38,17 @@
                 return body;
             });
         }
-    });
-
-    $: bodyHTML = $body?.outerHTML || "";
+    }
+    $: content = body.content;
 </script>
 
-<div class="chunk-body">
-    <!-- on:mouseup={handleTextSelection}> -->
-    {@html bodyHTML}
+<div
+    class="chunk-body"
+    on:mouseup={handleTextSelection}
+    prefix={$content.getAttribute("prefix")}
+    bind:this={bodyDiv}
+>
+    {@html $content.innerHTML}
 </div>
 
 <svelte:window on:keyup|preventDefault={handleKeyPress} />
@@ -49,9 +60,15 @@
                left: {$optionsDropdown.x}px;
                top: {$optionsDropdown.y}px;"
     >
-        <button on:click={() => handleOptionClick("Enzyme")}>Enzyme</button>
-        <button on:click={() => handleOptionClick("Bacteria")}>Bacteria</button>
-        <button on:click={() => handleOptionClick("Strain")}>Strain</button>
+        <button on:click={() => handleOptionClick("Enzyme", body)}
+            >Enzyme</button
+        >
+        <button on:click={() => handleOptionClick("Bacteria", body)}
+            >Bacteria</button
+        >
+        <button on:click={() => handleOptionClick("Strain", body)}
+            >Strain</button
+        >
     </div>
 {/if}
 

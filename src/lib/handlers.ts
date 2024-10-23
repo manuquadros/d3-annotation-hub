@@ -9,6 +9,7 @@ import { trimRange } from "$lib/ranges.ts";
 import { optionsDropdown, removeDropdown } from "$lib/dropdown";
 import type { bodyStore } from "$lib/body.ts";
 import { triple } from "./relations";
+import { get } from "svelte/store";
 
 let selectedText = "";
 let selectedSpan: HTMLSpanElement | null = null;
@@ -54,13 +55,13 @@ export function handleSpanClick(event: MouseEvent) {
     }
 }
 
-export function handleOptionClick(option: string): void {
+export function handleOptionClick(option: string, context: bodyStore): void {
     const selection = window.getSelection();
     if (selection && !selection.isCollapsed) {
         const range = trimRange(selection.getRangeAt(0));
         const label = `d3o:${option}`;
 
-        body.annotateRange(label, range);
+        context.annotateRange(label, range);
         selection.removeAllRanges();
     }
     optionsDropdown.hide();

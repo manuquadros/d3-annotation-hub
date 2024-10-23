@@ -9,7 +9,7 @@
     let entspans: Readable<Map<string, HTMLSpanElement>> =
         getContext("entspans");
 
-    $: span = $entspans?.get(spanid);
+    $: span = entspans?.get(spanid);
     $: resourceid = span?.getAttribute("resource") || "";
     $: label = span?.getAttribute("typeof") || "";
 </script>
