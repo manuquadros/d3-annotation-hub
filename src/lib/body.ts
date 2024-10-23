@@ -59,16 +59,23 @@ export class bodyStore implements Readable<Element> {
     }
 
     // TODO: update the relations store as well!
-    mergeResources(_source: string, _target: string): void {
-        this.update((body) => {
-            const source = get(this.resources).get(_source);
-            const target = get(this.resources).get(_target);
+    mergeResources(
+        _source: string | Resource,
+        _target: string | Resource,
+    ): void {
+        const source = this.getResource(_source);
+        const target = this.getResource(_target);
 
+        this.update((body) => {
             if (source && source.label === target?.label)
-                this.replaceResource(_source, _target);
+                this.replaceResource(source, target);
 
             return body;
         });
+    }
+
+    getResource(res: string | Resource): Resource | undefined {
+        return typeof res === "string" ? get(this.resources).get(res) : res;
     }
 
     removeAnnotation(id: string) {
@@ -123,7 +130,15 @@ export class bodyStore implements Readable<Element> {
         });
     }
 
-    replaceResource(source: string, target: string): void {
+    replaceResource(
+        _source: string | Resource,
+        _target: string | Resource,
+    ): void {
+        const source =
+            typeof _source === "string" ? _source : _source.resourceid;
+        const target =
+            typeof _target === "string" ? _target : _target.resourceid;
+
         this.update((body) => {
             const spans = body.querySelectorAll(`span[resource="${source}"]`);
 
