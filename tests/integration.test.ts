@@ -43,7 +43,7 @@ function setup() {
     });
     const summary = render(Summary, { target: summaryContainer, context });
 
-    body.buttonize();
+    body.buttonify();
 
     return {
         user,

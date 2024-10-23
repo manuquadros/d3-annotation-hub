@@ -50,7 +50,7 @@ export class bodyStore implements Readable<Element> {
         );
     }
 
-    buttonize() {
+    buttonify() {
         this.update((body) => {
             const spans = body.querySelectorAll("span");
             spans.forEach(spanWrappedButton);

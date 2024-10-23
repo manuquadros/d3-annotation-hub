@@ -33,7 +33,7 @@
     setContext("body", body);
 
     onMount(() => {
-        body?.buttonize();
+        body?.buttonify();
     });
 </script>
 
