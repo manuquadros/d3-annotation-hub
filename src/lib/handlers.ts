@@ -8,6 +8,7 @@ import {
 import { trimRange } from "$lib/ranges.ts";
 import { optionsDropdown, removeDropdown } from "$lib/dropdown";
 import type { bodyStore } from "$lib/body.ts";
+import { triple } from "./relations";
 
 let selectedText = "";
 let selectedSpan: HTMLSpanElement | null = null;
@@ -96,20 +97,22 @@ export function handleRemove() {
 }
 
 export function handleDrop(e: DragEvent, context: bodyStore): void {
-    const sourceRes = e.dataTransfer.getData("text/plain");
-    const targetRes = resourceFromTarget(e.target);
+    const sourceRes = context.getResource(
+        e.dataTransfer?.getData("text/plain") as string,
+    );
+    const targetRes = context.getResource(resourceFromTarget(e.target));
     const { relations } = context;
     if (sourceRes && targetRes) {
         if (sameClass(sourceRes, targetRes)) {
             context.mergeResources(sourceRes, targetRes);
         } else if (isStrain(sourceRes) && isBacteria(targetRes)) {
-            relations.add(sourceRes, "d3o:hasSpecies", targetRes);
+            relations.add(triple(sourceRes, "d3o:hasSpecies", targetRes));
         } else if (isBacteria(sourceRes) && isStrain(targetRes)) {
-            relations.add(targetRes, "d3o:hasSpecies", sourceRes);
+            relations.add(triple(targetRes, "d3o:hasSpecies", sourceRes));
         } else if (isEnzyme(sourceRes) && isOrganism(targetRes)) {
-            relations.add(targetRes, "d3o:hasEnzyme", sourceRes);
+            relations.add(triple(targetRes, "d3o:hasEnzyme", sourceRes));
         } else if (isOrganism(sourceRes) && isEnzyme(targetRes)) {
-            relations.add(sourceRes, "d3o:hasEnzyme", targetRes);
+            relations.add(triple(sourceRes, "d3o:hasEnzyme", targetRes));
         }
     }
 }
@@ -145,8 +148,8 @@ export function getOptions(): Array<string> {
 }
 
 export function dragStart(e: DragEvent): void {
-    e.dataTransfer.clearData();
-    e.dataTransfer.setData("text/plain", resourceFromTarget(e.target));
+    e.dataTransfer?.clearData();
+    e.dataTransfer?.setData("text/plain", resourceFromTarget(e.target));
 }
 
 export function dragOver(e: DragEvent): void {

@@ -118,3 +118,11 @@ export function displayPredicate(predicate: string): string | undefined {
             return "has enzyme";
     }
 }
+
+export function triple(
+    subject: Resource,
+    predicate: string,
+    object: Resource,
+): Triple {
+    return { subject, predicate, object };
+}
