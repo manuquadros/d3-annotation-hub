@@ -1,18 +1,19 @@
 import { fireEvent } from "@testing-library/svelte";
+import type { UserEvent } from "@testing-library/user-event";
 
 class MockDataTransfer {
-    data = {};
+    data = new Map<string, string>();
 
     setData(format: string, data: string) {
-        this.data[format] = data;
+        this.data.set(format, data);
     }
 
     getData(format: string) {
-        return this.data[format];
+        return this.data.get(format);
     }
 
     clearData() {
-        this.data = {};
+        this.data = new Map();
     }
 }
 

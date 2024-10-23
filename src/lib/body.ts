@@ -143,12 +143,16 @@ export class bodyStore implements Writable<Element> {
     }
 
     propagate(resource: Resource): void {
-        const getRange = function (startIndex, endIndex, textNode) {
+        function getRange(
+            startIndex: number,
+            endIndex: number,
+            textNode: Text,
+        ): Range {
             const range = document.createRange();
             range.setStart(textNode, startIndex);
             range.setEnd(textNode, Math.min(endIndex, textNode.length));
             return range;
-        };
+        }
 
         this.update((body) => {
             if (body) {
@@ -156,7 +160,7 @@ export class bodyStore implements Writable<Element> {
 
                 for (let i = 0; i < textNodes.length; i++) {
                     let textNode = textNodes[i];
-                    let text = textNode.textContent;
+                    let text = textNode.textContent || "";
 
                     for (const name of resource.names) {
                         const regex = new RegExp(
@@ -176,7 +180,7 @@ export class bodyStore implements Writable<Element> {
                                 const span = wrapRange(range, resource);
 
                                 // Update text node reference and content
-                                textNode = span.nextSibling as Node;
+                                textNode = span.nextSibling as Text;
                                 if (
                                     !textNode ||
                                     textNode.nodeType !== Node.TEXT_NODE
@@ -195,13 +199,13 @@ export class bodyStore implements Writable<Element> {
     }
 }
 
-function getAllTextNodes(element: Element): Node[] {
-    const textNodes: Node[] = [];
+function getAllTextNodes(element: Element): Text[] {
+    const textNodes: Text[] = [];
     const treeWalker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
 
     let node: Node | null;
     while ((node = treeWalker.nextNode())) {
-        textNodes.push(node);
+        textNodes.push(node as Text);
     }
 
     return textNodes;
@@ -213,7 +217,7 @@ function escapeRegExp(string: string): string {
 }
 
 function isWithinEntitySpan(range: Range): boolean {
-    let node = range.commonAncestorContainer;
+    let node: Node | null = range.commonAncestorContainer;
     while (node && node !== document.body) {
         if (
             node.nodeType === Node.ELEMENT_NODE &&

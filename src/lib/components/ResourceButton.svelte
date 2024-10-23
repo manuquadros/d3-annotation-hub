@@ -7,11 +7,12 @@
         handleSpanClick,
     } from "$lib/handlers";
     import type { Resource } from "$lib/resources.ts";
+    import type { bodyStore } from "$lib/body";
 
     export let key: string;
     export let resource: Resource;
 
-    const body = getContext("body");
+    const body: bodyStore = getContext("body");
 </script>
 
 <button
