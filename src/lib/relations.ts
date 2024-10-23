@@ -58,9 +58,13 @@ export class RelationStore implements Readable<Set<Triple>> {
             );
         });
 
+        // subscription for removing triples referencing nonexistent resources
         resources.subscribe((resources) =>
             this.vertices.forEach((res) => {
-                if (!resources.has(res.resid)) this.removeVertex(res);
+                if (!resources.has(res.resourceid)) {
+                    this.remove({ subject: res });
+                    this.remove({ object: res });
+                }
             }),
         );
     }
