@@ -112,7 +112,7 @@ export function resourceStore(
     );
 }
 
-function nextResourceID(resources: ResourceMap): string {
+export function nextResourceID(resources: ResourceMap): string {
     const keys = Array.from(resources.keys()).toSorted(
         (a, b) => Number(a.slice(2)) - Number(b.slice(2)),
     );

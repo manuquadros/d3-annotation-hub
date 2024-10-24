@@ -16,10 +16,15 @@ export function isValidEntitySpan(span: HTMLSpanElement): boolean {
     return label !== outOfScope && resid !== null;
 }
 
-export function newSpan(label: string, className: string): HTMLSpanElement {
+export function newSpan(
+    label: string,
+    className: string,
+    resource: string,
+): HTMLSpanElement {
     const span = document.createElement("span");
     span.className = className;
     span.setAttribute("typeof", label);
+    span.setAttribute("resource", resource);
     span.id = String(entID());
 
     return span;

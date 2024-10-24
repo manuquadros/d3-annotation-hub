@@ -2,8 +2,11 @@ import { writable, derived, get } from "svelte/store";
 import type { Readable, Writable } from "svelte/store";
 
 import { isValidEntitySpan, newSpan, wrapRange, entID } from "$lib/utils.ts";
-import { resourceStore } from "$lib/resources.ts";
-import type { Resource } from "$lib/resources.ts";
+import {
+    resourceStore,
+    nextResourceID,
+    type Resource,
+} from "$lib/resources.ts";
 import { RelationStore } from "$lib/relations.ts";
 import { rangeToClass } from "$lib/ranges.ts";
 
@@ -14,6 +17,7 @@ export class bodyStore {
     resources: Readable<Map<string, Resource>>;
     relations: RelationStore;
     classes: Set<string>;
+    nextResourceId: string;
 
     constructor(content: Element) {
         // Initialize all entity spans, making sure they have an ID and a button.
@@ -38,9 +42,10 @@ export class bodyStore {
 
         // Create subscriptions for this.classes and this.spans
         this.classes = new Set();
-        this.resources.subscribe((resources) =>
-            resources.forEach((res) => this.classes.add(res.label)),
-        );
+        this.resources.subscribe((resources) => {
+            resources.forEach((res) => this.classes.add(res.label));
+            this.nextResourceId = nextResourceID(resources);
+        });
 
         this.entspans.subscribe(
             (spans) => (this.spans = Array.from(spans.values())),
@@ -106,7 +111,11 @@ export class bodyStore {
     }
 
     annotateRange(label: string, range: Range) {
-        const span = newSpan(label, rangeToClass(range, "entity"));
+        const span = newSpan(
+            label,
+            rangeToClass(range, "entity"),
+            this.nextResourceId,
+        );
 
         range.surroundContents(span);
 

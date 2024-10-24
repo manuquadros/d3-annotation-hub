@@ -1,5 +1,6 @@
 <script lang="ts">
-    import { getContext, onMount } from "svelte";
+    import { getContext, onMount, afterUpdate } from "svelte";
+    import { get } from "svelte/store";
     import {
         handleOptionClick,
         handleTextSelection,
@@ -13,18 +14,18 @@
     const body: bodyStore = getContext("body");
     let bodyDiv: HTMLElement;
 
-    $: if (bodyDiv) {
-        body.content.update((body) => bodyDiv);
-    }
-
+    $: content = body.content;
     $: entspanStore = body.entspans;
     $: entspans = $entspanStore;
     $: {
-        if (body.content) {
+        if (content) {
             const spans = body.spans.filter(
                 (span) => span.firstChild?.nodeName !== "BUTTON",
             );
-            body.content.update((body) => {
+
+          console.log(spans.map(span => span.outerHTML))
+
+            content.update((body) => {
                 spans.forEach((span) => {
                     const spanid = span.id as string;
                     const name = span.textContent || "";
@@ -39,7 +40,16 @@
             });
         }
     }
-    $: content = body.content;
+
+    onMount(() => {
+        bodyDiv = document.querySelector(".chunk-body");
+    });
+
+    afterUpdate(() => {
+        if (bodyDiv) {
+            content.set(bodyDiv);
+        }
+    });
 </script>
 
 <div
@@ -48,7 +58,7 @@
     prefix={$content.getAttribute("prefix")}
     bind:this={bodyDiv}
 >
-    {@html $content.innerHTML}
+    {@html $content?.innerHTML}
 </div>
 
 <svelte:window on:keyup|preventDefault={handleKeyPress} />
