@@ -1,5 +1,6 @@
+<!-- @migration-task Error while migrating Svelte code: Can't migrate code with afterUpdate. Please migrate by hand. -->
 <script lang="ts">
-    import { getContext, onMount, afterUpdate } from "svelte";
+    import { getContext, onMount, afterUpdate, mount } from "svelte";
     import { get } from "svelte/store";
     import {
         handleOptionClick,
@@ -30,11 +31,11 @@
                     const spanid = span.id as string;
                     const name = span.textContent || "";
                     span.textContent = "";
-                    new ChunkButton({
-                        target: span,
-                        props: { spanid, name },
-                        context: new Map([["entspans", entspans]]),
-                    });
+                    mount(ChunkButton, {
+                                            target: span,
+                                            props: { spanid, name },
+                                            context: new Map([["entspans", entspans]]),
+                                        });
                 });
                 return body;
             });

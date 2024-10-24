@@ -1,7 +1,17 @@
+<script>
+	/**
+	 * @typedef {Object} Props
+	 * @property {import('svelte').Snippet} [children]
+	 */
+
+	/** @type {Props} */
+	let { children } = $props();
+</script>
+
 <h1>Annotation hub</h1>
 
 <div class="layout">
-	<slot></slot>
+	{@render children?.()}
 </div>
 
 <style>

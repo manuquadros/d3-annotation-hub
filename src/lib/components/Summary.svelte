@@ -6,8 +6,8 @@
     import type { Resource } from "$lib/resources";
 
     const body: bodyStore = getContext("body");
-    let resources: Readable<Map<string, Resource>>;
-    let classes: Set<string>;
+    let resources: Readable<Map<string, Resource>> = $state();
+    let classes: Set<string> = $state();
 
     function plural(singular: string): string {
         if (singular === "Bacteria") {

@@ -9,8 +9,12 @@
     import type { Resource } from "$lib/resources.ts";
     import type { bodyStore } from "$lib/body";
 
-    export let key: string;
-    export let resource: Resource;
+    interface Props {
+        key: string;
+        resource: Resource;
+    }
+
+    let { key, resource }: Props = $props();
 
     const body: bodyStore = getContext("body");
 </script>
@@ -21,10 +25,10 @@
     type="button"
     draggable="true"
     resource={key}
-    on:dragstart={dragStart}
-    on:dragover={dragOver}
-    on:drop={(e) => handleDrop(e, body)}
-    on:click={handleSpanClick}
+    ondragstart={dragStart}
+    ondragover={dragOver}
+    ondrop={(e) => handleDrop(e, body)}
+    onclick={handleSpanClick}
 >
     {resource.name}
 </button>

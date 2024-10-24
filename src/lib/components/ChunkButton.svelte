@@ -3,15 +3,19 @@
     import { getContext, hasContext } from "svelte";
     import type { Readable } from "svelte/store";
 
-    export let spanid: string;
-    export let name: string;
+    interface Props {
+        spanid: string;
+        name: string;
+    }
+
+    let { spanid, name }: Props = $props();
 
     let entspans: Readable<Map<string, HTMLSpanElement>> =
         getContext("entspans");
 
-    $: span = entspans?.get(spanid);
-    $: resourceid = span?.getAttribute("resource") || "";
-    $: label = span?.getAttribute("typeof") || "";
+    let span = $derived(entspans?.get(spanid));
+    let resourceid = $derived(span?.getAttribute("resource") || "");
+    let label = $derived(span?.getAttribute("typeof") || "");
 </script>
 
 <button
@@ -19,7 +23,7 @@
     type="button"
     typeof={label}
     resource={resourceid}
-    on:click={handleSpanClick}
+    onclick={handleSpanClick}
 >
     {name}
 </button>

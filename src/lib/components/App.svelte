@@ -6,8 +6,12 @@
     import Relations from "$lib/components/Relations.svelte";
     import type { bodyStore } from "$lib/body";
 
-    export let header;
-    export let body: bodyStore;
+    interface Props {
+        header: any;
+        body: bodyStore;
+    }
+
+    let { header, body }: Props = $props();
 
     setContext("body", body);
 </script>

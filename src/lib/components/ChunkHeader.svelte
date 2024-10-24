@@ -1,5 +1,9 @@
 <script lang="ts">
-    export let header: Element | null = null;
+    interface Props {
+        header?: Element | null;
+    }
+
+    let { header = null }: Props = $props();
 </script>
 
 {#if header}

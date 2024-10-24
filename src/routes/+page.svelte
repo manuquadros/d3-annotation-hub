@@ -8,11 +8,15 @@
     import App from "$lib/components/App.svelte";
     import { bodyStore } from "$lib/body";
 
-    export let data: PageData;
-    const { document } = data;
-    let header: Element;
+    interface Props {
+        data: PageData;
+    }
 
-    let body: bodyStore;
+    let { data }: Props = $props();
+    const { document } = data;
+    let header: Element = $state();
+
+    let body: bodyStore = $state();
 
     async function parse(doc: string): Promise<void> {
         let content: Document;

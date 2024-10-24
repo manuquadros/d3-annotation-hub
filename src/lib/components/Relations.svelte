@@ -4,7 +4,7 @@
     import type { bodyStore } from "$lib/body";
 
     const body: bodyStore = getContext("body");
-    let relations: RelationStore;
+    let relations: RelationStore = $state();
 
     onMount(() => {
         relations = body?.relations;
