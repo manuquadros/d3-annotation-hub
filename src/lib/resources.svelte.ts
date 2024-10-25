@@ -6,30 +6,39 @@ export const enzymeLabel = "d3o:Enzyme";
 export const bacteriaLabel = "d3o:Bacteria";
 
 export class Resource {
-    resourceid: string;
-    label: string;
-    spanids = new Set<string>();
-    spans: HTMLSpanElement[];
+    resourceid: string = "";
+    label: string = "";
+    spans = new Set<HTMLSpanElement>();
 
-    /**
-     * Build a Resource instance from an HTMLSpanElement array
-     *
-     * @param spans HTMLSpanElement[] - Span elements
-     */
-    constructor(spans: HTMLSpanElement[] | NodeListOf<HTMLSpanElement>) {
-        this.resourceid = "";
-        this.label = "";
+    add(span: HTMLSpanElement) {
+        const resid = span.getAttribute("resource");
+        const label = span.getAttribute("typeof");
 
-        this.spans = spans instanceof Array ? spans : Array.from(spans);
-
-        this.spans.forEach((span) => {
-            if (!this.resourceid || !this.label) {
-                this.resourceid = span.getAttribute("resource") as string;
-                this.label = span.getAttribute("typeof") as string;
+        if (resid && label) {
+            if (
+                this.resourceid &&
+                this.label &&
+                (resid !== this.resourceid || label !== this.label)
+            ) {
+                throw new Error("Trying to add a span to the wrong resource");
             }
 
-            this.spanids.add(span.id);
-        });
+            this.resourceid = resid;
+            this.label = label;
+            this.spans.add(span);
+        }
+
+        return this;
+    }
+
+    extend(spans: HTMLSpanElement[] | NodeListOf<HTMLSpanElement>) {
+        spans.forEach((span) => this.add(span));
+
+        return this;
+    }
+
+    get spanids(): Set<string> {
+        return new Set(Array.from(this.spans.values()).map((span) => span.id));
     }
 
     /**
@@ -78,41 +87,26 @@ export class Resource {
  * // - Resources are cleaned up when their spans are removed
  */
 export function resourceStore(
-    entspans: Readable<Map<string, HTMLSpanElement>>,
-): Readable<Map<string, Resource>> {
-    return derived(
-        entspans,
-        ($entspans, set, update) => {
-            for (const span of $entspans.values()) {
-                const resourceid = span.getAttribute("resource") as string;
+    entspans: Map<string, HTMLSpanElement>,
+): Map<string, Resource> {
+    const resources = new Map<string, Resource>();
 
-                update((resources) => {
-                    if (!resources.has(resourceid)) {
-                        entspans.subscribe((spans) => {
-                            const htmlspans = Array.from(spans.values());
-                            const subset = htmlspans.filter(
-                                (span) =>
-                                    span.getAttribute("resource") ===
-                                    resourceid,
-                            );
+    for (const span of entspans.values()) {
+        const resourceid = span.getAttribute("resource") as string;
 
-                            resources.set(resourceid, new Resource(subset));
-                        });
-                    }
+        const res: Resource =
+            resources.get(resourceid) ||
+            (resources
+                .set(resourceid, new Resource())
+                .get(resourceid) as Resource);
 
-                    resources.forEach((res, key, map) => {
-                        if (!res.spanids.size) map.delete(key);
-                    });
+        res.add(span);
+    }
 
-                    return resources;
-                });
-            }
-        },
-        new Map<string, Resource>(),
-    );
+    return resources;
 }
 
-export function nextResourceID(resources: ResourceMap): string {
+export function nextResourceID(resources: Map<string, Resource>): string {
     const keys = Array.from(resources.keys()).toSorted(
         (a, b) => Number(a.slice(2)) - Number(b.slice(2)),
     );

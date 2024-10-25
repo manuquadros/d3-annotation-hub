@@ -1,7 +1,7 @@
 <script lang="ts">
+    import type { bodyStore } from "$lib/body.svelte.ts";
     import { handleSpanClick } from "$lib/handlers";
-    import { getContext, hasContext } from "svelte";
-    import type { Readable } from "svelte/store";
+    import { getContext } from "svelte";
 
     interface Props {
         spanid: string;
@@ -10,10 +10,9 @@
 
     let { spanid, name }: Props = $props();
 
-    let entspans: Readable<Map<string, HTMLSpanElement>> =
-        getContext("entspans");
+    let body: bodyStore = getContext("body");
 
-    let span = $derived(entspans?.get(spanid));
+    let span = $derived(body.entspans?.get(spanid));
     let resourceid = $derived(span?.getAttribute("resource") || "");
     let label = $derived(span?.getAttribute("typeof") || "");
 </script>
@@ -23,7 +22,7 @@
     type="button"
     typeof={label}
     resource={resourceid}
-    onclick={handleSpanClick}
+    onclick={(ev) => handleSpanClick(ev, body)}
 >
     {name}
 </button>

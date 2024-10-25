@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 import { get } from "svelte/store";
-import { bodyStore } from "$lib/body.ts";
-import type { Resource } from "./resources";
+import { bodyStore } from "$lib/body.svelte.ts";
+import type { Resource } from "./resources.svelte.ts";
 
 const chunk = `<annotation>
   <div class="metadata">
@@ -32,13 +32,9 @@ describe("relations", () => {
     const body = setup();
     const relations = body.relations;
 
-    let size: number;
-
-    const t1 = get(body.resources).get("#T1") as Resource;
-    const t2 = get(body.resources).get("#T2") as Resource;
-    const t3 = get(body.resources).get("#T3") as Resource;
-
-    body.relations.subscribe((relations) => (size = relations.size));
+    const t1 = body.resources.get("#T1") as Resource;
+    const t2 = body.resources.get("#T2") as Resource;
+    const t3 = body.resources.get("#T3") as Resource;
 
     const t3t2 = {
         subject: t3,
@@ -49,7 +45,7 @@ describe("relations", () => {
     body.relations.add(t3t2);
 
     test("relations store works", () => {
-        expect(size).toBe(1);
+        expect(relations.size).toBe(1);
     });
 
     test("relations are added correctly", () => {
@@ -59,12 +55,12 @@ describe("relations", () => {
             object: t1,
         });
 
-        expect(size).toBe(2);
+        expect(relations.size).toBe(2);
     });
 
     test("remove by object", () => {
         body.relations.remove({ object: t2 });
-        expect(size).toBe(1);
+        expect(relations.size).toBe(1);
         expect(body.relations.predicates).not.toContain("d3o:hasSpecies");
     });
 });

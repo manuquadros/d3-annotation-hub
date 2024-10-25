@@ -6,8 +6,8 @@ import { expect, test } from "vitest";
 import Summary from "$lib/components/Summary.svelte";
 import ChunkBody from "$lib/components/ChunkBody.svelte";
 import { dragAndDrop } from "$lib/test_utils.ts";
-import { bodyStore } from "$lib/body.ts";
-import { strainLabel } from "$lib/resources";
+import { bodyStore } from "$lib/body.svelte.ts";
+import { strainLabel } from "$lib/resources.svelte.ts";
 
 const chunk3 = `<annotation>
   <div class="metadata">
@@ -57,7 +57,7 @@ function setup() {
 test("Entities are loaded onto the summary", () => {
     const { body } = setup();
 
-    const t2 = get(body.resources).get("#T2");
+    const t2 = body.resources.get("#T2");
     expect(t2).toBeDefined();
 });
 

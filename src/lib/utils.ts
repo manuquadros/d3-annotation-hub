@@ -1,7 +1,7 @@
 import { rangeToClass } from "$lib/ranges.ts";
 
 import ChunkButton from "$lib/components/ChunkButton.svelte";
-import type { Resource } from "./resources";
+import type { Resource } from "./resources.svelte.ts";
 
 export const outOfScope = "OOS";
 let currID = 1;
@@ -31,7 +31,11 @@ export function newSpan(
 }
 
 export function wrapRange(range: Range, resource: Resource): HTMLSpanElement {
-    const span = newSpan(resource.label, rangeToClass(range, "entity"));
+    const span = newSpan(
+        resource.label,
+        rangeToClass(range, "entity"),
+        resource.resourceid,
+    );
     span.setAttribute("resource", resource.name);
     range.surroundContents(span);
 

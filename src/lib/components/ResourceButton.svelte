@@ -6,8 +6,8 @@
         handleDrop,
         handleSpanClick,
     } from "$lib/handlers";
-    import type { Resource } from "$lib/resources.ts";
-    import type { bodyStore } from "$lib/body";
+    import type { Resource } from "$lib/resources.svelte.ts";
+    import type { bodyStore } from "$lib/body.svelte.ts";
 
     interface Props {
         key: string;
@@ -28,7 +28,7 @@
     ondragstart={dragStart}
     ondragover={dragOver}
     ondrop={(e) => handleDrop(e, body)}
-    onclick={handleSpanClick}
+    onclick={(e) => handleSpanClick(e, body)}
 >
     {resource.name}
 </button>

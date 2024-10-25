@@ -1,22 +1,17 @@
 <script lang="ts">
-    import { getContext, onMount } from "svelte";
-    import { displayPredicate, RelationStore } from "$lib/relations.ts";
-    import type { bodyStore } from "$lib/body";
+    import { getContext } from "svelte";
+    import { displayPredicate } from "$lib/relations.svelte.ts";
+    import type { bodyStore } from "$lib/body.svelte.ts";
 
     const body: bodyStore = getContext("body");
-    let relations: RelationStore = $state();
-
-    onMount(() => {
-        relations = body?.relations;
-    });
 </script>
 
-{#if $relations}
+{#if body.relations.size}
     <h2>Relations</h2>
 
-    {#each relations.predicates as predicate}
+    {#each body.relations.predicates as predicate}
         <div class="relations-summary">
-            {#each relations.subset({ predicate }) as { subject, object }}
+            {#each body.relations.subset({ predicate }) as { subject, object }}
                 <div class="relation">
                     <span class="subject">
                         {subject.name}

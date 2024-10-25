@@ -1,12 +1,11 @@
 <script lang="ts">
     import { browser } from "$app/environment";
-    import { setContext, onMount } from "svelte";
-    import { writable, type Writable } from "svelte/store";
+    import { onMount } from "svelte";
     import type { PageData } from "./$types";
 
     import "../styles.css";
     import App from "$lib/components/App.svelte";
-    import { bodyStore } from "$lib/body";
+    import { bodyStore } from "$lib/body.svelte.ts";
 
     interface Props {
         data: PageData;
@@ -14,9 +13,11 @@
 
     let { data }: Props = $props();
     const { document } = data;
-    let header: Element = $state();
 
-    let body: bodyStore = $state();
+    // svelte-ignore non_reactive_update
+    let header: Element;
+    // svelte-ignore non_reactive_update
+    let chunkBody: Element;
 
     async function parse(doc: string): Promise<void> {
         let content: Document;
@@ -29,16 +30,12 @@
         }
 
         header = content?.querySelector(".metadata") as Element;
-        const bodyEl = content?.querySelector(".chunk-body");
-
-        if (bodyEl) {
-            body = new bodyStore(bodyEl);
-        }
+        chunkBody = content?.querySelector(".chunk-body") as Element;
     }
 
     onMount(async () => await parse(document));
 </script>
 
-{#if header && body.content}
-    <App {header} bind:body />
+{#if header && chunkBody}
+    <App {header} body={new bodyStore(chunkBody)} />
 {/if}

@@ -4,11 +4,11 @@ import {
     isBacteria,
     isOrganism,
     isEnzyme,
-} from "$lib/resources.ts";
+} from "$lib/resources.svelte.ts";
 import { trimRange } from "$lib/ranges.ts";
 import { optionsDropdown, removeDropdown } from "$lib/dropdown";
-import type { bodyStore } from "$lib/body.ts";
-import { triple } from "./relations";
+import type { bodyStore } from "$lib/body.svelte.ts";
+import { triple } from "./relations.svelte.ts";
 import { get } from "svelte/store";
 
 let selectedText = "";
@@ -23,11 +23,11 @@ export function setOptionsDropdown(event: MouseEvent) {
 export function handleTextSelection(event: Event) {
     const selection = window.getSelection();
     const body = document.querySelector("div.chunk-body");
-    if (selection && !selection.isCollapsed) {
+    if (selection && selection.anchorNode && !selection.isCollapsed) {
         if (body && body.contains(selection.anchorNode.parentNode)) {
             selectedText = selection.toString().trim();
             if (selectedText) {
-                setOptionsDropdown(event);
+                setOptionsDropdown(event as MouseEvent);
             }
         }
     } else {
@@ -36,17 +36,18 @@ export function handleTextSelection(event: Event) {
 }
 
 export function handleKeyPress(event: KeyboardEvent) {
+    event.preventDefault();
     if (/[Aa]/.test(event.key)) {
         handleTextSelection(event);
     }
 }
 
-export function handleSpanClick(event: MouseEvent) {
+export function handleSpanClick(event: MouseEvent, body: bodyStore) {
     const target = event.target as Element;
 
     if (target.classList.contains("entity")) {
         event.stopPropagation();
-        selectedSpan = target as Element;
+        body.selectedSpan = target as HTMLSpanElement;
         removeDropdown.show();
         optionsDropdown.hide();
         removeDropdown.position(event.clientX, event.clientY);
@@ -67,12 +68,12 @@ export function handleOptionClick(option: string, context: bodyStore): void {
     optionsDropdown.hide();
 }
 
-export function handleRemove() {
-    const span = selectedSpan;
+export function handleRemove(body: bodyStore) {
+    const span = body.selectedSpan;
 
     if (span) {
         if (span.classList.contains("entitySummary")) {
-            resources.removeEntitySpan(span);
+            body.removeResource(span);
         } else {
             const parent = span.parentNode;
 
@@ -126,26 +127,7 @@ function resourceFromTarget(target: EventTarget | null): string {
             return id;
         }
     }
-    return null;
-}
-
-export function getOptions(): Array<string> {
-    const options: Array<string> = [];
-    if (sourceRes && targetRes) {
-        if (isStrain(sourceRes) && isBacteria(targetRes)) {
-            options.push("is strain of");
-        }
-        if (isBacteria(sourceRes) && isStrain(targetRes)) {
-            options.push("is superordinate of");
-        }
-        if (isEnzyme(sourceRes) && isOrganism(targetRes)) {
-            options.push("is found in");
-        }
-        if (isOrganism(sourceRes) && isEnzyme(targetRes)) {
-            options.push("has");
-        }
-    }
-    return options;
+    return "";
 }
 
 export function dragStart(e: DragEvent): void {

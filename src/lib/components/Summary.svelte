@@ -1,13 +1,9 @@
 <script lang="ts">
-    import { getContext, onMount } from "svelte";
+    import { getContext } from "svelte";
     import ResourceButton from "$lib/components/ResourceButton.svelte";
-    import type { bodyStore } from "$lib/body.ts";
-    import type { Readable } from "svelte/store";
-    import type { Resource } from "$lib/resources";
+    import type { bodyStore } from "$lib/body.svelte.ts";
 
     const body: bodyStore = getContext("body");
-    let resources: Readable<Map<string, Resource>> = $state();
-    let classes: Set<string> = $state();
 
     function plural(singular: string): string {
         if (singular === "Bacteria") {
@@ -16,19 +12,14 @@
             return singular + "s";
         }
     }
-
-    onMount(() => {
-        resources = body?.resources;
-        classes = body?.classes;
-    });
 </script>
 
-{#if resources}
+{#if body.resources}
     <h2>Entities</h2>
 
-    {#each classes as label}
+    {#each body.classes as label}
         <h4>{plural(label.split(":")[1])}</h4>
-        {#each $resources.entries() as [key, resource]}
+        {#each body.resources?.entries() as [key, resource]}
             {#if resource.label === label}
                 <ResourceButton {key} {resource} />
             {/if}
