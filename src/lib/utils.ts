@@ -36,7 +36,6 @@ export function wrapRange(range: Range, resource: Resource): HTMLSpanElement {
         rangeToClass(range, "entity"),
         resource.resourceid,
     );
-    span.setAttribute("resource", resource.name);
     range.surroundContents(span);
 
     return span;

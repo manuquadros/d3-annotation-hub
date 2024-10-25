@@ -1,3 +1,4 @@
+import { tick } from "svelte";
 import { writable, derived, get } from "svelte/store";
 import type { Readable, Writable } from "svelte/store";
 
@@ -104,6 +105,7 @@ export class bodyStore {
     }
 
     annotateRange(label: string, range: Range) {
+        const resid = this.nextResourceId;
         const span = newSpan(
             label,
             rangeToClass(range, "entity"),
@@ -112,13 +114,11 @@ export class bodyStore {
 
         range.surroundContents(span);
 
-        queueMicrotask(() => {
-            const chunkBody = document.querySelector(".chunk-body");
-            if (chunkBody) {
-                this.content = chunkBody.cloneNode(true) as Element;
-            }
+        queueMicrotask(async () => {
+            const chunkBody = document.querySelector(".chunk-body") as Element;
+            this.content = chunkBody.cloneNode(true) as Element;
+            await this.propagate(this.resources.get(resid) as Resource);
         });
-        //propagate
     }
 
     replaceResource(
@@ -139,7 +139,7 @@ export class bodyStore {
         this.content = content;
     }
 
-    propagate(resource: Resource): void {
+    async propagate(resource: Resource): Promise<void> {
         function getRange(
             startIndex: number,
             endIndex: number,
@@ -189,6 +189,14 @@ export class bodyStore {
                     }
                 }
             }
+
+            queueMicrotask(async () => {
+                const chunkBody = document.querySelector(
+                    ".chunk-body",
+                ) as Element;
+                this.content = chunkBody.cloneNode(true) as Element;
+                await tick();
+            });
         }
     }
 }

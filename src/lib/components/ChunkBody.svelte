@@ -25,14 +25,16 @@
                     isValidEntitySpan(span),
             );
 
-            spans.forEach((span) => {
-                const spanid = span.id as string;
-                const name = span.textContent || "";
-                span.textContent = "";
-                mount(ChunkButton, {
-                    target: span,
-                    props: { spanid, name },
-                    context: new Map([["body", body]]),
+            queueMicrotask(() => {
+                spans.forEach((span) => {
+                    const spanid = span.id as string;
+                    const name = span.textContent || "";
+                    span.textContent = "";
+                    mount(ChunkButton, {
+                        target: span,
+                        props: { spanid, name },
+                        context: new Map([["body", body]]),
+                    });
                 });
             });
         }
