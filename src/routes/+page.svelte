@@ -32,10 +32,10 @@
         header = content?.querySelector(".metadata") as Element;
         chunkBody = content?.querySelector(".chunk-body") as Element;
     }
-
-    onMount(async () => await parse(document));
 </script>
 
-{#if header && chunkBody}
+{#await parse(document)}
+    <div>Loading...</div>
+{:then}
     <App {header} body={new bodyStore(chunkBody)} />
-{/if}
+{/await}
