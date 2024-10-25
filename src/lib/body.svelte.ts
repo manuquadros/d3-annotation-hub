@@ -30,13 +30,12 @@ export class bodyStore {
 
     constructor(chunk: Element) {
         // Initialize all entity spans, making sure they have an ID and a button.
-        const spans = chunk.querySelectorAll("span");
+        this.content = chunk;
+        const spans = this.content.querySelectorAll("span");
 
         spans.forEach((span) => {
             span.id = String(entID());
         });
-
-        this.content = chunk;
         this.relations = new RelationStore(this.resources);
     }
 
@@ -113,6 +112,12 @@ export class bodyStore {
 
         range.surroundContents(span);
 
+        queueMicrotask(() => {
+            const chunkBody = document.querySelector(".chunk-body");
+            if (chunkBody) {
+                this.content = chunkBody.cloneNode(true) as Element;
+            }
+        });
         //propagate
     }
 

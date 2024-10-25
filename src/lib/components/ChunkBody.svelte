@@ -17,6 +17,8 @@
 
     $effect(() => {
         if (body.content && content) {
+            content.innerHTML = body.content.innerHTML;
+
             const spans = Array.from(content.querySelectorAll("span")).filter(
                 (span) =>
                     span.firstChild?.nodeName !== "BUTTON" &&
