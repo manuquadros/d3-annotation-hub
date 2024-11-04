@@ -72,7 +72,8 @@ export class bodyStore {
     }
 
     removeAnnotation(id: string) {
-        const span = this.content?.querySelector(`#${CSS.escape(id)}`);
+        const tmp = this.content.cloneNode(true) as Element;
+        const span = tmp.querySelector(`#${CSS.escape(id)}`);
         const parent = span?.parentNode as Node;
 
         if (span) {
@@ -87,14 +88,16 @@ export class bodyStore {
             });
             parent.removeChild(span);
         }
+
+        this.content = tmp;
     }
 
     removeAnnotations(ids: string[] | Set<string>): void {
-        ids.forEach(this.removeAnnotation);
+        ids.forEach((id) => this.removeAnnotation(id));
     }
 
-    removeResource(resource: string | HTMLSpanElement): void {
-        if (resource instanceof HTMLSpanElement)
+    removeResource(resource: string | HTMLElement): void {
+        if (resource instanceof HTMLElement)
             resource = resource.getAttribute("resource") || "";
 
         const spans = this.spans.filter(

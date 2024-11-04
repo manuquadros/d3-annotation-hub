@@ -2,6 +2,7 @@ import { writable, get } from "svelte/store";
 import type { Readable } from "svelte/store";
 
 import type { Resource } from "$lib/resources.svelte.ts";
+import { SvelteSet } from "svelte/reactivity";
 
 export interface ResourcePair {
     subject: Resource;
@@ -22,7 +23,7 @@ export type TripleQuery = {
     object?: Resource;
 };
 
-export class RelationStore extends Set<Triple> {
+export class RelationStore extends SvelteSet<Triple> {
     #resources: Map<string, Resource> | undefined = $state();
 
     vertices: Set<Resource> = $derived.by(() => {
@@ -30,8 +31,6 @@ export class RelationStore extends Set<Triple> {
             return new Set(Array.from(this.#resources.values()));
         else return new Set();
     });
-
-    predicates = new Set<string>();
 
     /**
      * Generates the relation store and subscribes to the resource store.
@@ -52,9 +51,9 @@ export class RelationStore extends Set<Triple> {
         });
     }
 
-    get predicate(): Set<string> {
-        const preds = new Set<string>();
-        this.forEach(({ subject, predicate, object }) => preds.add(predicate));
+    get predicates(): SvelteSet<string> {
+        const preds = new SvelteSet<string>();
+        this.forEach((t) => preds.add(t.predicate));
         return preds;
     }
 

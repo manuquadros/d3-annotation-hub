@@ -5,6 +5,7 @@ import { expect, test } from "vitest";
 
 import Summary from "$lib/components/Summary.svelte";
 import ChunkBody from "$lib/components/ChunkBody.svelte";
+import Relations from "$lib/components/Relations.svelte";
 import { dragAndDrop } from "$lib/test_utils.ts";
 import { bodyStore } from "$lib/body.svelte.ts";
 import { strainLabel } from "$lib/resources.svelte.ts";
@@ -33,6 +34,7 @@ function setup() {
 
     const chunkBodyContainer = document.createElement("div");
     const summaryContainer = document.createElement("div");
+    const relationsContainer = document.createElement("div");
 
     const content = new DOMParser().parseFromString(chunk3, "text/html");
     const body = new bodyStore(content.querySelector(".chunk-body") as Element);
@@ -44,13 +46,20 @@ function setup() {
     });
     const summary = render(Summary, { target: summaryContainer, context });
 
+    const relations = render(Relations, {
+        target: relationsContainer,
+        context,
+    });
+
     return {
         user,
         body,
         chunkBody,
         summary,
+        relations,
         chunkBodyContainer,
         summaryContainer,
+        relationsContainer,
     };
 }
 
@@ -109,4 +118,20 @@ test("merging ATCC 25544", async () => {
     numberSpans.forEach((span) =>
         expect(span?.getAttribute("resource")).toEqual("#T10"),
     );
+});
+
+test("R. erythropolis has cholesterol oxidase", async () => {
+    const { user, summary, relations, body } = setup();
+
+    expect(relations.queryByText("has enzyme")).toBeNull();
+
+    await dragAndDrop(
+        user,
+        summary.getByRole("button", { name: "R. erythropolis" }),
+        summary.getByRole("button", { name: "cholesterol oxidase" }),
+    );
+
+    expect(relations.queryByText(/has enzyme/)).not.toBeNull();
+    expect(relations.queryByText(/R. erythropolis/)).not.toBeNull();
+    expect(relations.queryByText(/cholesterol oxidase/)).not.toBeNull();
 });
