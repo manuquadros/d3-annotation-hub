@@ -29,6 +29,15 @@ body {
     margin: 1em auto;
 }
 
+.subject {
+    display: table-cell;
+}
+
+.relations {
+    line-height: normal;
+    display: table-cell;
+}
+
 .subject,
 .object {
     font-weight: bold;
