@@ -111,6 +111,8 @@ export function handleDrop(e: DragEvent, context: bodyStore): void {
             relations.add(triple(sourceRes, "d3o:hasSpecies", targetRes));
         } else if (isBacteria(sourceRes) && isStrain(targetRes)) {
             relations.add(triple(targetRes, "d3o:hasSpecies", sourceRes));
+        } else if (isBacteria(sourceRes) && isEnzyme(targetRes)) {
+            relations.add(triple(sourceRes, "d3o:hasEnzyme", sourceRes));
         } else if (isEnzyme(sourceRes) && isOrganism(targetRes)) {
             relations.add(triple(targetRes, "d3o:hasEnzyme", sourceRes));
         } else if (isOrganism(sourceRes) && isEnzyme(targetRes)) {

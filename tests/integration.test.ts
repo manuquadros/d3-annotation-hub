@@ -120,6 +120,7 @@ test("merging ATCC 25544", async () => {
     );
 });
 
+// unclear if we want this to be possible
 test("R. erythropolis has cholesterol oxidase", async () => {
     const { user, summary, relations, body } = setup();
 
