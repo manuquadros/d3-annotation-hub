@@ -1,6 +1,7 @@
 import { tick } from "svelte";
 import { writable, derived, get } from "svelte/store";
 import type { Readable, Writable } from "svelte/store";
+import { SvelteMap } from "svelte/reactivity";
 
 import { isValidEntitySpan, newSpan, wrapRange, entID } from "$lib/utils.ts";
 import {
@@ -12,11 +13,11 @@ import { RelationStore } from "$lib/relations.svelte.ts";
 import { rangeToClass } from "$lib/ranges.ts";
 
 export class bodyStore {
-    content: Element | undefined = $state();
-    entspans: Map<string, HTMLSpanElement> = $derived.by(() =>
+    content: Element = $state(new Element());
+    entspans: SvelteMap<string, HTMLSpanElement> = $derived.by(() =>
         this.getEntitySpans(),
     );
-    resources: Map<string, Resource> = $derived.by(() =>
+    resources: SvelteMap<string, Resource> = $derived.by(() =>
         resourceStore(this.entspans),
     );
     relations: RelationStore;
@@ -44,14 +45,14 @@ export class bodyStore {
         return Array.from(this.entspans.values());
     }
 
-    getEntitySpans() {
+    getEntitySpans(): SvelteMap<string, HTMLSpanElement> {
         if (this.content) {
             let spans = Array.from(this.content.querySelectorAll("span"));
             spans = spans.filter((span) => isValidEntitySpan(span));
-            const spanMap = new Map(spans.map((span) => [span.id, span]));
+            const spanMap = new SvelteMap(spans.map((span) => [span.id, span]));
             return spanMap;
         } else {
-            return new Map();
+            return new SvelteMap();
         }
     }
 
@@ -96,12 +97,19 @@ export class bodyStore {
         ids.forEach((id) => this.removeAnnotation(id));
     }
 
+    /**
+     * Remove f
+     *
+     * @param  -
+     * @returns
+     */
     removeResource(resource: string | HTMLElement): void {
-        if (resource instanceof HTMLElement)
-            resource = resource.getAttribute("resource") || "";
-
+        const resourceId =
+            resource instanceof HTMLElement
+                ? resource.getAttribute("resource")
+                : resource;
         const spans = this.spans.filter(
-            (span) => span.getAttribute("resource") === resource,
+            (span) => span.getAttribute("resource") === resourceId,
         );
 
         this.removeAnnotations(spans.map((span) => span.id as string));
@@ -124,21 +132,19 @@ export class bodyStore {
         });
     }
 
-    replaceResource(
-        _source: string | Resource,
-        _target: string | Resource,
-    ): void {
-        const source =
-            typeof _source === "string" ? _source : _source.resourceid;
-        const target =
-            typeof _target === "string" ? _target : _target.resourceid;
+    replaceResource(source: Resource, target: Resource): void {
+        // Update all the relations mentioning `source` to point to `target`
+        this.relations.replaceEntity(source, target);
 
+        // Update the reference of spans in the document to point to the
+        // `target`.
         const content = this.content?.cloneNode(true) as Element;
-
-        const spans = content?.querySelectorAll(`span[resource="${source}"]`);
-
-        spans?.forEach((span) => span.setAttribute("resource", target));
-
+        const spans = content?.querySelectorAll(
+            `span[resource="${source.resourceid}"]`,
+        );
+        spans?.forEach((span) =>
+            span.setAttribute("resource", target.resourceid),
+        );
         this.content = content;
     }
 
