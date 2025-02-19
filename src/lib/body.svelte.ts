@@ -13,7 +13,7 @@ import { RelationStore } from "$lib/relations.svelte.ts";
 import { rangeToClass } from "$lib/ranges.ts";
 
 export class bodyStore {
-    content: Element = $state(new Element());
+    content: Element = $state(document.createDocumentFragment() as unknown as Element);
     entspans: SvelteMap<string, HTMLSpanElement> = $derived.by(() =>
         this.getEntitySpans(),
     );
