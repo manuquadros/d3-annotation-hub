@@ -1,3 +1,4 @@
+import { SvelteMap } from "svelte/reactivity";
 import { derived } from "svelte/store";
 import type { Readable, Unsubscriber } from "svelte/store";
 
@@ -87,9 +88,9 @@ export class Resource {
  * // - Resources are cleaned up when their spans are removed
  */
 export function resourceStore(
-    entspans: Map<string, HTMLSpanElement>,
-): Map<string, Resource> {
-    const resources = new Map<string, Resource>();
+    entspans: SvelteMap<string, HTMLSpanElement>,
+): SvelteMap<string, Resource> {
+    const resources = new SvelteMap<string, Resource>();
 
     for (const span of entspans.values()) {
         const resourceid = span.getAttribute("resource") as string;

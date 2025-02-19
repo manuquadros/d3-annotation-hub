@@ -38,7 +38,7 @@ export class RelationStore extends SvelteSet<Triple> {
      * @constructor
      * @param {Readable<Map<string, Resource>>} resources - Svelte resource store
      */
-    constructor(resources: Map<string, Resource>) {
+    constructor(resources: SvelteMap<string, Resource>) {
         super();
         this.#resources = resources;
     }
