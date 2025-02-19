@@ -19,7 +19,7 @@ export class bodyStore {
     entspans: SvelteMap<string, HTMLSpanElement> = $derived.by(() =>
         this.getEntitySpans(),
     );
-    resources: SvelteMap<string, Resource> = $derived.by(() =>
+    resources: SvelteMap<string, Resource> = $derived(
         resourceStore(this.entspans),
     );
     relations: RelationStore;
