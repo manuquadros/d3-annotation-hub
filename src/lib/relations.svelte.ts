@@ -95,7 +95,16 @@ export class RelationStore extends SvelteSet<Triple> {
      * @param target - Resource to replace `source`.
      */
     replaceEntity(source: Resource, target: Resource) {
-        // TODO: implement
+        this.forEach((triple) => {
+            if (triple.subject === source) {
+                this.delete(triple);
+                this.add({ ...triple, subject: target });
+            }
+            if (triple.object === source) {
+                this.delete(triple);
+                this.add({ ...triple, object: target });
+            }
+        });
     }
 }
 
