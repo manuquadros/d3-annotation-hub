@@ -2,7 +2,7 @@ import { writable, get } from "svelte/store";
 import type { Readable } from "svelte/store";
 
 import type { Resource } from "$lib/resources.svelte.ts";
-import { SvelteSet } from "svelte/reactivity";
+import { SvelteMap, SvelteSet } from "svelte/reactivity";
 
 export interface ResourcePair {
     subject: Resource;
@@ -24,7 +24,7 @@ export type TripleQuery = {
 };
 
 export class RelationStore extends SvelteSet<Triple> {
-    #resources: Map<string, Resource> | undefined = $state();
+    #resources: SvelteMap<string, Resource> | undefined = $state();
 
     vertices: Set<Resource> = $derived.by(() => {
         if (this.#resources)
@@ -86,6 +86,16 @@ export class RelationStore extends SvelteSet<Triple> {
         });
 
         return values;
+    }
+
+    /**
+     * Update all triples pointing to `source` so that they point to `target`.
+     *
+     * @param source - Resource to be replaced.
+     * @param target - Resource to replace `source`.
+     */
+    replaceEntity(source: Resource, target: Resource) {
+        // TODO: implement
     }
 }
 
