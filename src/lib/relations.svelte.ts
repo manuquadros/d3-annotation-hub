@@ -3,6 +3,7 @@ import type { Readable } from "svelte/store";
 
 import type { Resource } from "$lib/resources.svelte.ts";
 import { SvelteMap, SvelteSet } from "svelte/reactivity";
+import { OrderedSet } from "immutable";
 
 export interface ResourcePair {
     subject: Resource;
@@ -24,13 +25,7 @@ export type TripleQuery = {
 };
 
 export class RelationStore extends SvelteSet<Triple> {
-    #resources: SvelteMap<string, Resource> | undefined = $state();
-
-    vertices: Set<Resource> = $derived.by(() => {
-        if (this.#resources)
-            return new Set(Array.from(this.#resources.values()));
-        else return new Set();
-    });
+    #resources: OrderedSet<Resource> = $state(OrderedSet());
 
     /**
      * Generates the relation store and subscribes to the resource store.
@@ -38,14 +33,15 @@ export class RelationStore extends SvelteSet<Triple> {
      * @constructor
      * @param {Readable<Map<string, Resource>>} resources - Svelte resource store
      */
-    constructor(resources: SvelteMap<string, Resource>) {
+    constructor(resources: OrderedSet<Resource>) {
         super();
         this.#resources = resources;
     }
 
+    // TODO: write tsdoc
     cleanup() {
         this.forEach(({ subject, predicate, object }) => {
-            if (!this.vertices.has(subject) || !this.vertices.has(object)) {
+            if (!this.#resources.has(subject) || !this.#resources.has(object)) {
                 this.delete({ subject, predicate, object });
             }
         });
