@@ -38,7 +38,14 @@ export class RelationStore extends SvelteSet<Triple> {
         this.#resources = resources;
     }
 
-    // TODO: write tsdoc
+    /**
+     * Removes any triples from the store where either the subject or object
+     * resource no longer exists in the resources set.
+     * 
+     * This method helps maintain consistency between the relation store and
+     * the available resources by cleaning up "dangling" relations that point
+     * to deleted resources.
+     */
     cleanup() {
         this.forEach(({ subject, predicate, object }) => {
             if (!this.#resources.has(subject) || !this.#resources.has(object)) {
