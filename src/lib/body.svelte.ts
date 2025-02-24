@@ -1,35 +1,62 @@
 import { tick } from "svelte";
-import { writable, derived, get } from "svelte/store";
-import type { Readable, Writable } from "svelte/store";
 import { SvelteMap } from "svelte/reactivity";
 
 import { isValidEntitySpan, newSpan, wrapRange, entID } from "$lib/utils.ts";
-import {
-    resourceStore,
-    nextResourceID,
-    type Resource,
-} from "$lib/resources.svelte.ts";
+import { nextResourceID, type Resource } from "$lib/resources.svelte.ts";
 import { RelationStore } from "$lib/relations.svelte.ts";
 import { rangeToClass } from "$lib/ranges.ts";
 
-export class bodyStore {
+import { Map, OrderedMap, Set, OrderedSet } from "immutable";
+
+export class BodyStore {
     content: Element = $state(
         document.createDocumentFragment() as unknown as Element,
     );
-    entspans: SvelteMap<string, HTMLSpanElement> = $derived.by(() =>
-        this.getEntitySpans(),
-    );
-    resources: SvelteMap<string, Resource> = $derived(
-        resourceStore(this.entspans),
-    );
+
+    // TODO: entspans could be keyed by the resource id, actually, with values
+    // corresponding to sets of span elements.
+    entspans: SvelteMap<string, HTMLSpanElement> = $derived.by(() => {
+        if (this.content) {
+            let spans = Array.from(this.content.querySelectorAll("span"));
+            spans = spans.filter((span) => isValidEntitySpan(span));
+            const spanMap = new SvelteMap(spans.map((span) => [span.id, span]));
+            return spanMap;
+        } else {
+            return new SvelteMap();
+        }
+    });
+
+    resources: Map<string, Resource> = $derived.by(() => {
+        const resMap = Map<string, Resource>();
+
+        return resMap.withMutations((map) => {
+            for (const span of this.entspans.values()) {
+                const resourceid = span.getAttribute("resource") as string;
+                const spanText = span.textContent || "";
+                const resource = map.get(resourceid);
+
+                if (!resource)
+                    map.set(resourceid, {
+                        resourceid,
+                        name: span.textContent as string,
+                        label: span.getAttribute("typeof") as string,
+                    });
+                else {
+                    const name =
+                        spanText.length > resource.name.length
+                            ? spanText
+                            : resource.name;
+                    map.set(resourceid, { ...resource, name });
+                }
+            }
+        });
+    });
+
     relations: RelationStore;
-
     classes: Set<string> = $derived(
-        new Set(Array.from(this.resources.values()).map((res) => res.label)),
+        Set(this.resources.toList().map((res) => res.label)),
     );
-
-    nextResourceId: string = $derived.by(() => nextResourceID(this.resources));
-
+    nextResourceId: string = $derived(nextResourceID(this.resources));
     selectedSpan: HTMLSpanElement | null = null;
 
     constructor(chunk: Element) {
@@ -43,35 +70,36 @@ export class bodyStore {
         this.relations = new RelationStore(this.resources);
     }
 
-    get spans() {
-        return Array.from(this.entspans.values());
-    }
-
-    getEntitySpans(): SvelteMap<string, HTMLSpanElement> {
-        if (this.content) {
-            let spans = Array.from(this.content.querySelectorAll("span"));
-            spans = spans.filter((span) => isValidEntitySpan(span));
-            const spanMap = new SvelteMap(spans.map((span) => [span.id, span]));
-            return spanMap;
-        } else {
-            return new SvelteMap();
-        }
-    }
-
     // TODO: update the relations store as well!
     mergeResources(
         _source: string | Resource,
         _target: string | Resource,
     ): void {
-        const source = this.getResource(_source);
-        const target = this.getResource(_target);
+        const source =
+            typeof _source === "string" ? this.getResource(_source) : _source;
+        const target =
+            typeof _target === "string" ? this.getResource(_target) : _target;
 
         if (source && source.label === target?.label)
             this.replaceResource(source, target);
     }
 
-    getResource(res: string | Resource): Resource | undefined {
-        return typeof res === "string" ? this.resources.get(res) : res;
+    getResource(resourceid: string): Resource | undefined {
+        return this.resources.find((res) => res.resourceid === resourceid);
+    }
+
+    getResourceNames(resource: string | Resource): Set<string> {
+        const resourceid =
+            typeof resource === "string" ? resource : resource.resourceid;
+
+        const names = Set<string>();
+
+        this.entspans.values().forEach((el) => {
+            if (el.getAttribute("resource") == resourceid)
+                names.add(el.textContent as string);
+        });
+
+        return names;
     }
 
     removeAnnotation(id: string) {
@@ -110,11 +138,15 @@ export class bodyStore {
             resource instanceof HTMLElement
                 ? resource.getAttribute("resource")
                 : resource;
-        const spans = this.spans.filter(
-            (span) => span.getAttribute("resource") === resourceId,
+        const spans = this.entspans
+            .entries()
+            .filter(([, span]) => span.getAttribute("resource") === resourceId);
+
+        this.removeAnnotations(
+            Array.from(spans.map(([spanId]) => spanId as string)),
         );
 
-        this.removeAnnotations(spans.map((span) => span.id as string));
+        this.relations.cleanup();
     }
 
     annotateRange(label: string, range: Range) {
@@ -130,7 +162,7 @@ export class bodyStore {
         queueMicrotask(async () => {
             const chunkBody = document.querySelector(".chunk-body") as Element;
             this.content = chunkBody.cloneNode(true) as Element;
-            await this.propagate(this.resources.get(resid) as Resource);
+            await this.propagate(this.getResource(resid) as Resource);
         });
     }
 
@@ -169,7 +201,7 @@ export class bodyStore {
                 let textNode = textNodes[i];
                 let text = textNode.textContent || "";
 
-                for (const name of resource.names) {
+                for (const name of this.getResourceNames(resource)) {
                     const regex = new RegExp(
                         `\\b${escapeRegExp(name)}\\b`,
                         "gi",

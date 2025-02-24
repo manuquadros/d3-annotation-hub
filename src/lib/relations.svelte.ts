@@ -1,9 +1,6 @@
-import { writable, get } from "svelte/store";
-import type { Readable } from "svelte/store";
-
 import type { Resource } from "$lib/resources.svelte.ts";
 import { SvelteMap, SvelteSet } from "svelte/reactivity";
-import { OrderedSet } from "immutable";
+import { OrderedSet, Set } from "immutable";
 
 export interface ResourcePair {
     subject: Resource;
@@ -25,7 +22,7 @@ export type TripleQuery = {
 };
 
 export class RelationStore extends SvelteSet<Triple> {
-    #resources: OrderedSet<Resource> = $state(OrderedSet());
+    #resources: Set<Resource> = $state(Set());
 
     /**
      * Generates the relation store and subscribes to the resource store.
@@ -33,7 +30,7 @@ export class RelationStore extends SvelteSet<Triple> {
      * @constructor
      * @param {Readable<Map<string, Resource>>} resources - Svelte resource store
      */
-    constructor(resources: OrderedSet<Resource>) {
+    constructor(resources: Set<Resource>) {
         super();
         this.#resources = resources;
     }
@@ -41,10 +38,7 @@ export class RelationStore extends SvelteSet<Triple> {
     /**
      * Removes any triples from the store where either the subject or object
      * resource no longer exists in the resources set.
-     * 
-     * This method helps maintain consistency between the relation store and
-     * the available resources by cleaning up "dangling" relations that point
-     * to deleted resources.
+     *
      */
     cleanup() {
         this.forEach(({ subject, predicate, object }) => {
@@ -54,10 +48,8 @@ export class RelationStore extends SvelteSet<Triple> {
         });
     }
 
-    get predicates(): SvelteSet<string> {
-        const preds = new SvelteSet<string>();
-        this.forEach((t) => preds.add(t.predicate));
-        return preds;
+    get predicates(): Set<string> {
+        return Set(this.values().map((t) => t.predicate));
     }
 
     /**
@@ -66,8 +58,7 @@ export class RelationStore extends SvelteSet<Triple> {
      * from the store. If it only contains one or two of those elements,
      * remove from the store all triples satisfying all of the given constraints.
      *
-     * @param query -
-     * @returns -
+     * @param query - Specification of the terms a triple must contain to be removed.
      */
     remove(query: TripleQuery): void {
         const { subject, predicate, object } = query;
@@ -75,26 +66,51 @@ export class RelationStore extends SvelteSet<Triple> {
         if (subject && predicate && object) {
             this.delete({ subject, predicate, object });
         } else {
-            this.subset(query).forEach((triple) => this.delete(triple));
+            console.debug(this);
+
+            const sub = this.subset(query);
+            console.debug(sub);
+            sub.forEach((triple) => this.delete(triple));
         }
     }
 
+    /**
+     * Return all the triples in the store that match the query. If the query consists
+     * of a complete triple, with subject, predicate, and object, return that triple
+     * from the store. If it only contains one or two of those elements,
+     * return all the triples satisfying all of the given constraints.
+     *
+     * @param query - Specification of the terms a triple must contain to be in the
+     *                return set.
+     * @returns The set of triples matching the query
+     */
     subset(query: TripleQuery): Set<Triple> {
         const constraints = Object.keys(query).filter(Boolean);
-        const values = new Set<Triple>();
 
-        this.forEach((triple) => {
-            if (constraints.every((c) => triple[c] === query[c]))
-                values.add(triple);
-        });
+        return Set(
+            this[Symbol.iterator]().filter((triple) => {
+                for (const c of constraints) {
+                    const a = triple[c];
+                    const b = query[c];
 
-        return values;
+                    if (
+                        typeof a !== "string" &&
+                        typeof b !== "string" &&
+                        a.resourceid !== b?.resourceid
+                    )
+                        return false;
+                    else if (a === b) return false;
+                }
+
+                return true;
+            }),
+        );
     }
 
     /**
      * Update all triples pointing to `source` so that they point to `target`.
      *
-     * @param source - Resource to be replaced.
+     * @param source - Resource to be replaced
      * @param target - Resource to replace `source`.
      */
     replaceEntity(source: Resource, target: Resource) {
@@ -111,6 +127,12 @@ export class RelationStore extends SvelteSet<Triple> {
     }
 }
 
+/**
+ * Return an appropriate string representation for `predicate`.
+ *
+ * @param predicate
+ * @returns
+ */
 export function displayPredicate(predicate: string): string | undefined {
     switch (predicate) {
         case "d3o:hasSpecies":
