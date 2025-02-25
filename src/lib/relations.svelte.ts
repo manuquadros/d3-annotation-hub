@@ -41,11 +41,10 @@ export class RelationStore extends SvelteSet<Triple> {
      *
      */
     cleanup() {
-        this.forEach(({ subject, predicate, object }) => {
-            if (!this.#resources.has(subject) || !this.#resources.has(object)) {
-                this.delete({ subject, predicate, object });
-            }
-        });
+        this = this.filter(
+            (res) =>
+                this.#resources.has(subject) && this.#resources.has(object),
+        );
     }
 
     get predicates(): Set<string> {
@@ -93,13 +92,9 @@ export class RelationStore extends SvelteSet<Triple> {
                     const a = triple[c];
                     const b = query[c];
 
-                    if (
-                        typeof a !== "string" &&
-                        typeof b !== "string" &&
-                        a.resourceid !== b?.resourceid
-                    )
-                        return false;
-                    else if (a === b) return false;
+                    if (typeof a === "string" && typeof b === "string") {
+                        if (a !== b) return false;
+                    } else if (a.resourceid !== b?.resourceid) return false;
                 }
 
                 return true;
