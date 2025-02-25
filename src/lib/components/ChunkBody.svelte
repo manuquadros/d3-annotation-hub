@@ -7,11 +7,11 @@
         handleKeyPress,
     } from "$lib/handlers.ts";
     import { optionsDropdown, removeDropdown } from "$lib/dropdown.ts";
-    import type { bodyStore } from "$lib/body.svelte.ts";
+    import type { BodyStore } from "$lib/body.svelte.ts";
     import ChunkButton from "$lib/components/ChunkButton.svelte";
     import { isValidEntitySpan } from "$lib/utils";
 
-    const body: bodyStore = getContext("body");
+    const body: BodyStore = getContext("body");
 
     let content: Element;
 

@@ -1,6 +1,6 @@
 import type { Resource } from "$lib/resources.svelte.ts";
 import { SvelteMap, SvelteSet } from "svelte/reactivity";
-import { OrderedSet, Set } from "immutable";
+import { OrderedSet, Set, Map } from "immutable";
 
 export interface ResourcePair {
     subject: Resource;
@@ -22,7 +22,8 @@ export type TripleQuery = {
 };
 
 export class RelationStore extends SvelteSet<Triple> {
-    #resources: Set<Resource> = $state(Set());
+    #getResources: () => Map<string, Resource> = $state();
+    #resources = $derived(this.#getResources());
 
     /**
      * Generates the relation store and subscribes to the resource store.
@@ -30,9 +31,9 @@ export class RelationStore extends SvelteSet<Triple> {
      * @constructor
      * @param {Readable<Map<string, Resource>>} resources - Svelte resource store
      */
-    constructor(resources: Set<Resource>) {
+    constructor(resourcesGetter: () => Set<Resource>) {
         super();
-        this.#resources = resources;
+        this.#getResources = resourcesGetter;
     }
 
     /**
@@ -41,10 +42,13 @@ export class RelationStore extends SvelteSet<Triple> {
      *
      */
     cleanup() {
-        this = this.filter(
-            (res) =>
-                this.#resources.has(subject) && this.#resources.has(object),
-        );
+        this.values()
+            .filter(
+                ({ subject, object }) =>
+                    !this.#resources.has(subject.resourceid) ||
+                    !this.#resources.has(object.resourceid),
+            )
+            .forEach((res) => this.delete(res));
     }
 
     get predicates(): Set<string> {

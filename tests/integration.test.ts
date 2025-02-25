@@ -7,7 +7,7 @@ import Summary from "$lib/components/Summary.svelte";
 import ChunkBody from "$lib/components/ChunkBody.svelte";
 import Relations from "$lib/components/Relations.svelte";
 import { dragAndDrop } from "$lib/test_utils.ts";
-import { bodyStore } from "$lib/body.svelte.ts";
+import { BodyStore } from "$lib/body.svelte.ts";
 import { strainLabel } from "$lib/resources.svelte.ts";
 
 const chunk3 = `<annotation>
@@ -37,7 +37,7 @@ function setup() {
     const relationsContainer = document.createElement("div");
 
     const content = new DOMParser().parseFromString(chunk3, "text/html");
-    const body = new bodyStore(content.querySelector(".chunk-body") as Element);
+    const body = new BodyStore(content.querySelector(".chunk-body") as Element);
     const context = new Map([["body", body]]);
 
     const chunkBody = render(ChunkBody, {
@@ -66,7 +66,7 @@ function setup() {
 test("Entities are loaded onto the summary", () => {
     const { body } = setup();
 
-    const t2 = body.resources.get("#T2");
+    const t2 = body.getResource("#T2");
     expect(t2).toBeDefined();
 });
 

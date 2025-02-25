@@ -1,5 +1,5 @@
 <script lang="ts">
-    import type { bodyStore } from "$lib/body.svelte.ts";
+    import type { BodyStore } from "$lib/body.svelte.ts";
     import { handleSpanClick } from "$lib/handlers";
     import { getContext } from "svelte";
 
@@ -10,7 +10,7 @@
 
     let { spanid, name }: Props = $props();
 
-    let body: bodyStore = getContext("body");
+    let body: BodyStore = getContext("body");
 
     let span = $derived(body.entspans?.get(spanid));
     let resourceid = $derived(span?.getAttribute("resource") || "");

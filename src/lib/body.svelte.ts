@@ -52,7 +52,7 @@ export class BodyStore {
         });
     });
 
-    relations: RelationStore;
+    relations = new RelationStore(() => this.resources);
     classes: Set<string> = $derived(
         Set(this.resources.toList().map((res) => res.label)),
     );
@@ -67,7 +67,6 @@ export class BodyStore {
         spans.forEach((span) => {
             span.id = String(entID());
         });
-        this.relations = new RelationStore(this.resources);
     }
 
     // TODO: update the relations store as well!
@@ -145,7 +144,6 @@ export class BodyStore {
         this.removeAnnotations(
             Array.from(spans.map(([spanId]) => spanId as string)),
         );
-
         this.relations.cleanup();
     }
 

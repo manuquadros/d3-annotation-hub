@@ -3,12 +3,12 @@
     import { displayPredicate } from "$lib/relations.svelte.ts";
     import {
         bacteriaLabel,
-        Resource,
+        type Resource,
         strainLabel,
     } from "$lib/resources.svelte.ts";
-    import type { bodyStore } from "$lib/body.svelte.ts";
+    import type { BodyStore } from "$lib/body.svelte.ts";
 
-    const body: bodyStore = getContext("body");
+    const body: BodyStore = getContext("body");
     let bodyByClass = $derived.by(() => {
         const resMap = new Map<string, Resource[]>();
 

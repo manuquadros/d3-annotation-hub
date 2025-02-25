@@ -1,5 +1,6 @@
 import { expect, test } from "vitest";
-import { Resource } from "$lib/resources.svelte.ts";
+import { type Resource } from "$lib/resources.svelte.ts";
+import { BodyStore } from "./body.svelte";
 
 const doc = new DOMParser().parseFromString(
     '<span class="entity" resource="#T2" typeof="d3o:Bacteria" id="1">R. erythropolis</span><span class="entity" resource="#T2" typeof="d3o:Bacteria" id="2">R. erythropolis</span><span class="entity" resource="#T2" typeof="d3o:Bacteria" id="3"><button class="entity" resource="#T2" typeof="d3o:Bacteria" type="button">Rhodococcus erythropolis</button></span>',
@@ -7,10 +8,8 @@ const doc = new DOMParser().parseFromString(
 );
 
 test("span is parsed into a Resource", () => {
-    const spans = doc.querySelectorAll("span");
-    const resource = new Resource();
-    resource.extend(spans);
+    const body = new BodyStore(doc.documentElement);
 
-    expect(resource.name).not.toEqual("R. erythropolis");
-    expect(resource.name).toEqual("Rhodococcus erythropolis");
+    expect(body.resources.first()?.name).not.toEqual("R. erythropolis");
+    expect(body.resources.first()?.name).toEqual("Rhodococcus erythropolis");
 });

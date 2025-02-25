@@ -7,7 +7,7 @@ import {
 } from "$lib/resources.svelte.ts";
 import { trimRange } from "$lib/ranges.ts";
 import { optionsDropdown, removeDropdown } from "$lib/dropdown";
-import type { bodyStore } from "$lib/body.svelte.ts";
+import type { BodyStore } from "$lib/body.svelte.ts";
 import { triple } from "./relations.svelte.ts";
 import { get } from "svelte/store";
 
@@ -42,7 +42,7 @@ export function handleKeyPress(event: KeyboardEvent) {
     }
 }
 
-export function handleSpanClick(event: MouseEvent, body: bodyStore) {
+export function handleSpanClick(event: MouseEvent, body: BodyStore) {
     const target = event.target as Element;
 
     if (target.classList.contains("entity")) {
@@ -56,7 +56,7 @@ export function handleSpanClick(event: MouseEvent, body: bodyStore) {
     }
 }
 
-export function handleOptionClick(option: string, context: bodyStore): void {
+export function handleOptionClick(option: string, context: BodyStore): void {
     const selection = window.getSelection();
     if (selection && !selection.isCollapsed) {
         const range = trimRange(selection.getRangeAt(0));
@@ -68,7 +68,7 @@ export function handleOptionClick(option: string, context: bodyStore): void {
     optionsDropdown.hide();
 }
 
-export function handleRemove(body: bodyStore) {
+export function handleRemove(body: BodyStore) {
     const span = body.selectedSpan;
 
     if (span) {
@@ -98,7 +98,7 @@ export function handleRemove(body: bodyStore) {
     removeDropdown.hide();
 }
 
-export function handleDrop(e: DragEvent, context: bodyStore): void {
+export function handleDrop(e: DragEvent, context: BodyStore): void {
     const sourceRes = context.getResource(
         e.dataTransfer?.getData("text/plain") as string,
     );
@@ -106,13 +106,11 @@ export function handleDrop(e: DragEvent, context: bodyStore): void {
     const { relations } = context;
     if (sourceRes && targetRes) {
         if (sameClass(sourceRes, targetRes)) {
-            context.mergeResources(sourceRes, targetRes);
+            context.mergeResources(sourceRes.resourceid, targetRes.resourceid);
         } else if (isStrain(sourceRes) && isBacteria(targetRes)) {
             relations.add(triple(sourceRes, "d3o:hasSpecies", targetRes));
         } else if (isBacteria(sourceRes) && isStrain(targetRes)) {
             relations.add(triple(targetRes, "d3o:hasSpecies", sourceRes));
-        } else if (isBacteria(sourceRes) && isEnzyme(targetRes)) {
-            relations.add(triple(sourceRes, "d3o:hasEnzyme", sourceRes));
         } else if (isEnzyme(sourceRes) && isOrganism(targetRes)) {
             relations.add(triple(targetRes, "d3o:hasEnzyme", sourceRes));
         } else if (isOrganism(sourceRes) && isEnzyme(targetRes)) {

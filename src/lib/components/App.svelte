@@ -4,11 +4,11 @@
     import ChunkBody from "$lib/components/ChunkBody.svelte";
     import Summary from "$lib/components/Summary.svelte";
     import Relations from "$lib/components/Relations.svelte";
-    import type { bodyStore } from "$lib/body.svelte.ts";
+    import type { BodyStore } from "$lib/body.svelte.ts";
 
     interface Props {
         header: Element;
-        body: bodyStore;
+        body: BodyStore;
     }
 
     let { header, body }: Props = $props();

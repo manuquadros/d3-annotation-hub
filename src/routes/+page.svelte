@@ -1,11 +1,10 @@
 <script lang="ts">
     import { browser } from "$app/environment";
-    import { onMount } from "svelte";
     import type { PageData } from "./$types";
 
     import "../styles.css";
     import App from "$lib/components/App.svelte";
-    import { bodyStore } from "$lib/body.svelte.ts";
+    import { BodyStore } from "$lib/body.svelte.ts";
 
     interface Props {
         data: PageData;
@@ -37,5 +36,5 @@
 {#await parse(document)}
     <div>Loading...</div>
 {:then}
-    <App {header} body={new bodyStore(chunkBody)} />
+    <App {header} body={new BodyStore(chunkBody)} />
 {/await}

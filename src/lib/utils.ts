@@ -13,7 +13,12 @@ export function entID(): number {
 export function isValidEntitySpan(span: HTMLSpanElement): boolean {
     const label = span.getAttribute("typeof");
     const resid = span.getAttribute("resource");
-    return label !== outOfScope && resid !== null;
+    return (
+        label !== null &&
+        label !== outOfScope &&
+        resid !== null &&
+        span.textContent !== null
+    );
 }
 
 export function newSpan(

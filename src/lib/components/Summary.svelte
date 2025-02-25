@@ -1,9 +1,9 @@
 <script lang="ts">
     import { getContext } from "svelte";
     import ResourceButton from "$lib/components/ResourceButton.svelte";
-    import type { bodyStore } from "$lib/body.svelte.ts";
+    import type { BodyStore } from "$lib/body.svelte.ts";
 
-    const body: bodyStore = getContext("body");
+    const body: BodyStore = getContext("body");
 
     function plural(singular: string): string {
         if (singular === "Bacteria") {
@@ -19,9 +19,9 @@
 
     {#each body.classes as label}
         <h4>{plural(label.split(":")[1])}</h4>
-        {#each body.resources?.entries() as [key, resource]}
+        {#each body.resources?.values() as resource}
             {#if resource.label === label}
-                <ResourceButton {key} {resource} />
+                <ResourceButton {resource} />
             {/if}
         {/each}
     {/each}

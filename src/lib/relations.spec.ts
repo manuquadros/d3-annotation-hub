@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { get } from "svelte/store";
-import { bodyStore } from "$lib/body.svelte.ts";
+import { BodyStore } from "$lib/body.svelte.ts";
 import type { Resource } from "./resources.svelte.ts";
 
 const chunk = `<annotation>
@@ -25,16 +25,16 @@ const chunk = `<annotation>
 function setup() {
     const content = new DOMParser().parseFromString(chunk, "text/html");
 
-    return new bodyStore(content.querySelector(".chunk-body") as Element);
+    return new BodyStore(content.querySelector(".chunk-body") as Element);
 }
 
 describe("relations", () => {
     const body = setup();
     const relations = body.relations;
 
-    const t1 = body.resources.get("#T1") as Resource;
-    const t2 = body.resources.get("#T2") as Resource;
-    const t3 = body.resources.get("#T3") as Resource;
+    const t1 = body.getResource("#T1") as Resource;
+    const t2 = body.getResource("#T2") as Resource;
+    const t3 = body.getResource("#T3") as Resource;
 
     const t3t2 = {
         subject: t3,
@@ -58,8 +58,8 @@ describe("relations", () => {
         expect(relations.size).toBe(2);
     });
 
-    test("remove by object", () => {
-        body.relations.remove({ object: t2 });
+    test("remove object updates relations", () => {
+        body.removeResource("#T2");
         expect(relations.size).toBe(1);
         expect(body.relations.predicates).not.toContain("d3o:hasSpecies");
     });

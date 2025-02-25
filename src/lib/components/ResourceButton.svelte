@@ -7,16 +7,15 @@
         handleSpanClick,
     } from "$lib/handlers";
     import type { Resource } from "$lib/resources.svelte.ts";
-    import type { bodyStore } from "$lib/body.svelte.ts";
+    import type { BodyStore } from "$lib/body.svelte.ts";
 
     interface Props {
-        key: string;
         resource: Resource;
     }
 
-    let { key, resource }: Props = $props();
+    let { resource }: Props = $props();
 
-    const body: bodyStore = getContext("body");
+    const body: BodyStore = getContext("body");
 </script>
 
 <button
@@ -24,7 +23,7 @@
     typeof={resource.label}
     type="button"
     draggable="true"
-    resource={key}
+    resource={resource.resourceid}
     ondragstart={dragStart}
     ondragover={dragOver}
     ondrop={(e) => handleDrop(e, body)}
