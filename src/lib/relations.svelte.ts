@@ -22,7 +22,9 @@ export type TripleQuery = {
 };
 
 export class RelationStore extends SvelteSet<Triple> {
-    #getResources: () => Map<string, Resource> = $state();
+    #getResources: () => Map<string, Resource> = $state(() =>
+        Map<string, Resource>(),
+    );
     #resources = $derived(this.#getResources());
 
     /**
@@ -31,7 +33,7 @@ export class RelationStore extends SvelteSet<Triple> {
      * @constructor
      * @param {Readable<Map<string, Resource>>} resources - Svelte resource store
      */
-    constructor(resourcesGetter: () => Set<Resource>) {
+    constructor(resourcesGetter: () => Map<string, Resource>) {
         super();
         this.#getResources = resourcesGetter;
     }
@@ -93,12 +95,15 @@ export class RelationStore extends SvelteSet<Triple> {
         return Set(
             this[Symbol.iterator]().filter((triple) => {
                 for (const c of constraints) {
-                    const a = triple[c];
-                    const b = query[c];
+                    let a: string | Resource = triple[c];
+                    let b: string | Resource | undefined = query[c];
 
-                    if (typeof a === "string" && typeof b === "string") {
+                    if (b) {
+                        if (typeof a !== "string") a = a.resourceid;
+                        if (typeof b !== "string") b = b.resourceid;
+
                         if (a !== b) return false;
-                    } else if (a.resourceid !== b?.resourceid) return false;
+                    }
                 }
 
                 return true;

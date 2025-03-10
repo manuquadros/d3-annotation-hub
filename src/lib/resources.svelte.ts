@@ -1,4 +1,4 @@
-import type { OrderedMap, Set } from "immutable";
+import type { Map } from "immutable";
 
 export const strainLabel = "d3o:Strain";
 export const enzymeLabel = "d3o:Enzyme";
@@ -10,38 +10,9 @@ export type Resource = {
     resourceid: string;
     name: string;
     label: string;
-
-    // /**
-    //  * Get the resource's display name
-    //  *
-    //  * @returns The longest string among the contents of the spans corresponding
-    //  * to the resource.
-    //  */
-    // get name(): string {
-    //     let curr = "";
-
-    //     for (const str of this.names) {
-    //         curr = str.length > curr.length ? str : curr;
-    //     }
-
-    //     return curr;
-    // }
-
-    // get names(): Set<string> {
-    //     const _names = new Set<string>();
-
-    //     for (const span of this.spans) {
-    //         const text = span.textContent;
-
-    //         if (text) _names.add(text);
-    //     }
-
-    //     return _names;
-    // }
 };
-export type ResourceMap = OrderedMap<ResourceId, Resource>;
 
-export function nextResourceID(resources: Set<Resource>): string {
+export function nextResourceID(resources: Map<string, Resource>): string {
     const last: ResourceId | undefined = resources.maxBy(
         (res) => res.resourceid,
     )?.resourceid;

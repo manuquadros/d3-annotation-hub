@@ -6,7 +6,7 @@ import { nextResourceID, type Resource } from "$lib/resources.svelte.ts";
 import { RelationStore } from "$lib/relations.svelte.ts";
 import { rangeToClass } from "$lib/ranges.ts";
 
-import { Map, OrderedMap, Set, OrderedSet } from "immutable";
+import { Map, Set } from "immutable";
 
 export class BodyStore {
     content: Element = $state(
