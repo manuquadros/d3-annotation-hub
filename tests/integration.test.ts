@@ -120,9 +120,56 @@ test("merging ATCC 25544", async () => {
     );
 });
 
+test("Merges are consistent", async () => {
+    const { user, summary, body } = setup();
+
+    await dragAndDrop(
+        user,
+        summary.getByRole("button", { name: "ATCC 25544" }),
+        summary.getByRole("button", { name: "R. erythropolis" }),
+    );
+    expect(body.relations).toContainEqual({
+        subject: body.resources.get("#T10"),
+        predicate: "d3o:hasSpecies",
+        object: body.resources.get("#T2"),
+    });
+
+    await dragAndDrop(
+        user,
+        summary.getByRole("button", { name: "25544" }),
+        summary.getByRole("button", { name: "R. erythropolis" }),
+    );
+    expect(body.relations).toContainEqual({
+        subject: body.resources.get("#T4"),
+        predicate: "d3o:hasSpecies",
+        object: body.resources.get("#T2"),
+    });
+
+    await dragAndDrop(
+        user,
+        summary.getByRole("button", { name: "25544" }),
+        summary.getByRole("button", { name: "ATCC 25544" }),
+    );
+    expect(body.relations).not.toContainEqual({
+        subject: body.resources.get("#T4"),
+        predicate: "d3o:hasSpecies",
+        object: body.resources.get("#T2"),
+    });
+
+    expect(
+        body.relations
+            .subset({
+                subject: body.resources.get("#T4"),
+                predicate: "d3o:hasSpecies",
+                object: body.resources.get("#T2"),
+            })
+            .toArray(),
+    ).toHaveLength(1);
+});
+
 // unclear if we want this to be possible
 test("R. erythropolis has cholesterol oxidase", async () => {
-    const { user, summary, relations, body } = setup();
+    const { user, summary, relations } = setup();
 
     expect(relations.queryByText("has enzyme")).toBeNull();
 
