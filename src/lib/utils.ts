@@ -1,6 +1,5 @@
 import { rangeToClass } from "$lib/ranges.ts";
 
-import ChunkButton from "$lib/components/ChunkButton.svelte";
 import type { Resource } from "./resources.svelte.ts";
 
 export const outOfScope = "OOS";

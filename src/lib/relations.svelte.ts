@@ -1,6 +1,6 @@
 import type { Resource } from "$lib/resources.svelte.ts";
-import { SvelteMap, SvelteSet } from "svelte/reactivity";
-import { OrderedSet, Set, Map } from "immutable";
+import { SvelteSet } from "svelte/reactivity";
+import { Set, Map } from "immutable";
 
 export interface ResourcePair {
     subject: Resource;
@@ -30,8 +30,7 @@ export class RelationStore extends SvelteSet<Triple> {
     /**
      * Generates the relation store and subscribes to the resource store.
      *
-     * @constructor
-     * @param {Readable<Map<string, Resource>>} resources - Svelte resource store
+     * @param resources - Svelte resource store
      */
     constructor(resourcesGetter: () => Map<string, Resource>) {
         super();
@@ -134,8 +133,8 @@ export class RelationStore extends SvelteSet<Triple> {
 /**
  * Return an appropriate string representation for `predicate`.
  *
- * @param predicate
- * @returns
+ * @param predicate - RDF predicate to be displayed.
+ * @returns String representation of `predicate`, if available.
  */
 export function displayPredicate(predicate: string): string | undefined {
     switch (predicate) {

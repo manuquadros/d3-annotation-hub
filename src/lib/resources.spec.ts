@@ -1,5 +1,4 @@
 import { expect, test } from "vitest";
-import { type Resource } from "$lib/resources.svelte.ts";
 import { BodyStore } from "./body.svelte";
 
 const doc = new DOMParser().parseFromString(

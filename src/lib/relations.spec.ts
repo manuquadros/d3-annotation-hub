@@ -1,5 +1,4 @@
 import { describe, expect, test } from "vitest";
-import { get } from "svelte/store";
 import { BodyStore } from "$lib/body.svelte.ts";
 import type { Resource } from "./resources.svelte.ts";
 

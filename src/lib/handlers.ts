@@ -9,10 +9,8 @@ import { trimRange } from "$lib/ranges.ts";
 import { optionsDropdown, removeDropdown } from "$lib/dropdown";
 import type { BodyStore } from "$lib/body.svelte.ts";
 import { triple } from "./relations.svelte.ts";
-import { get } from "svelte/store";
 
 let selectedText = "";
-let selectedSpan: HTMLSpanElement | null = null;
 
 export function setOptionsDropdown(event: MouseEvent) {
     optionsDropdown.show();

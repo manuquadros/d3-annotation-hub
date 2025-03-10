@@ -1,8 +1,8 @@
 /**
  * Compute a class name for a new annotation, depending on whether it ends at a
  * word boundary or nor.
- * @param range A Range object
- * @param prefix A basic class name to which the computed name is appended.
+ * @param range - A Range object
+ * @param prefix - A basic class name to which the computed name is appended.
  */
 export function rangeToClass(range: Range, prefix: string = "entity"): string {
     const startText = range.startContainer.textContent;

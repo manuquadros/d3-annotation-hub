@@ -127,10 +127,11 @@ export class BodyStore {
     }
 
     /**
-     * Remove f
+     * Remove a resource by removing the spans that are annotated as corresponding
+     * to this resource.
      *
-     * @param  -
-     * @returns
+     * @param resource - Resource id or `HTMLElement` identifying the resource
+           to be deleted.
      */
     removeResource(resource: string | HTMLElement): void {
         const resourceId =
