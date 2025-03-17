@@ -1,5 +1,5 @@
 import { render } from "@testing-library/svelte";
-import { pointer, userEvent } from "@testing-library/user-event";
+import { userEvent } from "@testing-library/user-event";
 import { expect, test } from "vitest";
 
 import Summary from "$lib/components/Summary.svelte";
@@ -181,12 +181,6 @@ test("R. erythropolis has cholesterol oxidase", async () => {
     expect(relations.queryByText(/has enzyme/)).not.toBeNull();
     expect(relations.queryByText(/R. erythropolis/)).not.toBeNull();
     expect(relations.queryByText(/cholesterol oxidase/)).not.toBeNull();
-});
-
-test("Do not prompt to remove annotation when text is selected inside an annotation", async () => {
-    // TODO: select text from offset 108 to offset 120 in the rendered chunkBody component.
-    // log this text to the console
-    const { user, chunkBody, body } = setup();
 });
 
 test("Removing annotations should preserve text", async () => {
