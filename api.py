@@ -1,11 +1,11 @@
-from typing import Optional, Annotated
+from typing import Annotated, Optional
 
-from db import db_init, query, update_annotation
 from fastapi import FastAPI, Form
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import EmailStr
+from xmlparser import replace_annotation, transform_article
 
-from xmlparser import transform_article, replace_annotation
+from db import db_init, query, update_annotation
 
 app = FastAPI()
 
@@ -20,7 +20,9 @@ def on_startup():
 
 
 @app.get("/segment/")
-def show_segment(pmid: Optional[int] = None, start: Optional[int] = None) -> str:
+def show_segment(
+    pmid: Optional[int] = None, start: Optional[int] = None
+) -> str:
     args = [arg for arg in (pmid, start) if arg is not None]
 
     return get_response_json(*args)
