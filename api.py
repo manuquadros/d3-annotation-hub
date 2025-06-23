@@ -1,9 +1,11 @@
+import base64
+import json
 from typing import Annotated, Optional
 
 from fastapi import FastAPI, Form
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import EmailStr
-from xmlparser import replace_annotation, transform_article
+from xmlparser import replace_annotation, transform_article, transform_tree
 
 from .db import db_init, query, update_annotation
 
@@ -12,6 +14,23 @@ app = FastAPI()
 origins = ["http://localhost:5173"]
 
 app.add_middleware(CORSMiddleware, allow_origins=origins)
+
+
+def get_test_response() -> str:
+    with open("tests/15117974_test.json") as f:
+        data = json.load(f)
+        for ref in data["references"].values():
+            if "body" in ref:
+                html_article = transform_article(
+                    article_xml=ref["body"], style="jats"
+                )
+                ref["body"] = base64.b64encode(html_article).decode(
+                    encoding="utf-8"
+                )
+            ref["abstract"] = base64.b64encode(ref["abstract"].encode()).decode(
+                encoding="utf-8"
+            )
+        return json.dumps(data)
 
 
 @app.on_event("startup")
@@ -28,9 +47,9 @@ def show_segment(
     return get_response_json(*args)
 
 
-@app.get("/annotation/")
-def show_annotation(annotator: EmailStr, id: int) -> str:
-    return get_response_json(annotator, id)
+@app.get("/")
+def index() -> str:
+    return get_test_response()
 
 
 @app.put("/annotation/")

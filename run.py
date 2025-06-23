@@ -1,5 +1,4 @@
 import uvicorn
 
-
-def main() -> None:
+if __name__ == "__main__":
     uvicorn.run("api:app", reload=True, reload_excludes="test_*.py")
