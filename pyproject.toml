@@ -8,7 +8,7 @@ requires-python = ">=3.11"
 license = "MPL-2.0"
 dependencies = [
     "email-validator>=2.2.0",
-    "fastapi>=0.115.12",
+    "fastapi[standard]>=0.115.12",
     "multimethod>=2.0",
     "pydantic>=2.11.4",
     "python-multipart>=0.0.20",
