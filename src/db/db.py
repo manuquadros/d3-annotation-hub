@@ -2,6 +2,7 @@ import os
 from collections.abc import Iterable, Iterator
 from typing import Optional
 
+from d3textdb import D3TextDB
 from multimethod import multimethod
 from pydantic import EmailStr
 from sqlalchemy.exc import IntegrityError
@@ -21,16 +22,7 @@ from .datamodel import (
 )
 
 db_path = os.path.join(os.path.dirname(__file__), "database.db")
-
-engine = create_engine(
-    f"sqlite:///{db_path}",
-    echo=True,
-    connect_args={"check_same_thread": False},
-)
-
-
-def db_init() -> None:
-    SQLModel.metadata.create_all(engine)
+annodb = D3TextDB(db_path, echo=True)
 
 
 def get_annotator(email: EmailStr, name: Optional[str] = None) -> Annotator:

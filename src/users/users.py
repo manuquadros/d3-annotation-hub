@@ -1,7 +1,9 @@
+import pathlib
 from datetime import datetime, timedelta, timezone
 from typing import Annotated
 
 import jwt
+import tomlkit
 from d3textdb.schema import User
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
@@ -12,11 +14,17 @@ from pydantic import BaseModel
 router = APIRouter()
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
-ALGORITHM = "EdDSA"
-ACCESS_TOKEN_EXPIRE_MINUTES = 1
+CONFIG_FILE = pathlib.Path(__file__).parent.parent.parent / "config.toml"
+
+with CONFIG_FILE.open(mode="r") as cfg:
+    config = tomlkit.load(cfg)
+    ALGORITHM = config["authentication"]["algorithm"]
+    ACCESS_TOKEN_EXPIRE_MINUTES = config["authentication"][
+        "access_token_expire_minutes"
+    ]
 
 with open("secret.pem") as sec:
-    secret_key = sec.readlines()[1]
+    SECRET_KEY = sec.readlines()[1]
 
 
 class Token(BaseModel):
@@ -65,7 +73,7 @@ def create_access_token(data: dict, expires_delta: timedelta):
     to_encode = data.copy()
     expire = datetime.now(timezone.utc) + expires_delta
     to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(to_encode, secret_key, algorithm=ALGORITHM)
+    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
 
 
