@@ -2,7 +2,16 @@ import os
 from collections.abc import Iterable, Iterator
 from typing import Optional
 
+from ahbackend.datamodel import (
+    Annotation,
+    HtmlChunk,
+    Response,
+    SQLModel,
+    Text,
+    TextChunk,
+)
 from d3textdb import D3TextDB
+from d3textdb.schema import User
 from multimethod import multimethod
 from pydantic import EmailStr
 from sqlalchemy.exc import IntegrityError
@@ -11,21 +20,11 @@ from sqlmodel import Session, col, create_engine, select
 from tokenizers.normalizers import BertNormalizer
 from xmlparser import transform_article
 
-from .datamodel import (
-    Annotation,
-    Annotator,
-    HtmlChunk,
-    Response,
-    SQLModel,
-    Text,
-    TextChunk,
-)
-
 db_path = os.path.join(os.path.dirname(__file__), "database.db")
 annodb = D3TextDB(db_path, echo=True)
 
 
-def get_annotator(email: EmailStr, name: Optional[str] = None) -> Annotator:
+def get_user(email: EmailStr) -> User:
     with Session(engine) as session:
         annotator = session.exec(
             select(Annotator).where(Annotator.email == email)

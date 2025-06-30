@@ -2,12 +2,11 @@ import base64
 import json
 from typing import Annotated, Optional
 
+from ahbackend.db import query, update_annotation
 from fastapi import FastAPI, Form
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import EmailStr
 from xmlparser import replace_annotation, transform_article, transform_tree
-
-from .db import db_init, query, update_annotation
 
 app = FastAPI()
 
@@ -31,11 +30,6 @@ def get_test_response() -> str:
                 encoding="utf-8"
             )
         return json.dumps(data)
-
-
-@app.on_event("startup")
-def on_startup():
-    db_init()
 
 
 @app.get("/segment/")
