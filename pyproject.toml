@@ -4,9 +4,19 @@ version = "0.1.0"
 description = "D3 Annotation Hub Backend"
 authors = [{ name = "Emanuel Souza de Quadros" }]
 readme = "README.md"
-requires-python = ">=3.9.0"
+requires-python = ">=3.11"
 license = "MPL-2.0"
-dependencies = []
+dependencies = [
+    "email-validator>=2.2.0",
+    "fastapi[standard]>=0.115.12",
+    "multimethod>=2.0",
+    "pydantic>=2.11.4",
+    "python-multipart>=0.0.20",
+    "sqlmodel>=0.0.24",
+    "tokenizers>=0.21.1",
+    "uvicorn>=0.34.2",
+    "xmlparser",
+]
 
 [dependency-groups]
 dev = [
@@ -136,3 +146,6 @@ fixable = ["ANN201", "I"]
 
 [tool.ruff.lint.per-file-ignores]
 "**/scripts/**" = ["INP001"]
+
+[tool.uv.sources]
+xmlparser = { path = "../../brenda/tools/xmlparser", editable = true }
