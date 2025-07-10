@@ -1,6 +1,7 @@
 # Project-specific
 *.pem
 config.toml
+init_vars.sh
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

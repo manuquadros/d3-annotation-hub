@@ -2,6 +2,7 @@ import base64
 import json
 from typing import Annotated, Optional
 
+from ahbackend import users
 from ahbackend.db import query, update_annotation
 from fastapi import FastAPI, Form
 from fastapi.middleware.cors import CORSMiddleware
@@ -13,6 +14,7 @@ app = FastAPI()
 origins = ["http://localhost:5173"]
 
 app.add_middleware(CORSMiddleware, allow_origins=origins)
+app.include_router(users.router)
 
 
 def get_test_response() -> str:

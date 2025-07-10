@@ -14,6 +14,7 @@ from d3textdb import D3TextDB
 from d3textdb.schema import User
 from multimethod import multimethod
 from pydantic import EmailStr
+from rich import print
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.sql.functions import random
 from sqlmodel import Session, col, create_engine, select
@@ -24,17 +25,8 @@ db_path = os.path.join(os.path.dirname(__file__), "database.db")
 annodb = D3TextDB(db_path, echo=True)
 
 
-def get_user(email: EmailStr) -> User:
-    with Session(engine) as session:
-        annotator = session.exec(
-            select(Annotator).where(Annotator.email == email)
-        ).first()
-
-    if annotator is None:
-        annotator = Annotator(email=email, name=name)
-        create_annotator(**annotator.model_dump())
-
-    return annotator
+def get_user(email: EmailStr) -> User | None:
+    return annodb.get_user(email)
 
 
 def create_annotator(email: EmailStr, name: str) -> None:

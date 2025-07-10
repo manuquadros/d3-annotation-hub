@@ -1,10 +1,8 @@
-import pathlib
 from datetime import datetime, timedelta, timezone
 from typing import Annotated
 
 import jwt
-import tomlkit
-from d3textdb.schema import User
+from ahbackend import config, db
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from jwt.exceptions import InvalidTokenError
@@ -14,17 +12,6 @@ from pydantic import BaseModel
 router = APIRouter()
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
-CONFIG_FILE = pathlib.Path(__file__).parent.parent.parent / "config.toml"
-
-with CONFIG_FILE.open(mode="r") as cfg:
-    config = tomlkit.load(cfg)
-    ALGORITHM = config["authentication"]["algorithm"]
-    ACCESS_TOKEN_EXPIRE_MINUTES = config["authentication"][
-        "access_token_expire_minutes"
-    ]
-
-with open("secret.pem") as sec:
-    SECRET_KEY = sec.readlines()[1]
 
 
 class Token(BaseModel):
@@ -32,8 +19,8 @@ class Token(BaseModel):
     token_type: str
 
 
-def authenticate_user(username: str, password: str) -> User | None:
-    user = get_user(username)
+def authenticate_user(username: str, password: str) -> db.User | None:
+    user = db.get_user(username)
     if user and pwd_context.verify_password(password, user.hashed_password):
         return user
     return None
@@ -41,14 +28,16 @@ def authenticate_user(username: str, password: str) -> User | None:
 
 async def get_current_user(
     token: Annotated[str, Depends(oauth2_scheme)],
-) -> User:
+) -> db.User:
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
     try:
-        payload = jwt.decode(token, secret_key, algorithms=[ALGORITHM])
+        payload = jwt.decode(
+            token, config.PUBLIC_KEY, algorithms=[config.ALGORITHM]
+        )
         username = payload.get("sub")
         if username is None:
             raise credentials_exception
@@ -62,8 +51,8 @@ async def get_current_user(
 
 
 async def get_current_active_user(
-    current_user: Annotated[User, Depends(get_current_user)],
-) -> User:
+    current_user: Annotated[db.User, Depends(get_current_user)],
+) -> db.User:
     if current_user.disabled:
         raise HTTPException(status_code=400, detail="Inactive user")
     return current_user
@@ -73,7 +62,9 @@ def create_access_token(data: dict, expires_delta: timedelta):
     to_encode = data.copy()
     expire = datetime.now(timezone.utc) + expires_delta
     to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    encoded_jwt = jwt.encode(
+        to_encode, config.PRIVATE_KEY, algorithm=config.ALGORITHM
+    )
     return encoded_jwt
 
 
@@ -88,7 +79,7 @@ async def login_for_access_token(
             detail="Incorrect username or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token_expires = timedelta(minutes=config.ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
         data={"sub": user.email}, expires_delta=access_token_expires
     )
