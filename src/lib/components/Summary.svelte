@@ -18,8 +18,8 @@
     <h2>Entities</h2>
 
     {#each body.classes as label}
-        <h4>{plural(label.split(":")[1])}</h4>
-        {#each body.resources?.values() as resource}
+        <h4 class="summary-header">{plural(label.split(":")[1])}</h4>
+        {#each body.resources?.entries() as [key, resource]}
             {#if resource.label === label}
                 <ResourceButton {resource} />
             {/if}

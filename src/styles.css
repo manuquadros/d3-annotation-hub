@@ -25,6 +25,24 @@ body {
     grid-row: 2 / 5;
 }
 
+/* Reduce spacing after summary headers */
+h4.summary-header {
+    margin-bottom: 0; /* Reduce bottom margin */
+    margin-top: 1em; /* Keep reasonable spacing between sections */
+}
+
+/* Adjust spacing for resource buttons */
+button.entity.entitySummary {
+    margin-top: 0.25em; /* Small gap between buttons */
+    margin-bottom: 0.25em;
+    margin-right: 1em;
+}
+
+/* Optional: If buttons need to be closer to their header */
+h4.summary-header + button.entity.entitySummary {
+    margin-top: 0; /* Remove top margin for first button after header */
+}
+
 .relations-summary {
     margin: 1em auto;
 }
@@ -105,10 +123,6 @@ span.entity[typeof="d3o:Bacteria"]::after :not(.entitySummary) {
 span.entity[typeof="d3o:Enzyme"]::after :not(.entitySummary) {
     content: "Enzyme";
     color: #4b1e83;
-}
-
-.entitySummary {
-    margin-right: 1em;
 }
 
 .dropdown {
