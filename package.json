@@ -1,5 +1,5 @@
 {
-    "name": "annotation-hub",
+    "name": "annotation-hub-frontend",
     "version": "0.0.1",
     "private": true,
     "scripts": {
