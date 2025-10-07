@@ -1,1 +1,1 @@
-from .db import User, create_annotator, get_user, query, update_annotation
+from .db import User, create_user, get_user, query, update_annotation

@@ -29,10 +29,8 @@ def get_user(email: EmailStr) -> User | None:
     return annodb.get_user(email)
 
 
-def create_annotator(email: EmailStr, name: str) -> None:
-    with Session(engine) as session:
-        session.add(Annotator(email=email, name=name))
-        session.commit()
+def create_user(user: User) -> None:
+    annodb.create_user(user)
 
 
 @multimethod
