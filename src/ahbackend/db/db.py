@@ -1,6 +1,7 @@
-import os
+import pathlib
 from collections.abc import Iterable, Iterator
-from typing import Optional
+from importlib import resources
+from typing import Any, Optional
 
 from ahbackend.datamodel import (
     Annotation,
@@ -11,7 +12,7 @@ from ahbackend.datamodel import (
     TextChunk,
 )
 from d3textdb import D3TextDB
-from d3textdb.schema import User
+from d3textdb.schema import ReferenceAnnotation, User
 from multimethod import multimethod
 from pydantic import EmailStr
 from rich import print
@@ -21,7 +22,7 @@ from sqlmodel import Session, col, create_engine, select
 from tokenizers.normalizers import BertNormalizer
 from xmlparser import transform_article
 
-db_path = os.path.join(os.path.dirname(__file__), "database.db")
+db_path = resources.files("ahbackend.db") / "database.db"
 annodb = D3TextDB(db_path, echo=True)
 
 
