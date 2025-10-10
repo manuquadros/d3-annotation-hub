@@ -34,39 +34,18 @@ def create_user(user: User) -> None:
     annodb.create_user(user)
 
 
-@multimethod
 def add_annotation(
-    ann: Annotation,
+    ann: str,
     force: bool = False,
 ) -> None:
-    with Session(engine) as session:
-        try:
-            session.add(
-                Annotation(
-                    annotator=ann.annotator,
-                    chunk=ann.chunk,
-                    annotation=ann.annotation,
-                )
-            )
-            session.commit()
-        except IntegrityError:
-            session.rollback()
-            if force:
-                update_annotation(ann.annotator, ann.chunk, ann.annotation)
-            else:
-                raise
-
-
-def update_annotation(annotator: str, chunk_id: int, annotation: str) -> None:
-    with Session(engine) as session:
-        record = session.exec(
-            select(Annotation).where(
-                Annotation.annotator == annotator, Annotation.chunk == chunk_id
-            )
-        ).one()
-        print(record)
-        record.annotation = annotation
-        session.commit()
+    annotation = ReferenceAnnotation.model_validate_json(ann)
+    try:
+        annodb.store_annotation(annotation)
+    except IntegrityError:
+        if force:
+            annodb.update_annotation(annotation)
+        else:
+            raise
 
 
 def add_annotations(
