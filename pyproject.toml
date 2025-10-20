@@ -7,18 +7,18 @@ readme = "README.md"
 requires-python = ">=3.11"
 license = "MPL-2.0"
 dependencies = [
-    "d3textdb",
-    "email-validator>=2.2.0",
-    "fastapi[standard]>=0.115.12",
-    "multimethod>=2.0",
-    "passlib[bcrypt]>=1.7.4",
-    "pydantic>=2.11.4",
-    "pyjwt>=2.10.1",
-    "python-multipart>=0.0.20",
-    "sqlmodel>=0.0.24",
-    "tokenizers>=0.21.1",
-    "uvicorn>=0.34.2",
-    "xmlparser",
+  "d3textdb",
+  "email-validator>=2.2.0",
+  "fastapi[standard]>=0.115.12",
+  "multimethod>=2.0",
+  "passlib[bcrypt]>=1.7.4",
+  "pydantic>=2.11.4",
+  "pyjwt>=2.10.1",
+  "python-multipart>=0.0.20",
+  "sqlmodel>=0.0.24",
+  "tokenizers>=0.21.1",
+  "uvicorn>=0.34.2",
+  "xmlparser",
 ]
 
 [build-system]
@@ -137,7 +137,7 @@ select = [
 ignore = [
   "COM812",
   "D101",
-  "D203", # requires a blank line before a docstring
+  "D203",   # requires a blank line before a docstring
   "D213",
   "D212",
   "D400",
@@ -148,7 +148,7 @@ ignore = [
   "D413",
   "F722",
   "TD002",
-  "TD003"
+  "TD003",
 ]
 fixable = ["ANN201", "I"]
 
@@ -156,5 +156,5 @@ fixable = ["ANN201", "I"]
 "**/scripts/**" = ["INP001"]
 
 [tool.uv.sources]
-xmlparser = { path = "../../brenda/tools/xmlparser", editable = true }
-d3textdb = { git = "ssh://git@gitlab.int.dsmz.de/d3-annotation-hub/d3textdb.git" }
+xmlparser = { git = "git@github.com:manuquadros/xmlparser.git" }
+d3textdb = { git = "ssh://git@github.com:manuquadros/d3textdb.git" }
