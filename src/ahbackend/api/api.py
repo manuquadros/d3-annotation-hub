@@ -3,11 +3,16 @@ import json
 from typing import Annotated, Optional
 
 from ahbackend import users
-from ahbackend.db import query, update_annotation
+from ahbackend.db import query
 from fastapi import FastAPI, Form
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import EmailStr
-from xmlparser import replace_annotation, transform_article, transform_tree
+from xmlparser import (
+    XMLSyntaxError,
+    replace_annotation,
+    transform_article,
+    transform_tree,
+)
 
 app = FastAPI()
 
@@ -48,12 +53,30 @@ def index() -> str:
     return get_test_response()
 
 
-@app.put("/annotation/")
+@app.get("/article/")
+def fetch_article(identifier: str) -> str:
+    query_arg = int(identifier)
+    reference = query(query_arg)
+
+    try:
+        abstract = str(transform_article(reference.abstract))
+    except XMLSyntaxError:
+        abstract = reference.abstract
+
+    return reference.model_copy(
+        update={
+            "abstract": abstract,
+            "body": str(transform_article(reference.body)),
+        }
+    ).model_dump_json()
+
+
 @app.get(path="/relation/")
 def retrieve_relation_data(predicate: str, subject: str, object: str) -> str:
     return query(predicate, subject, object)
 
 
+@app.post("/annotation/")
 def store_annotation(
     annotator: Annotated[EmailStr, Form()],
     id: Annotated[int, Form()],
