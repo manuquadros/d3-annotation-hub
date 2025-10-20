@@ -5,7 +5,7 @@ description = "D3 Annotation Hub Backend"
 authors = [{ name = "Emanuel Souza de Quadros" }]
 readme = "README.md"
 requires-python = ">=3.11"
-license = "MPL-2.0"
+license = "GPL-3.0-or-later"
 dependencies = [
   "d3textdb",
   "email-validator>=2.2.0",
