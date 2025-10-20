@@ -156,5 +156,5 @@ fixable = ["ANN201", "I"]
 "**/scripts/**" = ["INP001"]
 
 [tool.uv.sources]
-xmlparser = { git = "git@github.com:manuquadros/xmlparser.git" }
-d3textdb = { git = "ssh://git@github.com:manuquadros/d3textdb.git" }
+xmlparser = { git = "ssh://git@github.com/manuquadros/xmlparser.git" }
+d3textdb = { git = "ssh://git@github.com/manuquadros/d3textdb.git" }
