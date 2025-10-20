@@ -49,6 +49,11 @@ def index() -> str:
 
 
 @app.put("/annotation/")
+@app.get(path="/relation/")
+def retrieve_relation_data(predicate: str, subject: str, object: str) -> str:
+    return query(predicate, subject, object)
+
+
 def store_annotation(
     annotator: Annotated[EmailStr, Form()],
     id: Annotated[int, Form()],

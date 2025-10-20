@@ -114,6 +114,16 @@ def query(pmid: int, pos: int) -> Response:
 
 
 @query.register
+def _(predicate: str, subject: str, object: str) -> str:
+    relation = annodb.get_relation(
+        predicate=predicate, subject=subject, object=object
+    )
+    if relation is None:
+        return ""
+    return relation.model_dump_json()
+
+
+@query.register
 def _(annotator: str, annotation_id: int) -> Response:
     """Retrieve the annotated chunk `annotation_id` for `annotator`"""
     with Session(engine) as session:
