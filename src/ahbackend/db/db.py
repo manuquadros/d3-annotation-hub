@@ -4,7 +4,7 @@ from importlib import resources
 from typing import Any, Optional
 
 from d3textdb import D3TextDB
-from d3textdb.schema import ReferenceAnnotation, User
+from d3textdb.schema import Reference, ReferenceAnnotation, User
 from multimethod import multimethod
 from pydantic import EmailStr
 from rich import print
@@ -26,55 +26,41 @@ def create_user(user: User) -> None:
     annodb.create_user(user)
 
 
-def get_unannotated(
-    annotator: Optional[EmailStr] = None, batch_size: Optional[int] = None
-) -> Iterator[Response]:
-    if annotator is not None:
-        annotated = select(Annotation.chunk).where(
-            Annotation.annotator == annotator
-        )
-    else:
-        annotated = select(Annotation.chunk)
+# def get_unannotated(
+#     annotator: Optional[EmailStr] = None, batch_size: Optional[int] = None
+# ) -> Iterator[Response]:
+#     if annotator is not None:
+#         annotated = select(Annotation.chunk).where(
+#             Annotation.annotator == annotator
+#         )
+#     else:
+#         annotated = select(Annotation.chunk)
 
-    query = (
-        select(TextChunk, Text)
-        .join(Text)
-        .where(col(TextChunk.id).not_in(annotated))
-    )
+#     query = (
+#         select(TextChunk, Text)
+#         .join(Text)
+#         .where(col(TextChunk.id).not_in(annotated))
+#     )
 
-    if batch_size is not None:
-        query = query.limit(batch_size)
+#     if batch_size is not None:
+#         query = query.limit(batch_size)
 
-    with Session(engine) as session:
-        results = session.exec(query).all()
+#     with Session(engine) as session:
+#         results = session.exec(query).all()
 
-    for result in results:
-        article = result[1]
-        chunk = result[0]
-        yield Response(
-            article=article,
-            chunk=chunk,
-            content=chunk.content,
-        )
+#     for result in results:
+#         article = result[1]
+#         chunk = result[0]
+#         yield Response(
+#             article=article,
+#             chunk=chunk,
+#             content=chunk.content,
+#         )
 
 
 @multimethod
-def query(pmid: int, pos: int) -> Response:
-    with Session(engine) as session:
-        chunk, article = next(
-            session.exec(
-                select(TextChunk, Text)
-                .join(Text)
-                .where(Text.pmid == pmid)
-                .where(TextChunk.pos == pos)
-            )
-        )
-
-    return Response(
-        article=article,
-        chunk=chunk,
-        content=chunk.content,
-    )
+def query(pmid: int) -> Reference:
+    return annodb.get_article_by_pubmed_id(pmid)
 
 
 @query.register

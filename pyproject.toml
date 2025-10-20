@@ -157,4 +157,4 @@ fixable = ["ANN201", "I"]
 
 [tool.uv.sources]
 xmlparser = { git = "ssh://git@github.com/manuquadros/xmlparser.git" }
-d3textdb = { git = "ssh://git@github.com/manuquadros/d3textdb.git" }
+d3textdb = { git = "ssh://git@github.com/manuquadros/d3textdb.git", branch = "dev" }
