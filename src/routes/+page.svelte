@@ -11,7 +11,8 @@
     }
 
     let { data }: Props = $props();
-    const { document } = data;
+
+    const document = data.documentData;
 
     // svelte-ignore non_reactive_update
     let header: Element;
