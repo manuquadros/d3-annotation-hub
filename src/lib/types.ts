@@ -1,33 +1,61 @@
 import { z } from "zod";
 
-export const Pointer = z.object({
+export type Pointer = {
+    pointer_id: number;
+    user_id: string;
+    entity_id: string;
+    reference_id: int;
+    offset: int;
+    length: int;
+};
+
+export const PointerSchema = z.object({
     pointer_id: z.int(),
     user_id: z.uuid(),
     entity_id: z.string(),
     reference_id: z.int(),
     offset: z.int(),
     length: z.int(),
-});
-export type Pointer = z.infer<typeof Pointer>;
+}) satisfies z.ZodType<Pointer>;
 
 export type Entity = {
     entity_id: string;
     kind: string;
     designations: Set<string>;
 };
+
 export const EntitySchema = z.object({
     entity_id: z.string(),
     kind: z.string(),
     designations: z.optional(z.set(z.string())),
 }) satisfies z.ZodType<Entity>;
 
-export const User = z.object({
+export type User = {
+    user_id: string;
+    email: string;
+};
+export const UserSchema = z.object({
     user_id: z.uuid(),
     email: z.email(),
-});
-export type User = z.infer<typeof User>;
+}) satisfies z.ZodType<User>;
 
-export const Reference = z.object({
+export type Reference = {
+    reference_id: number;
+    pubmed_id: number;
+    pmc_id: number;
+    pmc_open: boolean;
+    doi: string;
+    authors: string;
+    title: string;
+    journal: string;
+    volume: string;
+    number: string | undefined;
+    pages: string;
+    year: number;
+    abstract: string | undefined;
+    body: string | undefined;
+};
+export const ReferenceSchema = z.object({
     reference_id: z.int(),
     pubmed_id: z.int(),
     pmc_id: z.int(),
@@ -42,24 +70,34 @@ export const Reference = z.object({
     year: z.int(),
     abstract: z.string().optional(),
     body: z.string().optional(),
-});
-export type Reference = z.infer<typeof Reference>;
+}) satisfies z.ZodType<Reference>;
 
-export const Relation = z.object({
+export type Relation = {
+    predicate: string;
+    subject: string;
+    object: string;
+};
+export const RelationSchema = z.object({
     predicate: z.string(),
     subject: z.string(),
     object: z.string(),
-});
-export type Relation = z.infer<typeof Relation>;
+}) satisfies z.ZodType<Relation>;
 
-export const AnnotationState = z.object({
-    user: User,
-    reference: Reference,
+export type AnnotationState = {
+    user: User;
+    reference: Reference;
+    entities: Map<string, Entity>;
+    pointers: Map<int, Pointer>;
+    relations: Set<Relation>;
+};
+export const AnnotationStateSchema = z.object({
+    user: UserSchema,
+    reference: ReferenceSchema,
     entities: z
         .record(z.string(), EntitySchema)
         .transform((obj) => new Map(Object.entries(obj))),
     pointers: z
-        .record(z.string(), Pointer)
+        .record(z.string(), PointerSchema)
         .transform(
             (obj) =>
                 new Map(
@@ -68,6 +106,5 @@ export const AnnotationState = z.object({
                     ),
                 ),
         ),
-    relations: z.array(Relation).transform((arr) => new Set(arr)),
-});
-export type AnnotationState = z.infer<typeof AnnotationState>;
+    relations: z.array(RelationSchema).transform((arr) => new Set(arr)),
+}) satisfies AnnotationState;
