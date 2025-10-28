@@ -1,10 +1,15 @@
-export async function load({ fetch }) {
-    const searchParams = new URLSearchParams({
-        identifier: "15117974",
-    });
+import { AnnotationStateSchema } from "$lib/types";
 
-    const response = await fetch("/references?identifier=15117974");
+export async function load({
+    fetch,
+}): Promise<{ documentData: AnnotationState }> {
+    const response = await fetch(
+        `http://localhost:8000/reference/?ref_identifier=15117974
+        &user=f47f7e7b-3913-457e-911c-6da6275de3ec`,
+    );
+    const documentResponse = await response.json();
 
-    const documentData = await response.json();
-    return { documentData };
+    return {
+        documentData: AnnotationStateSchema.parse(JSON.parse(documentResponse)),
+    };
 }
