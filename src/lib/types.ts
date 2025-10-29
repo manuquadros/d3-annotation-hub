@@ -4,9 +4,9 @@ export type Pointer = {
     pointer_id: number;
     user_id: string;
     entity_id: string;
-    reference_id: int;
-    offset: int;
-    length: int;
+    reference_id: number;
+    offset: number;
+    length: number;
 };
 
 export const PointerSchema = z.object({
@@ -21,7 +21,7 @@ export const PointerSchema = z.object({
 export type Entity = {
     entity_id: string;
     kind: string;
-    designations: Set<string>;
+    designations?: Set<string>;
 };
 
 export const EntitySchema = z.object({
