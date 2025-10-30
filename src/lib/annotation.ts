@@ -1,4 +1,13 @@
 import type { Entity, Relation, Pointer } from "$lib/types.ts";
+import { Map } from "immutable";
+import { mount } from "svelte";
+import ResourceCard from "$lib/components/ResourceCard.svelte";
+
+interface AnnotatedRange {
+    range: Range;
+    pointer_id: number;
+    label: string;
+}
 
 /**
  * Returns an HTMLElement annotated according to the state parameters.
@@ -8,7 +17,7 @@ import type { Entity, Relation, Pointer } from "$lib/types.ts";
  * @param pointers - Mapping of pointers in the current annotation state
  * @returns HTMLElement with buttons corresponding to the pointers
  */
-export function annotateHTMLString(
+export async function annotateHTMLString(
     elem: HTMLDivElement,
     html: string,
     entities: Map<string, Entity>,
@@ -17,21 +26,51 @@ export function annotateHTMLString(
     elem.replaceChildren();
     elem.innerHTML = html;
 
+    // Build array here instead of an iterator, because we want to compute all
+    // ranges before manipulating the DOM.
+    const ranges: Array<AnnotatedRange> = pointers
+        .values()
+        .map((pointer) => {
+            return {
+                range: rangeFromPointer(elem, pointer),
+                pointer_id: pointer.pointer_id,
+                label: entities.get(pointer.entity_id).kind,
+            };
+        })
+        .toArray();
+    await ranges.forEach((range) => markRange(elem, range));
+}
+
+const labelColors = Map([
+    ["d3o:Strain", "#ECAF00"],
+    ["d3o:Bacteria", "#B61F29"],
+    ["d3o:Enzyme", "#000064"],
+]);
+
+async function markRange(elem: HTMLElement, pointer: AnnotatedRange) {
     const doc = elem.ownerDocument;
+    const mark = doc.createElement("span", { id: pointer.pointer_id });
+    const labelColor = labelColors.get(pointer.label);
 
-    const b = doc.createElement("b");
-    const range = rangeFromPointer(elem, pointers.get(1));
+    mark.setAttribute("class", "badge text-white");
+    mark.setAttribute("style", `background-color: ${labelColor};`);
 
-    try {
-        range.surroundContents(b);
-    } catch {
-        // Fallback in case the range partially selects non-Text nodes
-        const fragment = range.extractContents();
-        b.appendChild(fragment);
-        range.insertNode(b);
-    } finally {
-        range.detach?.();
-    }
+    const fragment = pointer.range.extractContents();
+    await mount(ResourceCard, {
+        target: mark,
+        props: { fragment },
+    });
+    pointer.range.insertNode(mark);
+
+    const button = doc.createElement("button");
+    const highlightText = pointer.range.toString();
+    button.setAttribute("aria-label", `Edit highlight ‘${highlightText}’`);
+    button.setAttribute("aria-controls", "h-42");
+    button.setAttribute("aria-haspopup", "menu");
+    button.setAttribute("aria-expanded", "false");
+    button.append("✎");
+    mark.after(button);
+    pointer.range.detach?.();
 }
 
 /**
