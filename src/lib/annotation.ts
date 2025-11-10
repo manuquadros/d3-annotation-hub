@@ -1,6 +1,6 @@
 import type { Entity, Relation, Pointer } from "$lib/types.ts";
-import { Map } from "immutable";
 import { mount } from "svelte";
+import { Map } from "immutable";
 import ResourceCard from "$lib/components/ResourceCard.svelte";
 
 interface AnnotatedRange {
@@ -41,35 +41,26 @@ export async function annotateHTMLString(
     await ranges.forEach((range) => markRange(elem, range));
 }
 
-const labelColors = Map([
-    ["d3o:Strain", "#ECAF00"],
-    ["d3o:Bacteria", "#B61F29"],
-    ["d3o:Enzyme", "#000064"],
-]);
-
 async function markRange(elem: HTMLElement, pointer: AnnotatedRange) {
     const doc = elem.ownerDocument;
     const mark = doc.createElement("span", { id: pointer.pointer_id });
+
+    const labelColors = Map([
+        ["d3o:Strain", "#ECAF00"],
+        ["d3o:Bacteria", "#B61F29"],
+        ["d3o:Enzyme", "#000064"],
+    ]);
     const labelColor = labelColors.get(pointer.label);
 
-    mark.setAttribute("class", "badge text-white");
-    mark.setAttribute("style", `background-color: ${labelColor};`);
+    mark.setAttribute("class", "badge");
+    mark.setAttribute("style", `background-color: ${labelColor}`);
 
     const fragment = pointer.range.extractContents();
     await mount(ResourceCard, {
         target: mark,
-        props: { fragment },
+        props: { fragment, labelColor, label: pointer.label },
     });
     pointer.range.insertNode(mark);
-
-    const button = doc.createElement("button");
-    const highlightText = pointer.range.toString();
-    button.setAttribute("aria-label", `Edit highlight ‘${highlightText}’`);
-    button.setAttribute("aria-controls", "h-42");
-    button.setAttribute("aria-haspopup", "menu");
-    button.setAttribute("aria-expanded", "false");
-    button.append("✎");
-    mark.after(button);
     pointer.range.detach?.();
 }
 
