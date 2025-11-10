@@ -58,7 +58,7 @@ async function markRange(elem: HTMLElement, pointer: AnnotatedRange) {
     const fragment = pointer.range.extractContents();
     await mount(ResourceCard, {
         target: mark,
-        props: { fragment, labelColor, label: pointer.label },
+        props: { fragment, labelColor, pointer },
     });
     pointer.range.insertNode(mark);
     pointer.range.detach?.();
