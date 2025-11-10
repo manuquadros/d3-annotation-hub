@@ -99,10 +99,11 @@
         {#if menuVisible}
             <div
                 bind:this={menuElement}
-                class="menu"
                 style="position: absolute; background: white; border: 1px solid #ccc; padding: 4px; z-index: 1000;"
             >
-                <button onclick={deleteAnnotation}>Delete annotation</button>
+                <button class={["btn", "btn-block"]} onclick={deleteAnnotation}
+                    >Delete annotation</button
+                >
             </div>
         {/if}
     </Content>
