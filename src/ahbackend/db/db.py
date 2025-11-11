@@ -1,4 +1,5 @@
 import pathlib
+import uuid
 from collections.abc import Iterable, Iterator
 from importlib import resources
 from typing import Any, Optional
@@ -61,6 +62,11 @@ def create_user(user: User) -> None:
 @multimethod
 def query(pmid: int) -> Reference:
     return annodb.get_article_by_pubmed_id(pmid)
+
+
+@query.register
+def _(ref_identifier: str, user: str) -> ReferenceAnnotation:
+    return annodb.get_reference_annotation(int(ref_identifier), uuid.UUID(user))
 
 
 @query.register

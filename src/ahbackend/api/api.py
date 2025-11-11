@@ -53,20 +53,28 @@ def index() -> str:
     return get_test_response()
 
 
-@app.get("/article/")
-def fetch_article(identifier: str) -> str:
-    query_arg = int(identifier)
-    reference = query(query_arg)
+@app.get("/reference/")
+def fetch_annotation(ref_identifier: str, user: str) -> str:
+    reference_annotation = query(ref_identifier, user)
+    ic(reference_annotation)
 
     try:
-        abstract = str(transform_article(reference.abstract))
+        abstract = str(
+            transform_article(reference_annotation.reference.abstract)
+        )
     except XMLSyntaxError:
-        abstract = reference.abstract
+        abstract = reference_annotation.reference.abstract
 
-    return reference.model_copy(
+    return reference_annotation.model_copy(
         update={
-            "abstract": abstract,
-            "body": str(transform_article(reference.body)),
+            "reference": reference_annotation.reference.model_copy(
+                update={
+                    "abstract": abstract,
+                    "body": transform_article(
+                        reference_annotation.reference.body
+                    ),
+                }
+            )
         }
     ).model_dump_json()
 
