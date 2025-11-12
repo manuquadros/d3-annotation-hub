@@ -45,17 +45,10 @@ async function markRange(elem: HTMLElement, pointer: AnnotatedRange) {
     const doc = elem.ownerDocument;
     const mark = doc.createElement("span", { id: pointer.pointer_id });
 
-    const labelColors = Map([
-        ["d3o:Strain", "#ECAF00"],
-        ["d3o:Bacteria", "#B61F29"],
-        ["d3o:Enzyme", "#000064"],
-    ]);
-    const labelColor = labelColors.get(pointer.label);
-
     const fragment = pointer.range.extractContents();
     await mount(ResourceCard, {
         target: mark,
-        props: { fragment, labelColor, pointer },
+        props: { fragment, pointer_id: pointer.pointer_id },
     });
     pointer.range.insertNode(mark);
     pointer.range.detach?.();

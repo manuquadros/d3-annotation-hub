@@ -3,19 +3,22 @@
     import { getContext, setContext, onMount } from "svelte";
     import type { Pointer, Entity } from "$lib/types.ts";
     import type { SvelteMap } from "svelte/reactivity";
-    import { getContrastColor } from "$lib/utils.ts";
+    import { getContrastColor, getLabelColor } from "$lib/utils.ts";
 
     interface Props {
         fragment: DocumentFragment;
-        labelColor: string;
-        pointer: { pointer_id: number; label: string };
+        pointer_id: number;
     }
-    const { fragment, labelColor, pointer }: Props = $props();
+    const { fragment, pointer_id }: Props = $props();
     const pointers = getContext<SvelteMap<number, Pointer>>("pointers");
-    const entities = getContext<Map<string, Entity>>("entities");
+    const entities = getContext<SvelteMap<string, Entity>>("entities");
     const activeMenuId = getContext<{ value: number | null }>("activeMenuId");
 
-    const textColor = $derived(getContrastColor(labelColor));
+    let resourceLabel = $derived(
+        entities.get(pointers.get(pointer_id).entity_id).kind,
+    );
+    let labelColor = $derived(getLabelColor(resourceLabel));
+    let textColor = $derived(getContrastColor(labelColor));
 
     let mountpoint: HTMLSpanElement;
     let buttonMountpoint: HTMLSpanElement;
@@ -40,7 +43,7 @@
     );
 
     function deleteAnnotation() {
-        pointers.delete(pointer.pointer_id);
+        pointers.delete(pointer_id);
     }
 
     function toggleDropdown() {
@@ -65,16 +68,14 @@
 
     function selectLabel(label: string) {
         // Find the pointer entity and update its kind
-        const pointerData = pointers.get(pointer.pointer_id);
+        const pointerData = pointers.get(pointer_id);
         if (pointerData) {
             const entity = entities.get(pointerData.entity_id);
             if (entity) {
-                entity.kind = label;
-                // Trigger reactivity
-                entities.set(pointerData.entity_id, entity);
+                // Create new entity object to trigger reactivity
+                entities.set(pointerData.entity_id, { ...entity, kind: label });
             }
         }
-        pointer.label = label;
         dropdownOpen = false;
         searchInput = "";
     }
@@ -135,7 +136,7 @@
                         style:background-color={labelColor}
                         style:color={textColor}
                         aria-label={`Delete annotation ${fragment.textContent || ""}`}
-                        aria-controls={pointer.pointer_id}
+                        aria-controls={pointer_id}
                         onclick={deleteAnnotation}>✕</button
                     >
                 </rt><rp>)</rp></ruby
@@ -148,7 +149,7 @@
                     style:color={textColor}
                     onclick={toggleDropdown}
                     aria-haspopup="listbox"
-                    aria-expanded={dropdownOpen}>{pointer.label}</button
+                    aria-expanded={dropdownOpen}>{resourceLabel}</button
                 ></rt
             ><ruby> </ruby>
         </ruby></Content
@@ -177,7 +178,7 @@
                     class="label-option"
                     onclick={() => selectLabel(label)}
                     role="option"
-                    aria-selected={label === pointer.label}
+                    aria-selected={label === resourceLabel}
                 >
                     {label}
                 </button>

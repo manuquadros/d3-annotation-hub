@@ -1,4 +1,5 @@
 import { rangeToClass } from "$lib/ranges.ts";
+import { Map } from "immutable";
 
 import type { Resource } from "./resources.svelte.ts";
 
@@ -66,4 +67,14 @@ export function getContrastColor(hexColor: string): string {
 
     // Return black for light backgrounds, white for dark backgrounds
     return luminance > 0.179 ? "#000000" : "#ffffff";
+}
+
+export function getLabelColor(label: string): string {
+    const labelColors = Map([
+        ["d3o:Strain", "#ECAF00"],
+        ["d3o:Bacteria", "#B61F29"],
+        ["d3o:Enzyme", "#000064"],
+    ]);
+
+    return labelColors.get(label);
 }
