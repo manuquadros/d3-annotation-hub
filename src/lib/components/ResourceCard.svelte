@@ -47,14 +47,22 @@
 
 <Card style="display: inline-block; position: relative;">
     <Content>
-        <ruby
-            ><span
-                bind:this={mountpoint}
-                style:border={`2px solid ${labelColor};`}
-                style:color="white"
-            ></span>
-            <rp>(</rp><rt style="color:white;">{pointer.label}</rt><rp>)</rp
-            ><span bind:this={buttonMountpoint}></span>
-        </ruby>
-    </Content>
+        <ruby style:ruby-position="under"
+            ><ruby style:ruby-position="over"
+                ><span
+                    bind:this={mountpoint}
+                    style:border={`2px solid ${labelColor};`}
+                    style:color="white"
+                ></span>
+                <rp>(</rp><rt style="color:white;"
+                    ><button class={["button primary small"]}
+                        >{pointer.label}</button
+                    ></rt
+                ><rp>)</rp></ruby
+            >
+            <rp>(</rp><rp>)</rp><rt>
+                <span bind:this={buttonMountpoint}></span></rt
+            ><ruby> </ruby>
+        </ruby></Content
+    >
 </Card>
