@@ -3,6 +3,7 @@
     import { getContext, setContext, onMount } from "svelte";
     import type { Pointer, Entity } from "$lib/types.ts";
     import type { SvelteMap } from "svelte/reactivity";
+    import { getContrastColor } from "$lib/utils.ts";
 
     interface Props {
         fragment: DocumentFragment;
@@ -13,31 +14,6 @@
     const pointers = getContext<SvelteMap<number, Pointer>>("pointers");
     const entities = getContext<Map<string, Entity>>("entities");
     const activeMenuId = getContext<{ value: number | null }>("activeMenuId");
-
-    // Calculate contrasting text color based on background luminance
-    function getContrastColor(hexColor: string): string {
-        // Remove # if present
-        const hex = hexColor.replace("#", "");
-
-        // Parse RGB values
-        const r = parseInt(hex.substring(0, 2), 16) / 255;
-        const g = parseInt(hex.substring(2, 4), 16) / 255;
-        const b = parseInt(hex.substring(4, 6), 16) / 255;
-
-        // Convert to linear RGB
-        const toLinear = (c: number) =>
-            c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
-        const rLinear = toLinear(r);
-        const gLinear = toLinear(g);
-        const bLinear = toLinear(b);
-
-        // Calculate relative luminance (WCAG formula)
-        const luminance =
-            0.2126 * rLinear + 0.7152 * gLinear + 0.0722 * bLinear;
-
-        // Return black for light backgrounds, white for dark backgrounds
-        return luminance > 0.179 ? "#000000" : "#ffffff";
-    }
 
     const textColor = $derived(getContrastColor(labelColor));
 
