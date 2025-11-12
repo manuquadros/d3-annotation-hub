@@ -65,7 +65,7 @@
                 button = document.createElement("button");
                 button.setAttribute(
                     "aria-label",
-                    `Edit highlight '${highlightText}'`,
+                    `Edit annotation '${highlightText}'`,
                 );
                 button.setAttribute("aria-controls", "h-42");
                 button.setAttribute("aria-haspopup", "menu");
