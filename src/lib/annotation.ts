@@ -52,9 +52,6 @@ async function markRange(elem: HTMLElement, pointer: AnnotatedRange) {
     ]);
     const labelColor = labelColors.get(pointer.label);
 
-    mark.setAttribute("class", "badge");
-    mark.setAttribute("style", `background-color: ${labelColor}`);
-
     const fragment = pointer.range.extractContents();
     await mount(ResourceCard, {
         target: mark,

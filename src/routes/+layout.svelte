@@ -1,17 +1,18 @@
 <script>
-	/**
-	 * @typedef {Object} Props
-	 * @property {import('svelte').Snippet} [children]
-	 */
+    /**
+     * @typedef {Object} Props
+     * @property {import('svelte').Snippet} [children]
+     */
 
-	/** @type {Props} */
-	let { children } = $props();
+    /** @type {Props} */
+    import "../styles.css";
+    let { children } = $props();
 </script>
 
 <h1>Annotation hub</h1>
 
 <div class="layout">
-	{@render children?.()}
+    {@render children?.()}
 </div>
 
 <style>

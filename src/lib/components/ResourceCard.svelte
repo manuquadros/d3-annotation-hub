@@ -1,7 +1,7 @@
 <script lang="ts">
     import Card, { Content } from "@smui/card";
     import { getContext, setContext, onMount } from "svelte";
-    import type { Pointer } from "$lib/types.ts";
+    import type { Pointer, Entity } from "$lib/types.ts";
     import type { SvelteMap } from "svelte/reactivity";
 
     interface Props {
@@ -11,37 +11,135 @@
     }
     const { fragment, labelColor, pointer }: Props = $props();
     const pointers = getContext<SvelteMap<number, Pointer>>("pointers");
+    const entities = getContext<Map<string, Entity>>("entities");
     const activeMenuId = getContext<{ value: number | null }>("activeMenuId");
+
+    // Calculate contrasting text color based on background luminance
+    function getContrastColor(hexColor: string): string {
+        // Remove # if present
+        const hex = hexColor.replace("#", "");
+
+        // Parse RGB values
+        const r = parseInt(hex.substring(0, 2), 16) / 255;
+        const g = parseInt(hex.substring(2, 4), 16) / 255;
+        const b = parseInt(hex.substring(4, 6), 16) / 255;
+
+        // Convert to linear RGB
+        const toLinear = (c: number) =>
+            c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+        const rLinear = toLinear(r);
+        const gLinear = toLinear(g);
+        const bLinear = toLinear(b);
+
+        // Calculate relative luminance (WCAG formula)
+        const luminance =
+            0.2126 * rLinear + 0.7152 * gLinear + 0.0722 * bLinear;
+
+        // Return black for light backgrounds, white for dark backgrounds
+        return luminance > 0.179 ? "#000000" : "#ffffff";
+    }
+
+    const textColor = $derived(getContrastColor(labelColor));
 
     let mountpoint: HTMLSpanElement;
     let buttonMountpoint: HTMLSpanElement;
     let button: HTMLButtonElement;
     let menuElement: HTMLDivElement;
+    let labelButton: HTMLButtonElement;
+    let dropdownOpen = $state(false);
+    let searchInput = $state("");
+    let dropdownElement: HTMLDivElement;
+    let dropdownPosition = $state({ top: 0, left: 0 });
+
+    // Available label options
+    const allLabels = ["d3o:Strain", "d3o:Bacteria", "d3o:Enzyme"];
+
+    // Filtered labels based on search input
+    let filteredLabels = $derived(
+        allLabels
+            .filter((label) =>
+                label.toLowerCase().includes(searchInput.toLowerCase()),
+            )
+            .slice(0, 5),
+    );
 
     function deleteAnnotation() {
         pointers.delete(pointer.pointer_id);
+    }
+
+    function toggleDropdown() {
+        dropdownOpen = !dropdownOpen;
+        if (dropdownOpen) {
+            searchInput = "";
+            // Calculate position relative to the label button
+            if (labelButton) {
+                const rect = labelButton.getBoundingClientRect();
+                dropdownPosition = {
+                    top: rect.bottom + window.scrollY,
+                    left: rect.left + window.scrollX,
+                };
+            }
+            // Focus the input when opening
+            setTimeout(() => {
+                const input = dropdownElement?.querySelector("input");
+                input?.focus();
+            }, 0);
+        }
+    }
+
+    function selectLabel(label: string) {
+        // Find the pointer entity and update its kind
+        const pointerData = pointers.get(pointer.pointer_id);
+        if (pointerData) {
+            const entity = entities.get(pointerData.entity_id);
+            if (entity) {
+                entity.kind = label;
+                // Trigger reactivity
+                entities.set(pointerData.entity_id, entity);
+            }
+        }
+        pointer.label = label;
+        dropdownOpen = false;
+        searchInput = "";
+    }
+
+    function handleKeydown(event: KeyboardEvent) {
+        if (event.key === "Escape") {
+            dropdownOpen = false;
+            searchInput = "";
+        } else if (
+            event.key === "Enter" &&
+            searchInput &&
+            filteredLabels.length > 0
+        ) {
+            selectLabel(filteredLabels[0]);
+        }
+    }
+
+    // Close dropdown when clicking outside
+    function handleClickOutside(event: MouseEvent) {
+        if (
+            dropdownOpen &&
+            dropdownElement &&
+            !dropdownElement.contains(event.target as Node) &&
+            labelButton &&
+            !labelButton.contains(event.target as Node)
+        ) {
+            dropdownOpen = false;
+            searchInput = "";
+        }
     }
 
     onMount(() => {
         if (mountpoint && fragment) {
             const highlightText = fragment.textContent || "";
             mountpoint.append(fragment);
-
-            if (buttonMountpoint) {
-                button = document.createElement("button");
-                button.setAttribute(
-                    "aria-label",
-                    `Edit annotation '${highlightText}'`,
-                );
-                button.setAttribute("aria-controls", "h-42");
-                button.setAttribute("aria-haspopup", "menu");
-                button.setAttribute("aria-expanded", "false");
-                button.setAttribute("style", "display: inline");
-                button.append("✕");
-                button.onclick = deleteAnnotation;
-                buttonMountpoint.append(button);
-            }
         }
+
+        document.addEventListener("click", handleClickOutside);
+        return () => {
+            document.removeEventListener("click", handleClickOutside);
+        };
     });
 </script>
 
@@ -51,18 +149,66 @@
             ><ruby style:ruby-position="over"
                 ><span
                     bind:this={mountpoint}
-                    style:border={`2px solid ${labelColor};`}
-                    style:color="white"
+                    class={["badge"]}
+                    style:border={`3px solid ${labelColor};`}
                 ></span>
-                <rp>(</rp><rt style="color:white;"
-                    ><button class={["button primary small"]}
-                        >{pointer.label}</button
-                    ></rt
-                ><rp>)</rp></ruby
+                <rp>(</rp><rt class="delete-button-rt">
+                    <button
+                        bind:this={buttonMountpoint}
+                        class={["btn rounded primary tiny"]}
+                        style:background-color={labelColor}
+                        style:color={textColor}
+                        aria-label={`Delete annotation ${fragment.textContent || ""}`}
+                        aria-controls={pointer.pointer_id}
+                        onclick={deleteAnnotation}>✕</button
+                    >
+                </rt><rp>)</rp></ruby
             >
-            <rp>(</rp><rp>)</rp><rt>
-                <span bind:this={buttonMountpoint}></span></rt
+            <rp>(</rp><rp>)</rp><rt class="label-button-rt"
+                ><button
+                    bind:this={labelButton}
+                    class={["btn rounded primary tiny"]}
+                    style:background-color={labelColor}
+                    style:color={textColor}
+                    onclick={toggleDropdown}
+                    aria-haspopup="listbox"
+                    aria-expanded={dropdownOpen}>{pointer.label}</button
+                ></rt
             ><ruby> </ruby>
         </ruby></Content
     >
 </Card>
+
+{#if dropdownOpen}
+    <div
+        bind:this={dropdownElement}
+        class="label-dropdown"
+        role="listbox"
+        onkeydown={handleKeydown}
+        style:top="{dropdownPosition.top}px"
+        style:left="{dropdownPosition.left}px"
+    >
+        <input
+            type="text"
+            bind:value={searchInput}
+            placeholder="Search or type label..."
+            class="label-search-input"
+            aria-label="Search labels"
+        />
+        <div class="label-options">
+            {#each filteredLabels as label}
+                <button
+                    class="label-option"
+                    onclick={() => selectLabel(label)}
+                    role="option"
+                    aria-selected={label === pointer.label}
+                >
+                    {label}
+                </button>
+            {/each}
+            {#if filteredLabels.length === 0 && searchInput}
+                <span class="label-option">Label not found</span>
+            {/if}
+        </div>
+    </div>
+{/if}
