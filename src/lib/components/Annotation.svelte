@@ -28,12 +28,10 @@
     let relations: SvelteSet<Relation> = $state(
         new SvelteSet(initialState.relations),
     );
-    let activeMenuId: { value: number | null } = $state({ value: null });
 
     setContext("entities", entities);
     setContext("pointers", pointers);
     setContext("relations", relations);
-    setContext("activeMenuId", activeMenuId);
 
     const body: string | undefined = initialState.reference.body;
 </script>

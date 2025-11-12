@@ -18,42 +18,8 @@
     let button: HTMLButtonElement;
     let menuElement: HTMLDivElement;
 
-    // Derive menuVisible from the active menu context
-    let menuVisible = $derived(activeMenuId.value === pointer.pointer_id);
-
-    function toggleMenu(event: Event) {
-        event.stopPropagation();
-        // If this menu is already open, close it. Otherwise, open it (which closes any other menu)
-        if (activeMenuId.value === pointer.pointer_id) {
-            activeMenuId.value = null;
-        } else {
-            activeMenuId.value = pointer.pointer_id;
-        }
-        if (button) {
-            button.setAttribute(
-                "aria-expanded",
-                menuVisible ? "true" : "false",
-            );
-        }
-    }
-
     function deleteAnnotation() {
         pointers.delete(pointer.pointer_id);
-        activeMenuId.value = null;
-    }
-
-    function handleClickOutside(event: MouseEvent) {
-        if (
-            menuVisible &&
-            menuElement &&
-            !menuElement.contains(event.target as Node) &&
-            !button.contains(event.target as Node)
-        ) {
-            activeMenuId.value = null;
-            if (button) {
-                button.setAttribute("aria-expanded", "false");
-            }
-        }
     }
 
     onMount(() => {
@@ -71,17 +37,11 @@
                 button.setAttribute("aria-haspopup", "menu");
                 button.setAttribute("aria-expanded", "false");
                 button.setAttribute("style", "display: inline");
-                button.append("✎");
-                button.onclick = toggleMenu;
+                button.append("✕");
+                button.onclick = deleteAnnotation;
                 buttonMountpoint.append(button);
             }
         }
-
-        document.addEventListener("click", handleClickOutside);
-
-        return () => {
-            document.removeEventListener("click", handleClickOutside);
-        };
     });
 </script>
 
@@ -96,15 +56,5 @@
             <rp>(</rp><rt style="color:white;">{pointer.label}</rt><rp>)</rp
             ><span bind:this={buttonMountpoint}></span>
         </ruby>
-        {#if menuVisible}
-            <div
-                bind:this={menuElement}
-                style="position: absolute; background: white; border: 1px solid #ccc; padding: 4px; z-index: 1000;"
-            >
-                <button class={["btn", "btn-block"]} onclick={deleteAnnotation}
-                    >Delete annotation</button
-                >
-            </div>
-        {/if}
     </Content>
 </Card>
