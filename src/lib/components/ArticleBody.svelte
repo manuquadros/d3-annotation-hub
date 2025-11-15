@@ -63,6 +63,23 @@
         }
         return null;
     }
+
+    /**
+     * Update selectedRange and open the text labeling dropdown.
+     *
+     * @param event - MouseEvent object
+     */
+    function handleTextSelection(event: MouseEvent): void {
+        const selection: Selection | null = window.getSelection();
+        if (selection && !selection.isCollapsed) {
+            selectedRange = getSelectedRange(selection, container);
+            setContext(
+                "dropDownState",
+                openLabelingDropdown(event, container, dropdownState),
+            );
+        }
+    }
+
 </script>
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
