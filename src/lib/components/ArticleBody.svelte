@@ -45,6 +45,24 @@
         dropdownState.isOpen = true;
         return dropdownState;
     }
+
+    function getSelectedRange(
+        selection: Selection,
+        container: HTMLElement,
+    ): Range | null {
+        if (selection && selection.anchorNode && !selection.isCollapsed) {
+            if (
+                container &&
+                container.contains(selection.anchorNode.parentNode)
+            ) {
+                const selectedText = selection.toString().trim();
+                if (selectedText) {
+                    return selection.getRangeAt(0);
+                }
+            }
+        }
+        return null;
+    }
 </script>
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
