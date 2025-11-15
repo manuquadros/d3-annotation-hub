@@ -29,11 +29,22 @@
         new SvelteSet(initialState.relations),
     );
 
+    let dropdownState = $state<{
+        isOpen: boolean;
+        position: { top: number; left: number };
+        triggerElement: HTMLElement | null;
+    }>({
+        isOpen: false,
+        position: { top: 0, left: 0 },
+        triggerElement: null,
+    });
+
+    const body: string | undefined = initialState.reference.body;
+
     setContext("entities", entities);
     setContext("pointers", pointers);
     setContext("relations", relations);
-
-    const body: string | undefined = initialState.reference.body;
+    setContext("dropdownState", dropdownState);
 </script>
 
 <div id="container">
