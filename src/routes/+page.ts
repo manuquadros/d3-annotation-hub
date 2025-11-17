@@ -1,4 +1,4 @@
-import { AnnotationStateSchema } from "$lib/types";
+import { AnnotationState } from "$lib/annotation.svelte";
 
 export async function load({
     fetch,
@@ -10,6 +10,6 @@ export async function load({
     const documentResponse = await response.json();
 
     return {
-        documentData: AnnotationStateSchema.parse(JSON.parse(documentResponse)),
+        documentData: new AnnotationState(documentResponse),
     };
 }

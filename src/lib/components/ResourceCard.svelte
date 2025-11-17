@@ -1,72 +1,64 @@
 <script lang="ts">
     import Card, { Content } from "@smui/card";
-    import { getContext, setContext, onMount } from "svelte";
+    import { getContext, onMount } from "svelte";
     import type { Pointer, Entity } from "$lib/types.ts";
+    import { AnnotationState } from "$lib/annotation.svelte";
     import type { SvelteMap } from "svelte/reactivity";
     import { getContrastColor, getLabelColor } from "$lib/utils.ts";
+    import LabelDropdown from "./LabelDropdown.svelte";
 
     interface Props {
         fragment: DocumentFragment;
         pointer_id: number;
     }
     const { fragment, pointer_id }: Props = $props();
-    const pointers = getContext<SvelteMap<number, Pointer>>("pointers");
-    const entities = getContext<SvelteMap<string, Entity>>("entities");
-    const activeMenuId = getContext<{ value: number | null }>("activeMenuId");
+    const annState = getContext<AnnotationState>("annotationState");
+    const dropdownState = getContext<{
+        isOpen: boolean;
+        position: { top: number; left: number };
+        triggerElement: HTMLElement | null;
+    }>("dropdownState");
 
-    let resourceLabel = $derived(
-        entities.get(pointers.get(pointer_id).entity_id).kind,
-    );
+    let resourceLabel = $derived.by(() => {
+        const pointer = annState.pointer(pointer_id);
+        if (!pointer) return "";
+        const entity = annState.entity(pointer.entity_id);
+        return entity?.kind ?? "";
+    });
     let labelColor = $derived(getLabelColor(resourceLabel));
     let textColor = $derived(getContrastColor(labelColor));
 
     let mountpoint: HTMLSpanElement;
-    let buttonMountpoint: HTMLSpanElement;
-    let button: HTMLButtonElement;
-    let menuElement: HTMLDivElement;
     let labelButton: HTMLButtonElement;
-    let dropdownOpen = $state(false);
-    let searchInput = $state("");
-    let dropdownElement: HTMLDivElement;
-    let dropdownPosition = $state({ top: 0, left: 0 });
-
-    // Available label options
-    const allLabels = ["d3o:Strain", "d3o:Bacteria", "d3o:Enzyme"];
-
-    // Filtered labels based on search input
-    let filteredLabels = $derived(
-        allLabels
-            .filter((label) =>
-                label.toLowerCase().includes(searchInput.toLowerCase()),
-            )
-            .slice(0, 5),
-    );
 
     function deleteAnnotation() {
-        pointers.delete(pointer_id);
+        annState.delete(pointer_id);
+        // Re-render happens automatically via ArticleBody's derived annotationData
     }
 
     function toggleDropdown() {
-        dropdownOpen = !dropdownOpen;
-        if (dropdownOpen) {
-            searchInput = "";
-            // Calculate position relative to the label button
+        if (
+            dropdownState.isOpen &&
+            dropdownState.triggerElement === labelButton
+        ) {
+            // If already open for this button, close it
+            dropdownState.isOpen = false;
+            dropdownState.triggerElement = null;
+        } else {
+            // Open dropdown for this button
             if (labelButton) {
                 const rect = labelButton.getBoundingClientRect();
-                dropdownPosition = {
+                dropdownState.position = {
                     top: rect.bottom + window.scrollY,
                     left: rect.left + window.scrollX,
                 };
+                dropdownState.triggerElement = labelButton;
+                dropdownState.isOpen = true;
             }
-            // Focus the input when opening
-            setTimeout(() => {
-                const input = dropdownElement?.querySelector("input");
-                input?.focus();
-            }, 0);
         }
     }
 
-    function selectLabel(label: string) {
+    function handleLabelSelect(label: string) {
         // Find the pointer entity and update its kind
         const pointerData = pointers.get(pointer_id);
         if (pointerData) {
@@ -76,47 +68,12 @@
                 entities.set(pointerData.entity_id, { ...entity, kind: label });
             }
         }
-        dropdownOpen = false;
-        searchInput = "";
-    }
-
-    function handleKeydown(event: KeyboardEvent) {
-        if (event.key === "Escape") {
-            dropdownOpen = false;
-            searchInput = "";
-        } else if (
-            event.key === "Enter" &&
-            searchInput &&
-            filteredLabels.length > 0
-        ) {
-            selectLabel(filteredLabels[0]);
-        }
-    }
-
-    // Close dropdown when clicking outside
-    function handleClickOutside(event: MouseEvent) {
-        if (
-            dropdownOpen &&
-            dropdownElement &&
-            !dropdownElement.contains(event.target as Node) &&
-            labelButton &&
-            !labelButton.contains(event.target as Node)
-        ) {
-            dropdownOpen = false;
-            searchInput = "";
-        }
     }
 
     onMount(() => {
         if (mountpoint && fragment) {
-            const highlightText = fragment.textContent || "";
             mountpoint.append(fragment);
         }
-
-        document.addEventListener("click", handleClickOutside);
-        return () => {
-            document.removeEventListener("click", handleClickOutside);
-        };
     });
 </script>
 
@@ -131,7 +88,6 @@
                 ></span>
                 <rp>(</rp><rt class="delete-button-rt">
                     <button
-                        bind:this={buttonMountpoint}
                         class={["btn rounded primary tiny"]}
                         style:background-color={labelColor}
                         style:color={textColor}
@@ -149,43 +105,15 @@
                     style:color={textColor}
                     onclick={toggleDropdown}
                     aria-haspopup="listbox"
-                    aria-expanded={dropdownOpen}>{resourceLabel}</button
+                    aria-expanded={dropdownState.isOpen &&
+                        dropdownState.triggerElement === labelButton}
+                    >{resourceLabel}</button
                 ></rt
             ><ruby> </ruby>
         </ruby></Content
     >
 </Card>
 
-{#if dropdownOpen}
-    <div
-        bind:this={dropdownElement}
-        class="label-dropdown"
-        role="listbox"
-        onkeydown={handleKeydown}
-        style:top="{dropdownPosition.top}px"
-        style:left="{dropdownPosition.left}px"
-    >
-        <input
-            type="text"
-            bind:value={searchInput}
-            placeholder="Search or type label..."
-            class="label-search-input"
-            aria-label="Search labels"
-        />
-        <div class="label-options">
-            {#each filteredLabels as label}
-                <button
-                    class="label-option"
-                    onclick={() => selectLabel(label)}
-                    role="option"
-                    aria-selected={label === resourceLabel}
-                >
-                    {label}
-                </button>
-            {/each}
-            {#if filteredLabels.length === 0 && searchInput}
-                <span class="label-option">Label not found</span>
-            {/if}
-        </div>
-    </div>
+{#if dropdownState.isOpen && dropdownState.triggerElement === labelButton}
+    <LabelDropdown onSelect={handleLabelSelect} currentLabel={resourceLabel} />
 {/if}

@@ -4,7 +4,7 @@
     import ChunkHeader from "$lib/components/ChunkHeader.svelte";
     import Summary from "$lib/components/Summary.svelte";
     import Relations from "$lib/components/Relations.svelte";
-    import { annotateHTMLString } from "$lib/annotation.ts";
+    import { annotateHTMLString } from "$lib/annotation.svelte.ts";
     import type {
         AnnotationState,
         Entity,
@@ -19,16 +19,6 @@
 
     let { initialState }: Props = $props();
 
-    let entities: SvelteMap<string, Entity> | null = $state(
-        new SvelteMap(initialState.entities),
-    );
-    let pointers: SvelteMap<number, Pointer> = $state(
-        new SvelteMap(initialState.pointers),
-    );
-    let relations: SvelteSet<Relation> = $state(
-        new SvelteSet(initialState.relations),
-    );
-
     let dropdownState = $state<{
         isOpen: boolean;
         position: { top: number; left: number };
@@ -41,9 +31,7 @@
 
     const body: string | undefined = initialState.reference.body;
 
-    setContext("entities", entities);
-    setContext("pointers", pointers);
-    setContext("relations", relations);
+    setContext("annotationState", initialState);
     setContext("dropdownState", dropdownState);
 </script>
 

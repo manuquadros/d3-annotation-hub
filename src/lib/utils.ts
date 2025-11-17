@@ -46,7 +46,10 @@ export function wrapRange(range: Range, resource: Resource): HTMLSpanElement {
     return span;
 }
 
-export function getContrastColor(hexColor: string): string {
+export function getContrastColor(hexColor: string | undefined): string {
+    // Return default if no color provided
+    if (!hexColor) return "#000000";
+
     // Remove # if present
     const hex = hexColor.replace("#", "");
 
@@ -69,12 +72,12 @@ export function getContrastColor(hexColor: string): string {
     return luminance > 0.179 ? "#000000" : "#ffffff";
 }
 
-export function getLabelColor(label: string): string {
+export function getLabelColor(label: string): string | undefined {
     const labelColors = Map([
         ["d3o:Strain", "#ECAF00"],
         ["d3o:Bacteria", "#B61F29"],
         ["d3o:Enzyme", "#000064"],
     ]);
 
-    return labelColors.get(label);
+    return labelColors.get(label) ?? "#CCCCCC"; // Return gray as fallback
 }

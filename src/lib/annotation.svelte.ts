@@ -1,9 +1,5 @@
-import { newEntity } from "$lib/entities.ts";
-import type { Entity } from "$lib/entities.ts";
-import { createEntity } from "$lib/entities.ts";
-import type { Relation, Pointer, User, Reference } from "$lib/types.ts";
+import type { Relation, Pointer, User, Reference, Entity } from "$lib/types.ts";
 import { AnnotationStateSchema } from "$lib/types.ts";
-import { ValidatedMutable } from "validated-extendable";
 import { mount } from "svelte";
 import { Map, Set } from "immutable";
 import ResourceCard from "$lib/components/ResourceCard.svelte";
@@ -14,32 +10,77 @@ interface AnnotatedRange {
     label: string;
 }
 
-export class AnnotationState extends ValidatedMutable(AnnotationStateSchema) {
+export class AnnotationState {
+    user: User;
+    reference: Reference;
+    entities: Map<string, Entity> = $state(Map());
+    pointers: Map<number, Pointer> = $state(Map());
+    relations: Set<Relation> = $state(Set());
+
+    constructor(annotationData: string) {
+        const validated = AnnotationStateSchema.parse(
+            JSON.parse(annotationData),
+        );
+        this.user = validated.user;
+        this.reference = validated.reference;
+        this.entities = validated.entities;
+        this.pointers = validated.pointers;
+        this.relations = validated.relations;
+    }
+
     add(label: string, offset: number, length: number): void {
-        const newEnt = newEntity(label);
+        const newEntityId = this.#addEntity(label);
         const newPointerId = Math.floor(
             Math.random() * Number.MAX_SAFE_INTEGER,
         );
         this.pointers = this.pointers.set(newPointerId, {
             pointer_id: newPointerId,
             user_id: this.user.user_id,
-            entity_id: entity_id,
+            entity_id: newEntityId,
             reference_id: this.reference.reference_id,
             offset: offset,
             length: length,
         });
     }
 
-    #addEntity(label: string): void {
+    #addEntity(label: string): string {
         const newEntityId = `entity_${Date.now()}_${Math.random().toString(36).substring(7)}`;
-        this.entities.set(newEntityId, {
+        this.entities = this.entities.set(newEntityId, {
             entity_id: newEntityId,
             kind: label,
         });
+        return newEntityId;
+    }
+
+    /**
+     * Removes the `entity_id` entry from the entities Map if `entity_id` is not
+     * referenced by any pointer.
+     *
+     * @param entity_id - ID of the entity possibly be removed.
+     */
+    #removeEntity(entity_id: string): void {
+        if (
+            !this.pointers
+                .valueSeq()
+                .some((pointer) => pointer.entity_id == entity_id)
+        ) {
+            this.entities = this.entities.delete(entity_id);
+        }
     }
 
     pointer(pointer_id: number): Pointer | undefined {
         return this.pointers.get(pointer_id);
+    }
+
+    entity(entity_id: string): Entity | undefined {
+        return this.entities.get(entity_id);
+    }
+
+    delete(pointer_id: number): void {
+        const entity_id: string | undefined =
+            this.pointers.get(pointer_id)?.entity_id;
+        this.pointers = this.pointers.delete(pointer_id);
+        if (entity_id) this.#removeEntity(entity_id);
     }
 }
 
@@ -55,7 +96,7 @@ export async function annotateHTMLString(
     elem: HTMLDivElement,
     html: string,
     annotationState: AnnotationState,
-): HTMLElement {
+): Promise<void> {
     elem.replaceChildren();
     elem.innerHTML = html;
     const pointers = annotationState.pointers;
@@ -64,17 +105,17 @@ export async function annotateHTMLString(
     // Build array here instead of an iterator, because we want to compute all
     // ranges before manipulating the DOM.
     const ranges: Array<AnnotatedRange> = pointers
-        .values()
+        .valueSeq()
         .map((pointer) => {
             return {
                 range: rangeFromPointer(elem, pointer),
                 pointer_id: pointer.pointer_id,
-                label: entities.get(pointer.entity_id).kind,
+                label: entities.get(pointer.entity_id)?.kind || "",
             };
         })
         .filter((annotatedRange) => annotatedRange.range !== null)
         .toArray();
-    await ranges.forEach((range) => markRange(elem, range));
+    ranges.forEach(async (range) => await markRange(elem, range));
 }
 
 async function markRange(elem: HTMLElement, pointer: AnnotatedRange) {

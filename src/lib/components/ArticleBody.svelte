@@ -1,16 +1,15 @@
 <script lang="ts">
     import { getContext, setContext, onMount } from "svelte";
-    import type { Entity } from "$lib/entities.ts";
-    import { newEntity } from "$lib/entities.ts";
-    import type { SvelteMap } from "svelte/reactivity";
     import type { Pointer, DropdownState } from "$lib/types.ts";
-    import { annotateHTMLString } from "$lib/annotation.ts";
+    import {
+        annotateHTMLString,
+        AnnotationState,
+    } from "$lib/annotation.svelte";
     import LabelDropdown from "./LabelDropdown.svelte";
     import type { Attachment } from "svelte/attachments";
 
     let { body } = $props();
-    const entities = getContext<SvelteMap<string, Entity>>("entities");
-    const pointers = getContext<SvelteMap<number, Pointer>>("pointers");
+    const annotationState = getContext<AnnotationState>("annotationState");
     let dropdownState = getContext<{
         isOpen: boolean;
         position: { top: number; left: number };
@@ -20,17 +19,9 @@
     let container: HTMLDivElement;
     let selectedRange: Range | null = null;
 
-    // Derive a snapshot of the data that changes whenever pointers or
-    // entities mutate, to trigger reactivity.
-    let annotationData = $derived({
-        pointers: Array.from(pointers.entries()),
-        entities: Array.from(entities.entries()),
-    });
-
     const renderAnnotated: Attachment = (element: HTMLDivElement) => {
         // Access the derived value to make this reactive
-        annotationData;
-        annotateHTMLString(element, body, entities, pointers);
+        annotateHTMLString(element, body, annotationState);
     };
 
     function openLabelingDropdown(
@@ -75,13 +66,75 @@
         const selection: Selection | null = window.getSelection();
         if (selection && !selection.isCollapsed) {
             selectedRange = getSelectedRange(selection, container);
-            setContext(
-                "dropDownState",
-                openLabelingDropdown(event, container, dropdownState),
+            dropdownState = openLabelingDropdown(
+                event,
+                container,
+                dropdownState,
             );
         }
     }
 
+    function handleLabelSelect(label: string) {
+        if (!selectedRange) return;
+
+        const rangeText = selectedRange.toString().trim();
+
+        // Check if text starts with a number - if so, only annotate the selected occurrence
+        const startsWithNumber = /^\d/.test(rangeText);
+
+        if (startsWithNumber) {
+            // Find the offset of the currently selected text
+            // We approximate by getting text before the selection
+            const selectionStart = selectedRange.startContainer;
+            const selectionOffset = selectedRange.startOffset;
+
+            // Get all text nodes before this one to calculate offset
+            const bodyElement = document.getElementById("article-body");
+            if (bodyElement) {
+                const textNodes: Text[] = [];
+                const walker = document.createTreeWalker(
+                    bodyElement,
+                    NodeFilter.SHOW_TEXT,
+                    null,
+                );
+
+                let offset = 0;
+                let node;
+                while ((node = walker.nextNode())) {
+                    if (node === selectionStart) {
+                        offset += selectionOffset;
+                        break;
+                    }
+                    offset += (node.textContent || "").length;
+                }
+                annotationState.add(label, offset, rangeText.length);
+            }
+        } else {
+            // For strings, find and annotate all occurrences
+            const searchText = rangeText;
+
+            // Create a temporary div to get plain text from HTML
+            const tempDiv = document.createElement("div");
+            tempDiv.innerHTML = body;
+            const plainText = tempDiv.textContent || "";
+
+            let startIndex = 0;
+            let foundIndex: number;
+
+            while (
+                (foundIndex = plainText.indexOf(searchText, startIndex)) !== -1
+            ) {
+                annotationState.add(label, foundIndex, searchText.length);
+                startIndex = foundIndex + searchText.length;
+            }
+        }
+
+        // Clear selection
+        window.getSelection()?.removeAllRanges();
+        selectedRange = null;
+
+        // Re-render happens automatically via annotationData derived value
+    }
 </script>
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
@@ -93,34 +146,6 @@
     {@attach renderAnnotated}
 ></div>
 
-<!-- <svelte:window onkeyup={handleKeyPress} /> -->
-
-<!-- {#if $optionsDropdown.visible} -->
-<!--     <div -->
-<!--         class="dropdown" -->
-<!--         style="position: absolute; -->
-<!--                left: {$optionsDropdown.x}px; -->
-<!--                top: {$optionsDropdown.y}px;" -->
-<!--     > -->
-<!--         <button onclick={() => handleOptionClick("Enzyme", body)}>Enzyme</button -->
-<!--         > -->
-<!--         <button onclick={() => handleOptionClick("Bacteria", body)} -->
-<!--             >Bacteria</button -->
-<!--         > -->
-<!--         <button onclick={() => handleOptionClick("Strain", body)}>Strain</button -->
-<!--         > -->
-<!--     </div> -->
-<!-- {/if} -->
-
-<!-- {#if $removeDropdown.visible} -->
-<!--     <div -->
-<!--         class="dropdown" -->
-<!--         style="position: absolute; -->
-<!--                left: {$removeDropdown.x}px; -->
-<!--                top: {$removeDropdown.y}px;" -->
-<!--     > -->
-<!--         <button class="dropdown-button" onclick={() => handleRemove(body)} -->
-<!--             >Remove annotation</button -->
-<!--         > -->
-<!--     </div> -->
-<!-- {/if} -->
+{#if dropdownState.isOpen && dropdownState.triggerElement === container}
+    <LabelDropdown onSelect={handleLabelSelect} />
+{/if}
