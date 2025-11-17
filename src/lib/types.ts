@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { Entity } from "$lib/entities.ts";
 
 export type Pointer = {
     pointer_id: number;
@@ -17,12 +18,6 @@ export const PointerSchema = z.object({
     offset: z.int(),
     length: z.int(),
 }) satisfies z.ZodType<Pointer>;
-
-export type Entity = {
-    entity_id: string;
-    kind: string;
-    designations?: Set<string>;
-};
 
 export const EntitySchema = z.object({
     entity_id: z.string(),
@@ -108,3 +103,12 @@ export const AnnotationStateSchema = z.object({
         ),
     relations: z.array(RelationSchema).transform((arr) => new Set(arr)),
 }) satisfies AnnotationState;
+
+export interface DropdownState {
+    isOpen: boolean;
+    position: {
+        top: number;
+        left: number;
+    };
+    triggerElement: HTMLElement | null;
+}

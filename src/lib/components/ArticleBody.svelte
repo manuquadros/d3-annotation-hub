@@ -1,7 +1,9 @@
 <script lang="ts">
     import { getContext, setContext, onMount } from "svelte";
+    import type { Entity } from "$lib/entities.ts";
+    import { newEntity } from "$lib/entities.ts";
     import type { SvelteMap } from "svelte/reactivity";
-    import type { Pointer, Entity, DropdownState } from "$lib/types.ts";
+    import type { Pointer, DropdownState } from "$lib/types.ts";
     import { annotateHTMLString } from "$lib/annotation.ts";
     import LabelDropdown from "./LabelDropdown.svelte";
     import type { Attachment } from "svelte/attachments";

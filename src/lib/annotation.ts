@@ -1,3 +1,5 @@
+import { newEntity } from "$lib/entities.ts";
+import type { Entity } from "$lib/entities.ts";
 import type { Entity, Relation, Pointer } from "$lib/types.ts";
 import { mount } from "svelte";
 import { SvelteMap } from "svelte/reactivity";
