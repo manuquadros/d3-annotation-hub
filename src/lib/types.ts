@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { Entity } from "$lib/entities.ts";
+import type { AnnotationState } from "$lib/annotation.ts";
 
 export type Pointer = {
     pointer_id: number;
@@ -18,6 +18,12 @@ export const PointerSchema = z.object({
     offset: z.int(),
     length: z.int(),
 }) satisfies z.ZodType<Pointer>;
+
+export type Entity = {
+    entity_id: string;
+    kind: string;
+    designations?: Set<string>;
+};
 
 export const EntitySchema = z.object({
     entity_id: z.string(),
@@ -78,13 +84,6 @@ export const RelationSchema = z.object({
     object: z.string(),
 }) satisfies z.ZodType<Relation>;
 
-export type AnnotationState = {
-    user: User;
-    reference: Reference;
-    entities: Map<string, Entity>;
-    pointers: Map<int, Pointer>;
-    relations: Set<Relation>;
-};
 export const AnnotationStateSchema = z.object({
     user: UserSchema,
     reference: ReferenceSchema,
@@ -102,7 +101,7 @@ export const AnnotationStateSchema = z.object({
                 ),
         ),
     relations: z.array(RelationSchema).transform((arr) => new Set(arr)),
-}) satisfies AnnotationState;
+});
 
 export interface DropdownState {
     isOpen: boolean;

@@ -1,14 +1,46 @@
 import { newEntity } from "$lib/entities.ts";
 import type { Entity } from "$lib/entities.ts";
-import type { Entity, Relation, Pointer } from "$lib/types.ts";
+import { createEntity } from "$lib/entities.ts";
+import type { Relation, Pointer, User, Reference } from "$lib/types.ts";
+import { AnnotationStateSchema } from "$lib/types.ts";
+import { ValidatedMutable } from "validated-extendable";
 import { mount } from "svelte";
-import { SvelteMap } from "svelte/reactivity";
+import { Map, Set } from "immutable";
 import ResourceCard from "$lib/components/ResourceCard.svelte";
 
 interface AnnotatedRange {
     range: Range;
     pointer_id: number;
     label: string;
+}
+
+export class AnnotationState extends ValidatedMutable(AnnotationStateSchema) {
+    add(label: string, offset: number, length: number): void {
+        const newEnt = newEntity(label);
+        const newPointerId = Math.floor(
+            Math.random() * Number.MAX_SAFE_INTEGER,
+        );
+        this.pointers = this.pointers.set(newPointerId, {
+            pointer_id: newPointerId,
+            user_id: this.user.user_id,
+            entity_id: entity_id,
+            reference_id: this.reference.reference_id,
+            offset: offset,
+            length: length,
+        });
+    }
+
+    #addEntity(label: string): void {
+        const newEntityId = `entity_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+        this.entities.set(newEntityId, {
+            entity_id: newEntityId,
+            kind: label,
+        });
+    }
+
+    pointer(pointer_id: number): Pointer | undefined {
+        return this.pointers.get(pointer_id);
+    }
 }
 
 /**
@@ -22,11 +54,12 @@ interface AnnotatedRange {
 export async function annotateHTMLString(
     elem: HTMLDivElement,
     html: string,
-    entities: SvelteMap<string, Entity>,
-    pointers: SvelteMap<number, Pointer>,
+    annotationState: AnnotationState,
 ): HTMLElement {
     elem.replaceChildren();
     elem.innerHTML = html;
+    const pointers = annotationState.pointers;
+    const entities = annotationState.entities;
 
     // Build array here instead of an iterator, because we want to compute all
     // ranges before manipulating the DOM.
