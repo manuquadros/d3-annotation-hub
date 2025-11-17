@@ -3,7 +3,8 @@ import json
 from typing import Annotated, Optional
 
 from ahbackend import users
-from ahbackend.db import query
+from ahbackend.db import query, update_annotation
+from d3textdb.schema import ReferenceAnnotation
 from fastapi import FastAPI, Form
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import EmailStr
@@ -85,20 +86,10 @@ def retrieve_relation_data(predicate: str, subject: str, object: str) -> str:
 
 
 @app.post("/annotation/")
-def store_annotation(
-    annotator: Annotated[EmailStr, Form()],
-    id: Annotated[int, Form()],
-    annotation: Annotated[str, Form()],
-) -> None:
-    """Update annotation in the database
-
-    Todo: the job here would be far easier if the annotations were all standoff
-        annotations. The database would be lighter as well.
-    """
-    previous = query(annotator, id).content
-    new = replace_annotation(previous, annotation)
-
-    update_annotation(annotator, id, new)
+def store_annotation(json_data: str) -> None:
+    """Update annotation in the database"""
+    annotation = ReferenceAnnotation.model_validate_json(json_data)
+    upsert_annotation(annotation)
 
 
 def get_response_json(*args) -> str:

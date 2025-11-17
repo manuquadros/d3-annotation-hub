@@ -27,6 +27,12 @@ def create_user(user: User) -> None:
     annodb.create_user(user)
 
 
+def upsert_annotation(annotation: ReferenceAnnotation) -> None:
+    """Insert or update the database annotation corresponding to `annotation`."""
+
+    annodb.store_annotation(annotation)
+
+
 # def get_unannotated(
 #     annotator: Optional[EmailStr] = None, batch_size: Optional[int] = None
 # ) -> Iterator[Response]:
