@@ -100,6 +100,48 @@
      * @param containerElement - Optional container element (required when range is provided)
      * @returns Array of plain text offsets where the search text occurs
      */
+    function findTextOffsets(
+        htmlBody: string,
+        searchText: string,
+        range?: Range,
+        containerElement?: HTMLElement,
+    ): number[] {
+        const offsets: number[] = [];
+
+        // Extract plain text from original HTML (without annotations)
+        const tempDiv = document.createElement("div");
+        tempDiv.innerHTML = htmlBody;
+        const plainText = tempDiv.textContent || "";
+
+        if (range && containerElement) {
+            // Calculate offset of the specific range in the current DOM
+            const walker = document.createTreeWalker(
+                containerElement,
+                NodeFilter.SHOW_TEXT,
+                null,
+            );
+
+            let currentOffset = 0;
+            let node;
+            while ((node = walker.nextNode())) {
+                if (node === range.startContainer) {
+                    offsets.push(currentOffset + range.startOffset);
+                    break;
+                }
+                currentOffset += (node.textContent || "").length;
+            }
+        } else {
+            // Find all occurrences in the plain text
+            let index = 0;
+            while ((index = plainText.indexOf(searchText, index)) !== -1) {
+                offsets.push(index);
+                index += searchText.length;
+            }
+        }
+
+        return offsets;
+    }
+
     /**
      * Handles label selection from the dropdown by creating annotations.
      * If the selected text starts with a number, only the selected occurrence is annotated.
@@ -111,62 +153,25 @@
         if (!selectedRange) return;
 
         const rangeText = selectedRange.toString().trim();
+        const bodyElement = document.getElementById("article-body");
+        if (!bodyElement) return;
 
         // Check if text starts with a number - if so, only annotate the selected occurrence
         const startsWithNumber = /^\d/.test(rangeText);
 
-        if (startsWithNumber) {
-            // Find the offset of the currently selected text
-            // We approximate by getting text before the selection
-            const selectionStart = selectedRange.startContainer;
-            const selectionOffset = selectedRange.startOffset;
+        const offsets = startsWithNumber
+            ? findTextOffsets(body, rangeText, selectedRange, bodyElement)
+            : findTextOffsets(body, rangeText);
 
-            // Get all text nodes before this one to calculate offset
-            const bodyElement = document.getElementById("article-body");
-            if (bodyElement) {
-                const textNodes: Text[] = [];
-                const walker = document.createTreeWalker(
-                    bodyElement,
-                    NodeFilter.SHOW_TEXT,
-                    null,
-                );
-
-                let offset = 0;
-                let node;
-                while ((node = walker.nextNode())) {
-                    if (node === selectionStart) {
-                        offset += selectionOffset;
-                        break;
-                    }
-                    offset += (node.textContent || "").length;
-                }
-                annotationState.add(label, offset, rangeText.length);
-            }
-        } else {
-            // For strings, find and annotate all occurrences
-            const searchText = rangeText;
-
-            // Create a temporary div to get plain text from HTML
-            const tempDiv = document.createElement("div");
-            tempDiv.innerHTML = body;
-            const plainText = tempDiv.textContent || "";
-
-            let startIndex = 0;
-            let foundIndex: number;
-
-            while (
-                (foundIndex = plainText.indexOf(searchText, startIndex)) !== -1
-            ) {
-                annotationState.add(label, foundIndex, searchText.length);
-                startIndex = foundIndex + searchText.length;
-            }
-        }
+        // Batch add all annotations to avoid DOM changes invalidating offsets
+        annotationState.addMultiple(
+            label,
+            offsets.map((offset) => ({ offset, length: rangeText.length })),
+        );
 
         // Clear selection
         window.getSelection()?.removeAllRanges();
         selectedRange = null;
-
-        // Re-render happens automatically via annotationData derived value
     }
 </script>
 
