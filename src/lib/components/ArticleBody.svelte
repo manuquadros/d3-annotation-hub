@@ -164,7 +164,7 @@
             : findTextOffsets(body, rangeText);
 
         // Batch add all annotations to avoid DOM changes invalidating offsets
-        annotationState.addMultiple(
+        annotationState.add(
             label,
             offsets.map((offset) => ({ offset, length: rangeText.length })),
         );

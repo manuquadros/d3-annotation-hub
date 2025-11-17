@@ -28,19 +28,32 @@ export class AnnotationState {
         this.relations = validated.relations;
     }
 
-    add(label: string, offset: number, length: number): void {
+    /**
+     * Label `offsets` with `label`, adding an entity and pointers to the state.
+     */
+    add(
+        label: string,
+        offsets: Array<{ offset: number; length: number }>,
+    ): void {
         const newEntityId = this.#addEntity(label);
-        const newPointerId = Math.floor(
-            Math.random() * Number.MAX_SAFE_INTEGER,
-        );
-        this.pointers = this.pointers.set(newPointerId, {
-            pointer_id: newPointerId,
-            user_id: this.user.user_id,
-            entity_id: newEntityId,
-            reference_id: this.reference.reference_id,
-            offset: offset,
-            length: length,
-        });
+
+        let updatedPointers = this.pointers;
+        for (const { offset, length } of offsets) {
+            const newPointerId = Math.floor(
+                Math.random() * Number.MAX_SAFE_INTEGER,
+            );
+            updatedPointers = updatedPointers.set(newPointerId, {
+                pointer_id: newPointerId,
+                user_id: this.user.user_id,
+                entity_id: newEntityId,
+                reference_id: this.reference.reference_id,
+                offset,
+                length,
+            });
+        }
+
+        // Single state update for all pointers
+        this.pointers = updatedPointers;
     }
 
     #addEntity(label: string): string {
