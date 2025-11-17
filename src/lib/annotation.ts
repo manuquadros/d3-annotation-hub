@@ -1,6 +1,6 @@
 import type { Entity, Relation, Pointer } from "$lib/types.ts";
 import { mount } from "svelte";
-import { Map } from "immutable";
+import { SvelteMap } from "svelte/reactivity";
 import ResourceCard from "$lib/components/ResourceCard.svelte";
 
 interface AnnotatedRange {
@@ -20,8 +20,8 @@ interface AnnotatedRange {
 export async function annotateHTMLString(
     elem: HTMLDivElement,
     html: string,
-    entities: Map<string, Entity>,
-    pointers: Map<number, Pointer>,
+    entities: SvelteMap<string, Entity>,
+    pointers: SvelteMap<number, Pointer>,
 ): HTMLElement {
     elem.replaceChildren();
     elem.innerHTML = html;
