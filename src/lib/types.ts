@@ -50,11 +50,11 @@ export type Reference = {
     title: string;
     journal: string;
     volume: string;
-    number: string | undefined;
+    number: string | null;
     pages: string;
     year: number;
-    abstract: string | undefined;
-    body: string | undefined;
+    abstract?: string;
+    body?: string;
 };
 export const ReferenceSchema = z.object({
     reference_id: z.int(),
