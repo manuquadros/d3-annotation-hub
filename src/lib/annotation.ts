@@ -37,6 +37,7 @@ export async function annotateHTMLString(
                 label: entities.get(pointer.entity_id).kind,
             };
         })
+        .filter((annotatedRange) => annotatedRange.range !== null)
         .toArray();
     await ranges.forEach((range) => markRange(elem, range));
 }
