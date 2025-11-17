@@ -24,6 +24,14 @@
         annotateHTMLString(element, body, annotationState);
     };
 
+    /**
+     * Opens the labeling dropdown at the mouse cursor position.
+     *
+     * @param event - The mouse event containing cursor position
+     * @param container - The container element that triggered the dropdown
+     * @param dropdownState - The current dropdown state to update
+     * @returns The updated dropdown state
+     */
     function openLabelingDropdown(
         event: MouseEvent,
         container: HTMLElement,
@@ -39,6 +47,13 @@
         return dropdownState;
     }
 
+    /**
+     * Retrieves the selected range if the selection is valid and within the container.
+     *
+     * @param selection - The current window selection
+     * @param container - The container element to check selection against
+     * @returns The selected Range if valid, null otherwise
+     */
     function getSelectedRange(
         selection: Selection,
         container: HTMLElement,
@@ -58,9 +73,9 @@
     }
 
     /**
-     * Update selectedRange and open the text labeling dropdown.
+     * Handles text selection by updating the selected range and opening the labeling dropdown.
      *
-     * @param event - MouseEvent object
+     * @param event - The mouse event from the selection
      */
     function handleTextSelection(event: MouseEvent): void {
         const selection: Selection | null = window.getSelection();
@@ -74,6 +89,24 @@
         }
     }
 
+    /**
+     * Finds plain text offsets for the search text within the original HTML body.
+     * When a range is provided, returns the offset of that specific selection.
+     * Otherwise, finds all occurrences of the search text.
+     *
+     * @param htmlBody - The original HTML body string (without annotations)
+     * @param searchText - The text to search for
+     * @param range - Optional range to calculate offset for (for single occurrence)
+     * @param containerElement - Optional container element (required when range is provided)
+     * @returns Array of plain text offsets where the search text occurs
+     */
+    /**
+     * Handles label selection from the dropdown by creating annotations.
+     * If the selected text starts with a number, only the selected occurrence is annotated.
+     * Otherwise, all occurrences of the text are annotated.
+     *
+     * @param label - The label to apply to the annotation(s)
+     */
     function handleLabelSelect(label: string) {
         if (!selectedRange) return;
 
