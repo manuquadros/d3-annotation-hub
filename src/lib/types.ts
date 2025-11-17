@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { Map, Set } from "immutable";
 import type { AnnotationState } from "$lib/annotation.ts";
 
 export type Pointer = {
@@ -28,7 +29,7 @@ export type Entity = {
 export const EntitySchema = z.object({
     entity_id: z.string(),
     kind: z.string(),
-    designations: z.optional(z.set(z.string())),
+    designations: z.optional(z.set(z.string()).transform((s) => Set(s))),
 }) satisfies z.ZodType<Entity>;
 
 export type User = {
@@ -89,18 +90,13 @@ export const AnnotationStateSchema = z.object({
     reference: ReferenceSchema,
     entities: z
         .record(z.string(), EntitySchema)
-        .transform((obj) => new Map(Object.entries(obj))),
+        .transform((obj) => Map(Object.entries(obj))),
     pointers: z
         .record(z.string(), PointerSchema)
-        .transform(
-            (obj) =>
-                new Map(
-                    Object.entries(obj).map(
-                        ([k, v]) => [Number(k), v] as const,
-                    ),
-                ),
+        .transform((obj) =>
+            Map(Object.entries(obj).map(([k, v]) => [Number(k), v] as const)),
         ),
-    relations: z.array(RelationSchema).transform((arr) => new Set(arr)),
+    relations: z.array(RelationSchema).transform((arr) => Set(arr)),
 });
 
 export interface DropdownState {
