@@ -149,6 +149,121 @@
             }, 2000);
         }
     }
+
+    /**
+     * Handles drag start event - stores the entity ID in the dataTransfer.
+     */
+    function handleDragStart(event: DragEvent) {
+        if (event.dataTransfer) {
+            event.dataTransfer.setData("text/plain", entityId);
+            event.dataTransfer.effectAllowed = "link";
+        }
+    }
+
+    /**
+     * Handles drag over event - allows dropping.
+     */
+    function handleDragOver(event: DragEvent) {
+        event.preventDefault();
+        if (event.dataTransfer) {
+            event.dataTransfer.dropEffect = "link";
+        }
+    }
+
+    /**
+     * Determines the appropriate predicate based on entity kinds.
+     */
+    function guessPredicate(
+        sourceKind: string,
+        targetKind: string,
+    ): string | null {
+        const isStrain = (kind: string) => kind === "d3o:Strain";
+        const isBacteria = (kind: string) => kind === "d3o:Bacteria";
+        const isEnzyme = (kind: string) => kind === "d3o:Enzyme";
+        const isOrganism = (kind: string) =>
+            isBacteria(kind) || isStrain(kind);
+
+        if (isStrain(sourceKind) && isBacteria(targetKind)) {
+            return "d3o:hasSpecies";
+        } else if (isBacteria(sourceKind) && isStrain(targetKind)) {
+            // Reverse: target is the subject
+            return null; // Will be handled by swapping
+        } else if (isEnzyme(sourceKind) && isOrganism(targetKind)) {
+            return "d3o:hasEnzyme";
+        } else if (isOrganism(sourceKind) && isEnzyme(targetKind)) {
+            // Reverse: source keeps being the subject
+            return "d3o:hasEnzyme";
+        }
+
+        return null;
+    }
+
+    /**
+     * Handles drop event - creates a relation between entities.
+     */
+    function handleDrop(event: DragEvent) {
+        event.preventDefault();
+
+        const sourceEntityId = event.dataTransfer?.getData("text/plain");
+        if (!sourceEntityId || sourceEntityId === entityId) return;
+
+        const sourceEntity = annotationState.entity(sourceEntityId);
+        const targetEntity = entity;
+
+        if (!sourceEntity || !targetEntity) return;
+
+        const sourceKind = sourceEntity.kind;
+        const targetKind = targetEntity.kind;
+
+        // Check if they're the same kind - could implement merge logic here if needed
+        if (sourceKind === targetKind) {
+            console.log("Same kind - could merge entities here");
+            return;
+        }
+
+        // Determine the correct predicate and subject/object order
+        let subject: string;
+        let object: string;
+        let predicate: string | null;
+
+        if (
+            sourceKind === "d3o:Bacteria" &&
+            targetKind === "d3o:Strain"
+        ) {
+            // Swap: Strain should be subject
+            subject = entityId;
+            object = sourceEntityId;
+            predicate = "d3o:hasSpecies";
+        } else if (
+            sourceKind === "d3o:Enzyme" &&
+            targetKind === "d3o:Strain"
+        ) {
+            // Swap: Organism should be subject
+            subject = entityId;
+            object = sourceEntityId;
+            predicate = "d3o:hasEnzyme";
+        } else if (
+            sourceKind === "d3o:Enzyme" &&
+            targetKind === "d3o:Bacteria"
+        ) {
+            // Swap: Organism should be subject
+            subject = entityId;
+            object = sourceEntityId;
+            predicate = "d3o:hasEnzyme";
+        } else {
+            subject = sourceEntityId;
+            object = entityId;
+            predicate = guessPredicate(sourceKind, targetKind);
+        }
+
+        if (predicate) {
+            annotationState.relations = annotationState.relations.add({
+                subject,
+                predicate,
+                object,
+            });
+        }
+    }
 </script>
 
 <button
@@ -157,6 +272,10 @@
     style:background-color={labelColor}
     style:color={textColor}
     onclick={toggleDropdown}
+    draggable="true"
+    ondragstart={handleDragStart}
+    ondragover={handleDragOver}
+    ondrop={handleDrop}
     aria-label={`Manage ${displayName} annotations`}
     aria-haspopup="listbox"
     aria-expanded={dropdownState.isOpen &&

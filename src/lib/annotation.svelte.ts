@@ -35,7 +35,27 @@ export class AnnotationState {
         label: string,
         offsets: Array<{ offset: number; length: number }>,
     ): void {
-        const newEntityId = this.#addEntity(label);
+        // Extract designations from the body text at each offset
+        const designations = new globalThis.Set<string>();
+        const body = this.reference.body;
+
+        if (body) {
+            // Create a temporary element to extract plain text
+            const tempDiv = globalThis.document?.createElement("div");
+            if (tempDiv) {
+                tempDiv.innerHTML = body;
+                const plainText = tempDiv.textContent || "";
+
+                for (const { offset, length } of offsets) {
+                    const text = plainText.slice(offset, offset + length);
+                    if (text) {
+                        designations.add(text);
+                    }
+                }
+            }
+        }
+
+        const newEntityId = this.#addEntity(label, designations);
 
         let updatedPointers = this.pointers;
         for (const { offset, length } of offsets) {
@@ -56,11 +76,12 @@ export class AnnotationState {
         this.pointers = updatedPointers;
     }
 
-    #addEntity(label: string): string {
+    #addEntity(label: string, designations?: globalThis.Set<string>): string {
         const newEntityId = `entity_${Date.now()}_${Math.random().toString(36).substring(7)}`;
         this.entities = this.entities.set(newEntityId, {
             entity_id: newEntityId,
             kind: label,
+            designations: designations ? Set(designations) : undefined,
         });
         return newEntityId;
     }

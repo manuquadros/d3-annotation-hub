@@ -1,55 +1,166 @@
 <script lang="ts">
     import { getContext } from "svelte";
-    import { displayPredicate } from "$lib/relations.svelte.ts";
-    import {
-        bacteriaLabel,
-        type Resource,
-        strainLabel,
-    } from "$lib/resources.svelte.ts";
-    import type { BodyStore } from "$lib/body.svelte.ts";
+    import { AnnotationState } from "$lib/annotation.svelte";
+    import type { Entity, Relation } from "$lib/types.ts";
 
-    const body: BodyStore = getContext("body");
-    let bodyByClass = $derived.by(() => {
-        const resMap = new Map<string, Resource[]>();
+    const annotationState = getContext<AnnotationState>("annotationState");
 
-        body.resources.forEach((res) => {
-            resMap.get(res.label)?.push(res) || resMap.set(res.label, [res]);
-        });
+    /**
+     * Groups entities by their kind and returns a Map of kind -> entities array.
+     */
+    const entitiesByKind = $derived.by(() => {
+        const grouped = new Map<string, Array<{ id: string; entity: Entity }>>();
 
-        return resMap;
+        for (const [id, entity] of annotationState.entities.entries()) {
+            const kind = entity.kind;
+            if (!grouped.has(kind)) {
+                grouped.set(kind, []);
+            }
+            grouped.get(kind)!.push({ id, entity });
+        }
+
+        return grouped;
     });
+
+    /**
+     * Gets display name for an entity.
+     * Prefers designations if available, otherwise extracts text from the first pointer.
+     */
+    function getEntityName(entity: Entity, entityId: string): string {
+        // If designations exist, use the first one
+        if (entity.designations && entity.designations.size > 0) {
+            return entity.designations.first() || `Entity ${entityId.slice(-6)}`;
+        }
+
+        // Otherwise, try to get text from the first pointer (only in browser)
+        if (typeof document !== "undefined") {
+            const entityPointers = annotationState.pointers
+                .valueSeq()
+                .filter((pointer) => pointer.entity_id === entityId)
+                .toArray();
+
+            if (entityPointers.length > 0) {
+                const firstPointer = entityPointers[0];
+                const body = annotationState.reference.body;
+                if (body) {
+                    // Extract the text at the pointer's offset
+                    const tempDiv = document.createElement("div");
+                    tempDiv.innerHTML = body;
+                    const plainText = tempDiv.textContent || "";
+                    return plainText.slice(
+                        firstPointer.offset,
+                        firstPointer.offset + firstPointer.length,
+                    );
+                }
+            }
+        }
+
+        return `Entity ${entityId.slice(-6)}`;
+    }
+
+    /**
+     * Gets all relations where the given entity is the subject.
+     */
+    function getRelationsForEntity(entityId: string) {
+        return annotationState.relations
+            .filter((rel) => rel.subject === entityId)
+            .toArray();
+    }
+
+    /**
+     * Returns a human-readable predicate string.
+     */
+    function displayPredicate(predicate: string): string {
+        switch (predicate) {
+            case "d3o:hasSpecies":
+                return "is a strain of";
+            case "d3o:hasEnzyme":
+                return "has enzyme";
+            default:
+                // Remove namespace prefix and convert camelCase to readable text
+                const withoutPrefix = predicate.replace("d3o:", "");
+                // Insert spaces before capital letters and lowercase the result
+                return withoutPrefix
+                    .replace(/([A-Z])/g, " $1")
+                    .toLowerCase()
+                    .trim();
+        }
+    }
+
+    // Order of entity kinds to display
+    const kindOrder = ["d3o:Strain", "d3o:Bacteria", "d3o:Enzyme"];
 </script>
 
-{#if body.relations.size}
+{#if annotationState.relations.size > 0}
     <h2>Relations</h2>
 
-    {#if bodyByClass.size}
-        <div class="relations-summary">
-            {#each [strainLabel, bacteriaLabel] as entClass}
-                {#each bodyByClass.get(entClass) || [] as entity}
-                    {@const triples = body.relations.subset({
-                        subject: entity,
-                    })}
-                    {#if triples.size}
-                        <div style="width: 100%; display: table;">
-                            <div class="subject">
-                                {entity.name}
-                            </div>
+    <div class="relations-summary">
+        {#each kindOrder as kind}
+            {#each entitiesByKind.get(kind) || [] as { id: entityId, entity }}
+                {@const relations = getRelationsForEntity(entityId)}
+                {#if relations.length > 0}
+                    <div class="relation-row">
+                        <div class="subject">
+                            {getEntityName(entity, entityId)}
+                        </div>
 
-                            <div class="relations">
-                                {#each triples as { predicate, object }}
+                        <div class="relations">
+                            {#each relations as relation}
+                                {@const objectEntity = annotationState.entity(
+                                    relation.object,
+                                )}
+                                {#if objectEntity}
                                     <div class="predicate">
-                                        {displayPredicate(predicate)}
+                                        {displayPredicate(relation.predicate)}
                                         <span class="object">
-                                            {object.name}
+                                            {getEntityName(
+                                                objectEntity,
+                                                relation.object,
+                                            )}
                                         </span>
                                     </div>
-                                {/each}
-                            </div>
+                                {/if}
+                            {/each}
                         </div>
-                    {/if}
-                {/each}
+                    </div>
+                {/if}
             {/each}
-        </div>
-    {/if}
+        {/each}
+    </div>
 {/if}
+
+<style>
+    .relation-row {
+        width: 100%;
+        display: flex;
+        align-items: baseline;
+        margin-bottom: 0.5em;
+    }
+
+    .relation-row .subject {
+        font-weight: bold;
+        white-space: nowrap;
+        padding-right: 1em;
+        flex-shrink: 0;
+        line-height: normal;
+    }
+
+    .relation-row .relations {
+        line-height: normal;
+        flex-grow: 1;
+    }
+
+    .predicate {
+        display: block;
+        margin: 0;
+    }
+
+    .predicate:first-child {
+        margin-top: 0;
+    }
+
+    .object {
+        font-weight: bold;
+        padding-left: 0.5em;
+    }
+</style>

@@ -83,9 +83,9 @@
         <Summary />
     </div>
 
-    <!-- <div id="relations"> -->
-    <!--     <Relations /> -->
-    <!-- </div> -->
+    <div id="relations">
+        <Relations />
+    </div>
 </div>
 
 <SaveIndicator status={saveStatus} onRetry={handleRetry} />

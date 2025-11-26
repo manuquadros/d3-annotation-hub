@@ -29,7 +29,7 @@ export type Entity = {
 export const EntitySchema = z.object({
     entity_id: z.string(),
     kind: z.string(),
-    designations: z.optional(z.set(z.string()).transform((s) => Set(s))),
+    designations: z.optional(z.array(z.string()).transform((arr) => Set(arr))),
 }) satisfies z.ZodType<Entity>;
 
 export type User = {
