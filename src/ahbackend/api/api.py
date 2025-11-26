@@ -3,9 +3,9 @@ import json
 from typing import Annotated, Optional
 
 from ahbackend import users
-from ahbackend.db import query, update_annotation
+from ahbackend.db import query, upsert_annotation
 from d3textdb.schema import ReferenceAnnotation
-from fastapi import FastAPI, Form
+from fastapi import Body, FastAPI, Form
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import EmailStr
 from xmlparser import (
@@ -19,7 +19,7 @@ app = FastAPI()
 
 origins = ["http://localhost:5173"]
 
-app.add_middleware(CORSMiddleware, allow_origins=origins)
+app.add_middleware(CORSMiddleware, allow_origins=origins, allow_methods=["*"])
 app.include_router(users.router)
 
 
@@ -85,8 +85,8 @@ def retrieve_relation_data(predicate: str, subject: str, object: str) -> str:
     return query(predicate, subject, object)
 
 
-@app.post("/annotation/")
-def store_annotation(json_data: str) -> None:
+@app.post("/save/")
+def store_annotation(json_data: str = Body(..., embed=True)) -> None:
     """Update annotation in the database"""
     annotation = ReferenceAnnotation.model_validate_json(json_data)
     upsert_annotation(annotation)
