@@ -2,6 +2,7 @@
     import { getContext } from "svelte";
     import { AnnotationState } from "$lib/annotation.svelte";
     import { getLabelColor, getContrastColor } from "$lib/utils.ts";
+    import LabelDropdown from "./LabelDropdown.svelte";
 
     interface Props {
         entityId: string;
@@ -9,6 +10,11 @@
 
     const { entityId }: Props = $props();
     const annotationState = getContext<AnnotationState>("annotationState");
+    const dropdownState = getContext<{
+        isOpen: boolean;
+        position: { top: number; left: number };
+        triggerElement: HTMLElement | null;
+    }>("dropdownState");
 
     /**
      * Gets the entity from the annotation state.
@@ -59,10 +65,48 @@
     const labelColor = $derived(getLabelColor(entity?.kind || ""));
     const textColor = $derived(getContrastColor(labelColor));
 
+    let buttonElement: HTMLButtonElement;
+
+    /**
+     * Toggles the dropdown open/closed when button is clicked.
+     */
+    function toggleDropdown() {
+        if (
+            dropdownState.isOpen &&
+            dropdownState.triggerElement === buttonElement
+        ) {
+            // If already open for this button, close it
+            dropdownState.isOpen = false;
+            dropdownState.triggerElement = null;
+        } else {
+            // Open dropdown for this button
+            if (buttonElement) {
+                const rect = buttonElement.getBoundingClientRect();
+                dropdownState.position = {
+                    top: rect.bottom + window.scrollY,
+                    left: rect.left + window.scrollX,
+                };
+                dropdownState.triggerElement = buttonElement;
+                dropdownState.isOpen = true;
+            }
+        }
+    }
+
+    /**
+     * Handles label selection from dropdown by updating entity kind.
+     */
+    function handleLabelSelect(label: string) {
+        if (!entity) return;
+        annotationState.entities = annotationState.entities.set(entityId, {
+            ...entity,
+            kind: label,
+        });
+    }
+
     /**
      * Scrolls to and highlights the first annotation for this entity.
      */
-    function handleClick() {
+    function scrollToAnnotation() {
         if (entityPointers.length === 0) return;
 
         const firstPointer = entityPointers[0];
@@ -86,15 +130,27 @@
 </script>
 
 <button
+    bind:this={buttonElement}
     class="entity-button"
     style:background-color={labelColor}
     style:color={textColor}
-    onclick={handleClick}
-    aria-label={`View ${displayName} annotations`}
+    onclick={toggleDropdown}
+    aria-label={`Manage ${displayName} annotations`}
+    aria-haspopup="listbox"
+    aria-expanded={dropdownState.isOpen &&
+        dropdownState.triggerElement === buttonElement}
 >
     {displayName}
     <span class="entity-count">{entityPointers.length}</span>
 </button>
+
+{#if dropdownState.isOpen && dropdownState.triggerElement === buttonElement}
+    <LabelDropdown
+        onSelect={handleLabelSelect}
+        currentLabel={entity?.kind}
+        customActions={[{ label: "View annotations", handler: scrollToAnnotation }]}
+    />
+{/if}
 
 <style>
     .entity-button {

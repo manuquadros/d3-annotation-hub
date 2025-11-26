@@ -1,12 +1,18 @@
 <script lang="ts">
     import { getContext, onMount } from "svelte";
 
+    interface CustomAction {
+        label: string;
+        handler: () => void;
+    }
+
     interface Props {
         onSelect: (label: string) => void;
         currentLabel?: string;
+        customActions?: CustomAction[];
     }
 
-    const { onSelect, currentLabel }: Props = $props();
+    const { onSelect, currentLabel, customActions = [] }: Props = $props();
     const dropdownState = getContext<{
         isOpen: boolean;
         position: { top: number; left: number };
@@ -30,6 +36,11 @@
 
     function selectLabel(label: string) {
         onSelect(label);
+        closeDropdown();
+    }
+
+    function handleCustomAction(action: CustomAction) {
+        action.handler();
         closeDropdown();
     }
 
@@ -91,6 +102,20 @@
         style:top="{dropdownState.position.top}px"
         style:left="{dropdownState.position.left}px"
     >
+        {#if customActions.length > 0}
+            <div class="custom-actions">
+                {#each customActions as action}
+                    <button
+                        class="label-option custom-action"
+                        onclick={() => handleCustomAction(action)}
+                        role="option"
+                    >
+                        {action.label}
+                    </button>
+                {/each}
+            </div>
+            <div class="dropdown-separator"></div>
+        {/if}
         <input
             type="text"
             bind:value={searchInput}
@@ -115,3 +140,24 @@
         </div>
     </div>
 {/if}
+
+<style>
+    .custom-actions {
+        padding: 4px 0;
+    }
+
+    .custom-action {
+        font-weight: 600;
+        color: #2563eb;
+    }
+
+    .custom-action:hover {
+        background-color: #eff6ff;
+    }
+
+    .dropdown-separator {
+        height: 1px;
+        background-color: #e5e7eb;
+        margin: 4px 0;
+    }
+</style>
