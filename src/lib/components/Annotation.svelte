@@ -79,9 +79,9 @@
         <ArticleBody {body} />
     </div>
 
-    <!-- <div id="summary"> -->
-    <!--     <Summary /> -->
-    <!-- </div> -->
+    <div id="summary">
+        <Summary />
+    </div>
 
     <!-- <div id="relations"> -->
     <!--     <Relations /> -->

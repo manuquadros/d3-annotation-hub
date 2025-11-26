@@ -1,28 +1,63 @@
 <script lang="ts">
     import { getContext } from "svelte";
-    import ResourceButton from "$lib/components/ResourceButton.svelte";
-    import type { BodyStore } from "$lib/body.svelte.ts";
+    import EntityButton from "$lib/components/EntityButton.svelte";
+    import { AnnotationState } from "$lib/annotation.svelte";
+    import type { Entity } from "$lib/types.ts";
 
-    const body: BodyStore = getContext("body");
+    const annotationState = getContext<AnnotationState>("annotationState");
 
-    function plural(singular: string): string {
-        if (singular === "Bacteria") {
-            return singular;
-        } else {
-            return singular + "s";
+    /**
+     * Groups entities by their kind and returns a Map of kind -> entities array.
+     * The kinds are sorted alphabetically.
+     */
+    const entitiesByKind = $derived.by(() => {
+        const grouped = new Map<string, Array<{ id: string; entity: Entity }>>();
+
+        for (const [id, entity] of annotationState.entities.entries()) {
+            const kind = entity.kind;
+            if (!grouped.has(kind)) {
+                grouped.set(kind, []);
+            }
+            grouped.get(kind)!.push({ id, entity });
         }
+
+        // Sort kinds alphabetically
+        return new Map([...grouped.entries()].sort(([a], [b]) => a.localeCompare(b)));
+    });
+
+    /**
+     * Converts a singular entity kind to its plural form.
+     * Special cases are handled explicitly, otherwise appends "s".
+     */
+    function plural(singular: string): string {
+        // Extract the label part after the colon (e.g., "d3o:Bacteria" -> "Bacteria")
+        const label = singular.includes(":") ? singular.split(":")[1] : singular;
+
+        if (label === "Bacteria") {
+            return label;
+        }
+        return label + "s";
     }
 </script>
 
-{#if body.resources}
+{#if entitiesByKind.size > 0}
     <h2>Entities</h2>
 
-    {#each body.classes as label}
-        <h4 class="summary-header">{plural(label.split(":")[1])}</h4>
-        {#each body.resources?.entries() as [key, resource]}
-            {#if resource.label === label}
-                <ResourceButton {resource} />
-            {/if}
-        {/each}
+    {#each entitiesByKind.entries() as [kind, entities]}
+        <h4 class="summary-header">{plural(kind)}</h4>
+        <div class="entity-group">
+            {#each entities as { id, entity }}
+                <EntityButton entityId={id} />
+            {/each}
+        </div>
     {/each}
 {/if}
+
+<style>
+    .entity-group {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.25rem;
+        margin-bottom: 1rem;
+    }
+</style>
