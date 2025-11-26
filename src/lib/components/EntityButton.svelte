@@ -104,6 +104,28 @@
     }
 
     /**
+     * Deletes the entity and all its associated pointers from the annotation state.
+     */
+    function deleteEntity() {
+        // Get all pointer IDs for this entity
+        const pointerIdsToDelete = annotationState.pointers
+            .valueSeq()
+            .filter((pointer) => pointer.entity_id === entityId)
+            .map((pointer) => pointer.pointer_id)
+            .toArray();
+
+        // Delete all pointers for this entity
+        let updatedPointers = annotationState.pointers;
+        for (const pointerId of pointerIdsToDelete) {
+            updatedPointers = updatedPointers.delete(pointerId);
+        }
+        annotationState.pointers = updatedPointers;
+
+        // Delete the entity
+        annotationState.entities = annotationState.entities.delete(entityId);
+    }
+
+    /**
      * Scrolls to and highlights the first annotation for this entity.
      */
     function scrollToAnnotation() {
@@ -148,7 +170,10 @@
     <LabelDropdown
         onSelect={handleLabelSelect}
         currentLabel={entity?.kind}
-        customActions={[{ label: "View annotations", handler: scrollToAnnotation }]}
+        customActions={[
+            { label: "View annotations", handler: scrollToAnnotation },
+            { label: "Delete entity", handler: deleteEntity },
+        ]}
     />
 {/if}
 
