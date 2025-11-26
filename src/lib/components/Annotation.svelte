@@ -12,12 +12,16 @@
         Pointer,
     } from "$lib/types.ts";
     import ArticleBody from "./ArticleBody.svelte";
+    import SaveIndicator from "./SaveIndicator.svelte";
+    import type { SaveStatus } from "./SaveIndicator.svelte";
+    import { createDebouncedSave } from "$lib/utils/autosave.ts";
 
     interface Props {
         initialState: AnnotationState;
+        apiUrl?: string;
     }
 
-    let { initialState }: Props = $props();
+    let { initialState, apiUrl = "http://localhost:8000" }: Props = $props();
 
     let dropdownState = $state<{
         isOpen: boolean;
@@ -28,6 +32,40 @@
         position: { top: 0, left: 0 },
         triggerElement: null,
     });
+
+    let saveStatus = $state<SaveStatus>({ type: 'idle' });
+
+    const { scheduleSave, cancelPending } = createDebouncedSave(2000);
+
+    // Watch for changes to annotation state and trigger auto-save
+    $effect(() => {
+        // Access reactive properties to trigger effect on changes
+        const _entities = initialState.entities;
+        const _pointers = initialState.pointers;
+        const _relations = initialState.relations;
+
+        // Trigger auto-save
+        saveStatus = { type: 'saving' };
+
+        scheduleSave(initialState, apiUrl).then((result) => {
+            if (result.success) {
+                saveStatus = { type: 'saved', timestamp: new Date() };
+            } else {
+                saveStatus = { type: 'error', message: result.error || 'Unknown error' };
+            }
+        });
+    });
+
+    function handleRetry() {
+        saveStatus = { type: 'saving' };
+        scheduleSave(initialState, apiUrl).then((result) => {
+            if (result.success) {
+                saveStatus = { type: 'saved', timestamp: new Date() };
+            } else {
+                saveStatus = { type: 'error', message: result.error || 'Unknown error' };
+            }
+        });
+    }
 
     const body: string | undefined = initialState.reference.body;
 
@@ -49,3 +87,5 @@
     <!--     <Relations /> -->
     <!-- </div> -->
 </div>
+
+<SaveIndicator status={saveStatus} onRetry={handleRetry} />
