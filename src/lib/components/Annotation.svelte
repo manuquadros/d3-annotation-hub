@@ -1,6 +1,7 @@
 <script lang="ts">
     import { setContext } from "svelte";
     import { SvelteMap, SvelteSet } from "svelte/reactivity";
+    import { Set } from "immutable";
     import ChunkHeader from "$lib/components/ChunkHeader.svelte";
     import Summary from "$lib/components/Summary.svelte";
     import Relations from "$lib/components/Relations.svelte";
@@ -68,6 +69,17 @@
     }
 
     const body: string | undefined = initialState.reference.body;
+
+    // Clean up any dangling relations (relations that reference non-existent entities)
+    // This handles legacy data that may have dangling references from before the fix
+    const validEntityIds = new Set(initialState.entities.keys());
+    const relationsArray = initialState.relations.toArray();
+    const validRelations = relationsArray.filter(
+        (relation) => validEntityIds.has(relation.subject) && validEntityIds.has(relation.object)
+    );
+    if (validRelations.length < relationsArray.length) {
+        initialState.relations = Set(validRelations);
+    }
 
     setContext("annotationState", initialState);
     setContext("dropdownState", dropdownState);

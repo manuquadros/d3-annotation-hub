@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { Map, Set } from "immutable";
+import { Map, Set, Record } from "immutable";
 import type { AnnotationState } from "$lib/annotation.ts";
 
 export type Pointer = {
@@ -74,16 +74,31 @@ export const ReferenceSchema = z.object({
     body: z.string().optional(),
 }) satisfies z.ZodType<Reference>;
 
-export type Relation = {
+// Create an Immutable Record for Relation to ensure value-based equality
+const RelationRecordFactory = Record({
+    predicate: "",
+    subject: "",
+    object: "",
+});
+
+export type Relation = ReturnType<typeof RelationRecordFactory>;
+
+// Helper to create a Relation from plain object
+export function createRelation(obj: {
     predicate: string;
     subject: string;
     object: string;
-};
-export const RelationSchema = z.object({
-    predicate: z.string(),
-    subject: z.string(),
-    object: z.string(),
-}) satisfies z.ZodType<Relation>;
+}): Relation {
+    return RelationRecordFactory(obj);
+}
+
+export const RelationSchema = z
+    .object({
+        predicate: z.string(),
+        subject: z.string(),
+        object: z.string(),
+    })
+    .transform((obj) => createRelation(obj));
 
 export const AnnotationStateSchema = z.object({
     user: UserSchema,

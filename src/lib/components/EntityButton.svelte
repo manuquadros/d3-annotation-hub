@@ -1,7 +1,9 @@
 <script lang="ts">
     import { getContext } from "svelte";
+    import { Set } from "immutable";
     import { AnnotationState } from "$lib/annotation.svelte";
     import { getLabelColor, getContrastColor } from "$lib/utils.ts";
+    import { createRelation } from "$lib/types.ts";
     import LabelDropdown from "./LabelDropdown.svelte";
 
     interface Props {
@@ -104,7 +106,7 @@
     }
 
     /**
-     * Deletes the entity and all its associated pointers from the annotation state.
+     * Deletes the entity and all its associated pointers and relations from the annotation state.
      */
     function deleteEntity() {
         // Get all pointer IDs for this entity
@@ -120,6 +122,14 @@
             updatedPointers = updatedPointers.delete(pointerId);
         }
         annotationState.pointers = updatedPointers;
+
+        // Delete all relations that reference this entity
+        // Convert to array, filter, then create new Set to ensure proper deletion
+        const relationsArray = annotationState.relations.toArray();
+        const filteredRelations = relationsArray.filter(
+            (relation) => relation.subject !== entityId && relation.object !== entityId
+        );
+        annotationState.relations = Set(filteredRelations);
 
         // Delete the entity
         annotationState.entities = annotationState.entities.delete(entityId);
@@ -180,8 +190,7 @@
         const isStrain = (kind: string) => kind === "d3o:Strain";
         const isBacteria = (kind: string) => kind === "d3o:Bacteria";
         const isEnzyme = (kind: string) => kind === "d3o:Enzyme";
-        const isOrganism = (kind: string) =>
-            isBacteria(kind) || isStrain(kind);
+        const isOrganism = (kind: string) => isBacteria(kind) || isStrain(kind);
 
         if (isStrain(sourceKind) && isBacteria(targetKind)) {
             return "d3o:hasSpecies";
@@ -215,9 +224,52 @@
         const sourceKind = sourceEntity.kind;
         const targetKind = targetEntity.kind;
 
-        // Check if they're the same kind - could implement merge logic here if needed
+        // If same kind, merge the entities
         if (sourceKind === targetKind) {
-            console.log("Same kind - could merge entities here");
+            // Union the designations from both entities
+            const sourceDesignations = sourceEntity.designations || Set<string>();
+            const targetDesignations = targetEntity.designations || Set<string>();
+            const mergedDesignations = sourceDesignations.union(targetDesignations);
+
+            // Update target entity with merged designations
+            annotationState.entities = annotationState.entities.set(entityId, {
+                ...targetEntity,
+                designations: mergedDesignations,
+            });
+
+            // Update all pointers from source entity to point to target entity
+            let updatedPointers = annotationState.pointers;
+            annotationState.pointers.forEach((pointer) => {
+                if (pointer.entity_id === sourceEntityId) {
+                    updatedPointers = updatedPointers.set(pointer.pointer_id, {
+                        ...pointer,
+                        entity_id: entityId,
+                    });
+                }
+            });
+            annotationState.pointers = updatedPointers;
+
+            // Update all relations that reference the source entity
+            let updatedRelations = annotationState.relations;
+            annotationState.relations.forEach((relation) => {
+                if (relation.subject === sourceEntityId || relation.object === sourceEntityId) {
+                    // Remove the old relation
+                    updatedRelations = updatedRelations.delete(relation);
+                    // Add updated relation with target entity ID
+                    updatedRelations = updatedRelations.add(
+                        createRelation({
+                            subject: relation.subject === sourceEntityId ? entityId : relation.subject,
+                            predicate: relation.predicate,
+                            object: relation.object === sourceEntityId ? entityId : relation.object,
+                        }),
+                    );
+                }
+            });
+            annotationState.relations = updatedRelations;
+
+            // Remove the source entity
+            annotationState.entities = annotationState.entities.delete(sourceEntityId);
+
             return;
         }
 
@@ -226,18 +278,12 @@
         let object: string;
         let predicate: string | null;
 
-        if (
-            sourceKind === "d3o:Bacteria" &&
-            targetKind === "d3o:Strain"
-        ) {
+        if (sourceKind === "d3o:Bacteria" && targetKind === "d3o:Strain") {
             // Swap: Strain should be subject
             subject = entityId;
             object = sourceEntityId;
             predicate = "d3o:hasSpecies";
-        } else if (
-            sourceKind === "d3o:Enzyme" &&
-            targetKind === "d3o:Strain"
-        ) {
+        } else if (sourceKind === "d3o:Enzyme" && targetKind === "d3o:Strain") {
             // Swap: Organism should be subject
             subject = entityId;
             object = sourceEntityId;
@@ -257,11 +303,14 @@
         }
 
         if (predicate) {
-            annotationState.relations = annotationState.relations.add({
-                subject,
-                predicate,
-                object,
-            });
+            // Add the relation - Set with Record ensures uniqueness automatically
+            annotationState.relations = annotationState.relations.add(
+                createRelation({
+                    subject,
+                    predicate,
+                    object,
+                }),
+            );
         }
     }
 </script>

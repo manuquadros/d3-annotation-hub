@@ -23,6 +23,23 @@
     });
 
     /**
+     * Reactively computes relations for each entity.
+     * Maps entity ID -> array of relations where that entity is the subject.
+     */
+    const relationsMap = $derived.by(() => {
+        const map = new Map<string, Relation[]>();
+        for (const [entityId] of annotationState.entities.entries()) {
+            const entityRelations = annotationState.relations
+                .filter((rel) => rel.subject === entityId)
+                .toArray();
+            if (entityRelations.length > 0) {
+                map.set(entityId, entityRelations);
+            }
+        }
+        return map;
+    });
+
+    /**
      * Gets display name for an entity.
      * Prefers designations if available, otherwise extracts text from the first pointer.
      */
@@ -59,15 +76,6 @@
     }
 
     /**
-     * Gets all relations where the given entity is the subject.
-     */
-    function getRelationsForEntity(entityId: string) {
-        return annotationState.relations
-            .filter((rel) => rel.subject === entityId)
-            .toArray();
-    }
-
-    /**
      * Returns a human-readable predicate string.
      */
     function displayPredicate(predicate: string): string {
@@ -97,7 +105,7 @@
     <div class="relations-summary">
         {#each kindOrder as kind}
             {#each entitiesByKind.get(kind) || [] as { id: entityId, entity }}
-                {@const relations = getRelationsForEntity(entityId)}
+                {@const relations = relationsMap.get(entityId) || []}
                 {#if relations.length > 0}
                     <div class="relation-row">
                         <div class="subject">
