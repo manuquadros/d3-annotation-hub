@@ -8,6 +8,7 @@ import Relations from "$lib/components/Relations.svelte";
 import { dragAndDrop } from "$lib/test_utils.ts";
 import { BodyStore } from "$lib/body.svelte.ts";
 import { strainLabel } from "$lib/resources.svelte.ts";
+import { AnnotationState } from "$lib/annotation.svelte";
 
 const chunk3 = `<annotation>
   <div class="metadata">
@@ -37,7 +38,21 @@ function setup() {
 
     const content = new DOMParser().parseFromString(chunk3, "text/html");
     const body = new BodyStore(content.querySelector(".chunk-body") as Element);
-    const context = new Map([["body", body]]);
+
+    // Create a minimal AnnotationState for testing
+    const annotationData = {
+        user: { user_id: 1, username: "test_user" },
+        reference: { reference_id: 1, body: chunk3 },
+        entities: {},
+        pointers: {},
+        relations: [],
+    };
+    const annotationState = new AnnotationState(JSON.stringify(annotationData));
+
+    const context = new Map([
+        ["body", body],
+        ["annotationState", annotationState],
+    ]);
 
     const chunkBody = render(ChunkBody, {
         target: chunkBodyContainer,
@@ -53,6 +68,7 @@ function setup() {
     return {
         user,
         body,
+        annotationState,
         chunkBody,
         summary,
         relations,
