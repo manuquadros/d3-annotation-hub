@@ -4,8 +4,8 @@ from typing import Annotated, Optional
 
 from ahbackend import users
 from ahbackend.db import query, upsert_annotation
-from d3textdb.schema import ReferenceAnnotation
-from fastapi import Body, FastAPI, Form
+from d3textdb.schema import ReferenceAnnotation, User
+from fastapi import Body, Depends, FastAPI, Form
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import EmailStr
 from xmlparser import (
@@ -55,9 +55,11 @@ def index() -> str:
 
 
 @app.get("/reference/")
-def fetch_annotation(ref_identifier: str, user: str) -> str:
-    reference_annotation = query(ref_identifier, user)
-    ic(reference_annotation)
+def fetch_annotation(
+    ref_identifier: str,
+    current_user: Annotated[User, Depends(users.get_current_active_user)],
+) -> str:
+    reference_annotation = query(ref_identifier, current_user)
 
     try:
         abstract = str(

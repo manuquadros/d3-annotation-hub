@@ -21,8 +21,13 @@ class Token(BaseModel):
 
 def authenticate_user(username: str, password: str) -> db.User | None:
     user = db.get_user(username)
-    if user and pwd_context.verify_password(password, user.hashed_password):
-        return user
+    user_auth = db.get_user_auth(user.user_id) if user else None
+    if user_auth and pwd_context.verify(
+        password, user_auth.hashed_password
+    ):
+        if user_auth.disabled:
+            return None
+        return db.get_user(username)
     return None
 
 
@@ -44,7 +49,7 @@ async def get_current_user(
     except InvalidTokenError:
         raise credentials_exception
     else:
-        user = get_user(username=username)
+        user = db.get_user(username)
         if user is None:
             raise credentials_exception
         return user
@@ -53,7 +58,8 @@ async def get_current_user(
 async def get_current_active_user(
     current_user: Annotated[db.User, Depends(get_current_user)],
 ) -> db.User:
-    if current_user.disabled:
+    user_auth = db.get_user_auth(current_user.user_id)
+    if user_auth and user_auth.disabled:
         raise HTTPException(status_code=400, detail="Inactive user")
     return current_user
 

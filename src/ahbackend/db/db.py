@@ -5,7 +5,7 @@ from importlib import resources
 from typing import Any, Optional
 
 from d3textdb import D3TextDB
-from d3textdb.schema import Reference, ReferenceAnnotation, User
+from d3textdb.schema import Reference, ReferenceAnnotation, User, UserAuth
 from multimethod import multimethod
 from pydantic import EmailStr
 from rich import print
@@ -21,6 +21,10 @@ annodb = D3TextDB(db_path, echo=True)
 
 def get_user(email: EmailStr) -> User | None:
     return annodb.get_user(email)
+
+
+def get_user_auth(user_id: uuid.UUID) -> UserAuth | None:
+    return annodb.get_user_auth(user_id)
 
 
 def create_user(user: User) -> None:
