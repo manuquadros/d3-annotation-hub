@@ -65,7 +65,7 @@ def fetch_annotation(
     ref_identifier: str,
     current_user: Annotated[User, Depends(users.get_current_active_user)],
 ) -> str:
-    reference_annotation = query(ref_identifier, current_user)
+    reference_annotation = query(ref_identifier, str(current_user.user_id))
 
     try:
         abstract = str(
