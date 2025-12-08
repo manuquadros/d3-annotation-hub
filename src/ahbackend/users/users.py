@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta, timezone
 from typing import Annotated
 
+import bcrypt
 import jwt
 from ahbackend import config, db
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -19,12 +20,18 @@ class Token(BaseModel):
     token_type: str
 
 
+def verify_password(plain_password: str, hashed: str) -> bool:
+    """Verify a password against its hash"""
+    return bcrypt.checkpw(
+        password=plain_password.encode(encoding="utf-8"),
+        hashed_password=hashed.encode(encoding="utf-8"),
+    )
+
+
 def authenticate_user(username: str, password: str) -> db.User | None:
     user = db.get_user(username)
     user_auth = db.get_user_auth(user.user_id) if user else None
-    if user_auth and pwd_context.verify(
-        password, user_auth.hashed_password
-    ):
+    if user_auth and verify_password(password, user_auth.hashed_password):
         if user_auth.disabled:
             return None
         return db.get_user(username)

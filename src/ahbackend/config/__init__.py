@@ -4,6 +4,7 @@ import os
 import pathlib
 
 import tomlkit
+from cryptography.hazmat.primitives import serialization
 
 CONFIG_DIR = pathlib.Path(__file__).parent
 
@@ -17,10 +18,15 @@ with pathlib.Path("config.toml").open(mode="r") as cfg:
 PKPATH = os.getenv("D3HUB_PKPATH")
 
 try:
-    with pathlib.Path(PKPATH).open(mode="r") as sec:
-        PRIVATE_KEY = sec.read()
+    with pathlib.Path(PKPATH).open(mode="rb") as sec:
+        private_key_bytes = sec.read()
+        PRIVATE_KEY = serialization.load_ssh_private_key(
+            private_key_bytes, password=None
+        )
 except TypeError:
     print("You must set the D3HUB_PKPATH.")
+    raise
 
-with (CONFIG_DIR / "d3annotation.pub").open(mode="r") as pubkey_file:
-    PUBLIC_KEY = pubkey_file.read()
+with (CONFIG_DIR / "d3annotation.pub").open(mode="rb") as pubkey_file:
+    public_key_bytes = pubkey_file.read()
+    PUBLIC_KEY = serialization.load_ssh_public_key(public_key_bytes)
