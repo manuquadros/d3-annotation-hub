@@ -1,4 +1,5 @@
 import type { AnnotationState } from "../annotation.svelte.ts";
+import { saveAnnotation } from "../api";
 
 export interface SaveResult {
     success: boolean;
@@ -10,7 +11,6 @@ export interface SaveResult {
  */
 export async function saveAnnotationState(
     state: AnnotationState,
-    apiUrl: string = "http://localhost:8000",
 ): Promise<SaveResult> {
     try {
         const payload = {
@@ -26,28 +26,7 @@ export async function saveAnnotationState(
         console.log("Saving annotation state:", payload);
         console.log("Payload JSON string:", jsonString);
 
-        const response = await fetch(`${apiUrl}/save/`, {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify({ json_data: jsonString }),
-        });
-
-        if (!response.ok) {
-            let errorText = await response.text();
-            try {
-                const errorJson = JSON.parse(errorText);
-                console.error("Save failed:", response.status, errorJson);
-                errorText = JSON.stringify(errorJson, null, 2);
-            } catch {
-                console.error("Save failed:", response.status, errorText);
-            }
-            return {
-                success: false,
-                error: `Server error: ${response.status} - ${errorText}`,
-            };
-        }
+        await saveAnnotation(jsonString);
 
         console.log("Save successful");
         return { success: true };
@@ -64,10 +43,7 @@ export async function saveAnnotationState(
  * Creates a debounced version of the save function
  */
 export function createDebouncedSave(delayMs: number = 2000): {
-    scheduleSave: (
-        state: AnnotationState,
-        apiUrl?: string,
-    ) => Promise<SaveResult>;
+    scheduleSave: (state: AnnotationState) => Promise<SaveResult>;
     cancelPending: () => void;
 } {
     let timeoutId: ReturnType<typeof setTimeout> | null = null;
@@ -89,14 +65,13 @@ export function createDebouncedSave(delayMs: number = 2000): {
 
     async function scheduleSave(
         state: AnnotationState,
-        apiUrl?: string,
     ): Promise<SaveResult> {
         cancelPending();
 
         return new Promise((resolve) => {
             pendingResolve = resolve;
             timeoutId = setTimeout(async () => {
-                const result = await saveAnnotationState(state, apiUrl);
+                const result = await saveAnnotationState(state);
                 if (pendingResolve === resolve) {
                     pendingResolve = null;
                     timeoutId = null;

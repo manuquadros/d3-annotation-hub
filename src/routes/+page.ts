@@ -1,15 +1,17 @@
-import { AnnotationState } from "$lib/annotation.svelte";
+import { redirect } from "@sveltejs/kit";
+import { auth } from "$lib/auth.svelte";
+import { fetchReference } from "$lib/api";
+import type { AnnotationState } from "$lib/annotation.svelte";
+import type { PageLoad } from "./$types";
 
-export async function load({
-    fetch,
-}): Promise<{ documentData: AnnotationState }> {
-    const response = await fetch(
-        `http://localhost:8000/reference/?ref_identifier=15117974
-        &user=f47f7e7b-3913-457e-911c-6da6275de3ec`,
-    );
-    const documentResponse = await response.json();
+export const load: PageLoad = async ({ fetch }) => {
+    if (!auth.isAuthenticated) {
+        throw redirect(302, "/login");
+    }
+
+    const documentData = await fetchReference("15117974", fetch);
 
     return {
-        documentData: new AnnotationState(documentResponse),
+        documentData,
     };
-}
+};
