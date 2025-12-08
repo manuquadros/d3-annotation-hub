@@ -94,7 +94,10 @@ def retrieve_relation_data(predicate: str, subject: str, object: str) -> str:
 
 
 @app.post("/save/")
-def store_annotation(json_data: str = Body(..., embed=True)) -> None:
+def store_annotation(
+    current_user: Annotated[User, Depends(users.get_current_active_user)],
+    json_data: str = Body(..., embed=True),
+) -> None:
     """Update annotation in the database"""
     annotation = ReferenceAnnotation.model_validate_json(json_data)
     upsert_annotation(annotation)
