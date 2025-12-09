@@ -26,8 +26,7 @@
 
 <div class="login-container">
     <div class="login-card">
-        <h1>Annotation Hub</h1>
-        <h2>Sign In</h2>
+        <h1>Sign in</h1>
 
         <form onsubmit={handleSubmit}>
             <div class="form-group">

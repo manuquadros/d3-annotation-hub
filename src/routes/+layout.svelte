@@ -14,7 +14,6 @@
 </script>
 
 <header>
-    <h1>Annotation hub</h1>
     {#if auth.isAuthenticated && !isLoginPage}
         <button class="logout-button" onclick={() => auth.logout()}>
             Logout
