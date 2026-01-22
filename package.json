@@ -16,7 +16,7 @@
         "test:watch": "vitest --reporter=verbose"
     },
     "devDependencies": {
-        "@eslint/js": ">=9.9.1",
+        "@eslint/js": "^9.39.2",
         "@pnpm/eslint-config": "1000.0.0",
         "@sveltejs/adapter-auto": "7.0.0",
         "@sveltejs/kit": "2.48.5",
@@ -54,10 +54,12 @@
         "fta-cli": "3.0.0",
         "halfmoon": "2.0.2",
         "immutable": "5.1.4",
-        "zod": "^4.1.12"
+        "zod": "^4.3.5"
     },
     "pnpm": {
-        "onlyBuiltDependencies": ["esbuild"],
+        "onlyBuiltDependencies": [
+            "esbuild"
+        ],
         "overrides": {
             "cookie@<0.7.0": ">=0.7.0"
         }
