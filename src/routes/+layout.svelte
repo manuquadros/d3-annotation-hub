@@ -13,31 +13,16 @@
     let isLoginPage = $derived($page.url.pathname === "/login");
 </script>
 
-<header>
-    {#if auth.isAuthenticated && !isLoginPage}
-        <button class="logout-button" onclick={() => auth.logout()}>
-            Logout
-        </button>
-    {/if}
-</header>
-
 <div class="layout">
     <div id="loader">
         <span></span>
     </div>
 
     <!-- Page wrapper start -->
-    <div class="page-wrapper">
-        <!-- data-sidebar-hidden="hidden" to hide sidebar on start -->
+    <div class="page-wrapper" data-sidebar-hidden={!auth.isAuthenticated || isLoginPage ? "hidden" : undefined}>
 
         <!-- Sticky alerts (toasts), empty container -->
         <div class="sticky-alerts"></div>
-
-        <!-- Sidebar overlay -->
-        <div
-            class="sidebar-overlay"
-            onclick={() => digidive.toggleSidebar()}
-        ></div>
 
         <!-- Navbar start -->
         <div class="navbar navbar-top">
@@ -54,6 +39,14 @@
                 />
             </a>
         </div>
+
+    {#if auth.isAuthenticated && !isLoginPage}
+        <!-- Sidebar overlay -->
+        <div
+            class="sidebar-overlay"
+            onclick={() => digidive.toggleSidebar()}
+        ></div>
+
         <nav class="navbar navbar-bottom">
             <div class="container">
                 <button
@@ -68,7 +61,7 @@
                         <a href="#">Home</a>
                     </li>
                     <li>
-                        <a href="#">Docs</a>
+                        <a href="#">References</a>
                     </li>
                     <li class="active" aria-current="page">
                         <a href="#">Article</a>
@@ -109,14 +102,21 @@
         </div>
         <!-- Sidebar end -->
 
+        <button class="logout-button" onclick={() => auth.logout()}>
+            Logout
+        </button>
+    {/if}
+
         <!-- Content wrapper start -->
         <div class="content-wrapper">
             <!-- OPTIONAL: title-bar -->
             <div class="content-container">
                 <div style="display: contents">{@render children?.()}</div>
             </div>
+        </div>
+        <!-- Content wrapper end -->
 
-            <div class="page-footer">
+        <div class="page-footer">
                 <div class="link-parade">
                     <div class="row">
                         <div class="col">
@@ -161,8 +161,6 @@
                     <a href="#">Sitemap</a>
                 </div>
             </div>
-        </div>
-        <!-- Content wrapper end -->
     </div>
     <!-- Page wrapper end -->
 </div>
