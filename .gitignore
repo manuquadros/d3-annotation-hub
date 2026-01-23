@@ -1,6 +1,7 @@
 # Project-specific
 *.pem
 *.pub
+*.db
 config.toml
 init_vars.sh
 
