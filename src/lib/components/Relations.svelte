@@ -9,7 +9,10 @@
      * Groups entities by their kind and returns a Map of kind -> entities array.
      */
     const entitiesByKind = $derived.by(() => {
-        const grouped = new Map<string, Array<{ id: string; entity: Entity }>>();
+        const grouped = new Map<
+            string,
+            Array<{ id: string; entity: Entity }>
+        >();
 
         for (const [id, entity] of annotationState.entities.entries()) {
             const kind = entity.kind;
@@ -46,7 +49,9 @@
     function getEntityName(entity: Entity, entityId: string): string {
         // If designations exist, use the first one
         if (entity.designations && entity.designations.size > 0) {
-            return entity.designations.first() || `Entity ${entityId.slice(-6)}`;
+            return (
+                entity.designations.first() || `Entity ${entityId.slice(-6)}`
+            );
         }
 
         // Otherwise, try to get text from the first pointer (only in browser)
@@ -138,9 +143,15 @@
 {/if}
 
 <style>
+    h2 {
+        margin-top: 0;
+        line-height: normal;
+    }
+
     .relation-row {
         width: 100%;
         display: flex;
+        flex-wrap: wrap;
         align-items: baseline;
         margin-bottom: 0.5em;
     }

@@ -77,7 +77,7 @@
     });
 </script>
 
-<Card style="display: inline-block; position: relative;">
+<Card style="display: inline-block; position: relative; line-height: 1.7;">
     <Content>
         <ruby style:ruby-position="under"
             ><ruby style:ruby-position="over"
@@ -117,3 +117,10 @@
 {#if dropdownState.isOpen && dropdownState.triggerElement === labelButton}
     <LabelDropdown onSelect={handleLabelSelect} currentLabel={resourceLabel} />
 {/if}
+
+<style>
+    :global(.smui-card__content) {
+        padding-top: 0;
+        padding-bottom: 0;
+    }
+</style>

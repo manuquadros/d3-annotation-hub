@@ -19,8 +19,12 @@
     </div>
 
     <!-- Page wrapper start -->
-    <div class="page-wrapper" data-sidebar-hidden={!auth.isAuthenticated || isLoginPage ? "hidden" : undefined}>
-
+    <div
+        class="page-wrapper"
+        data-sidebar-hidden={!auth.isAuthenticated || isLoginPage
+            ? "hidden"
+            : undefined}
+    >
         <!-- Sticky alerts (toasts), empty container -->
         <div class="sticky-alerts"></div>
 
@@ -40,72 +44,75 @@
             </a>
         </div>
 
-    {#if auth.isAuthenticated && !isLoginPage}
-        <!-- Sidebar overlay -->
-        <div
-            class="sidebar-overlay"
-            onclick={() => digidive.toggleSidebar()}
-        ></div>
+        {#if auth.isAuthenticated && !isLoginPage}
+            <!-- Sidebar overlay -->
+            <div
+                class="sidebar-overlay"
+                onclick={() => digidive.toggleSidebar()}
+            ></div>
 
-        <nav class="navbar navbar-bottom">
-            <div class="container">
-                <button
-                    class="btn btn-action active"
-                    type="button"
-                    onclick={(e) => digidive.toggleSidebar(e.currentTarget)}
-                ></button>
+            <nav class="navbar navbar-bottom">
+                <div class="container">
+                    <button
+                        class="btn btn-action active"
+                        type="button"
+                        onclick={(e) => digidive.toggleSidebar(e.currentTarget)}
+                    ></button>
 
-                <ul class="breadcrumb navbar-breadcrumb">
-                    <!-- Link items are optional: -->
-                    <li>
-                        <a href="#">Home</a>
-                    </li>
-                    <li>
-                        <a href="#">References</a>
-                    </li>
-                    <li class="active" aria-current="page">
-                        <a href="#">Article</a>
-                    </li>
-                </ul>
+                    <ul class="breadcrumb navbar-breadcrumb">
+                        <!-- Link items are optional: -->
+                        <li>
+                            <a href="#">Home</a>
+                        </li>
+                        <li>
+                            <a href="#">References</a>
+                        </li>
+                        <li class="active" aria-current="page">
+                            <a href="#">Article</a>
+                        </li>
+                    </ul>
 
-                <form
-                    id="navbar-search"
-                    action="/media"
-                    method="get"
-                    class="nav-search ml-auto"
-                >
-                    <div class="input-group">
-                        <input
-                            type="text"
-                            name="search"
-                            class="form-control"
-                            autocomplete="off"
-                            placeholder="Search article"
-                        />
-                        <div class="input-group-append">
-                            <button class="btn primary">
-                                <i class="ph ph-magnifying-glass"></i>
-                            </button>
+                    <form
+                        id="navbar-search"
+                        action="/media"
+                        method="get"
+                        class="nav-search ml-auto"
+                    >
+                        <div class="input-group">
+                            <input
+                                type="text"
+                                name="search"
+                                class="form-control"
+                                autocomplete="off"
+                                placeholder="Search article"
+                            />
+                            <div class="input-group-append">
+                                <button class="btn primary">
+                                    <i class="ph ph-magnifying-glass"></i>
+                                </button>
+                            </div>
                         </div>
-                    </div>
-                </form>
-            </div>
-        </nav>
+                    </form>
+                </div>
+            </nav>
 
-        <!-- Sidebar start -->
-        <div class="sidebar">
-            <div class="sidebar-menu">
-                <a href="#" class="active">Navigation</a>
-                <a href="#">Navigation</a>
-                <a href="#">Navigation</a>
-            </div>
-        </div>
-        <!-- Sidebar end -->
+            <!-- Sidebar start -->
+            <div class="sidebar">
+                <div class="sidebar-menu">
+                    <a href="#" class="active">Annotation Queue</a>
+                    <a href="#">Navigation</a>
+                    <a href="#">Navigation</a>
 
-        <button class="logout-button" onclick={() => auth.logout()}>
-            Logout
-        </button>
-    {/if}
+                    <button
+                        class="logout-button bottom-div"
+                        onclick={() => auth.logout()}
+                    >
+                        Logout
+                    </button>
+                </div>
+            </div>
+            <!-- Sidebar end -->
+        {/if}
 
         <!-- Content wrapper start -->
         <div class="content-wrapper">
@@ -117,50 +124,50 @@
         <!-- Content wrapper end -->
 
         <div class="page-footer">
-                <div class="link-parade">
-                    <div class="row">
-                        <div class="col">
-                            <h3>Annotation Hub</h3>
-                            <a href="#">About</a>
-                            <a href="#">News</a>
-                            <a href="#">Subscribe</a>
-                        </div>
-                        <div class="col">
-                            <h3>Help</h3>
-                            <a href="#">Q&amp;A</a>
-                            <a href="#">Tutorials</a>
-                            <a href="#">Contact</a>
-                        </div>
-                        <div class="col">
-                            <h3>Social Media</h3>
-                            <a href="#">
-                                <span class="icon"
-                                    ><i class="ph ph-twitter-logo"></i></span
-                                >
-                                Twitter
-                            </a>
-                            <a href="#">
-                                <span class="icon"
-                                    ><i class="ph ph-youtube-logo"></i></span
-                                >
-                                YouTube
-                            </a>
-                        </div>
+            <div class="link-parade">
+                <div class="row">
+                    <div class="col">
+                        <h3>Annotation Hub</h3>
+                        <a href="#">About</a>
+                        <a href="#">News</a>
+                        <a href="#">Subscribe</a>
+                    </div>
+                    <div class="col">
+                        <h3>Help</h3>
+                        <a href="#">Q&amp;A</a>
+                        <a href="#">Tutorials</a>
+                        <a href="#">Contact</a>
+                    </div>
+                    <div class="col">
+                        <h3>Social Media</h3>
+                        <a href="#">
+                            <span class="icon"
+                                ><i class="ph ph-twitter-logo"></i></span
+                            >
+                            Twitter
+                        </a>
+                        <a href="#">
+                            <span class="icon"
+                                ><i class="ph ph-youtube-logo"></i></span
+                            >
+                            YouTube
+                        </a>
                     </div>
                 </div>
-                <div class="logo-parade">
-                    <a href="#"><img src="???" alt="???" /></a>
-                    <a href="#"><img src="???" alt="???" /></a>
-                </div>
-                <hr />
-                <div class="footer">
-                    <span> &copy; DSMZ 2023 </span>
-                    <a href="#">Imprint</a>
-                    <a href="#">Privacy Statement</a>
-                    <a href="#">Copyright &amp; License</a>
-                    <a href="#">Sitemap</a>
-                </div>
             </div>
+            <div class="logo-parade">
+                <a href="#"><img src="???" alt="???" /></a>
+                <a href="#"><img src="???" alt="???" /></a>
+            </div>
+            <hr />
+            <div class="footer">
+                <span> &copy; DSMZ 2023 </span>
+                <a href="#">Imprint</a>
+                <a href="#">Privacy Statement</a>
+                <a href="#">Copyright &amp; License</a>
+                <a href="#">Sitemap</a>
+            </div>
+        </div>
     </div>
     <!-- Page wrapper end -->
 </div>

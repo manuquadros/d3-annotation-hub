@@ -54,10 +54,19 @@
 {/if}
 
 <style>
+    h2, h4 {
+        line-height: normal;
+    }
+
     .entity-group {
         display: flex;
         flex-wrap: wrap;
         gap: 0.25rem;
         margin-bottom: 1rem;
+    }
+
+    .entity-group:last-child {
+        margin-bottom: 0;
+        line-height: normal;
     }
 </style>
