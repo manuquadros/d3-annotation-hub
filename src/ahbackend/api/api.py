@@ -3,7 +3,7 @@ import json
 from typing import Annotated, Optional
 
 from ahbackend import users
-from ahbackend.db import query, upsert_annotation
+from ahbackend.db import get_annotation_queue, query, upsert_annotation
 from d3textdb.schema import ReferenceAnnotation, User
 from fastapi import Body, Depends, FastAPI, Form
 from fastapi.middleware.cors import CORSMiddleware
@@ -86,6 +86,14 @@ def fetch_annotation(
             )
         }
     ).model_dump_json()
+
+
+@app.get("/queue/")
+def annotation_queue(
+    current_user: Annotated[User, Depends(users.get_current_active_user)],
+) -> list[str]:
+    """Returns a list of documents that the user is yet to annotate."""
+    return [str(pmid) for pmid in get_annotation_queue(current_user.user_id)]
 
 
 @app.get(path="/relation/")

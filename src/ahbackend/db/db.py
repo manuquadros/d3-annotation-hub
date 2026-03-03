@@ -5,7 +5,7 @@ from importlib import resources
 from typing import Any, Optional
 
 from d3textdb import D3TextDB
-from d3textdb.schema import Reference, ReferenceAnnotation, User, UserAuth
+from d3textdb.schema import AnnotationSnapshot, Reference, ReferenceAnnotation, User, UserAuth
 from multimethod import multimethod
 from pydantic import EmailStr
 from rich import print
@@ -67,6 +67,24 @@ def upsert_annotation(annotation: ReferenceAnnotation) -> None:
 #             chunk=chunk,
 #             content=chunk.content,
 #         )
+
+
+def get_annotation_queue(user_id: uuid.UUID) -> list[str]:
+    """Return identifiers of references not yet completed by the user.
+
+    Returns the pubmed_id when available, otherwise the doi.
+    """
+    annotated = select(AnnotationSnapshot.reference_id).where(
+        AnnotationSnapshot.user_id == user_id
+    )
+    stmt = select(Reference.pubmed_id, Reference.doi).where(
+        col(Reference.reference_id).not_in(annotated)
+    )
+    with Session(annodb.engine) as session:
+        return [
+            str(pubmed_id) if pubmed_id is not None else doi
+            for pubmed_id, doi in session.execute(stmt).all()
+        ]
 
 
 @multimethod
