@@ -7,6 +7,7 @@
     /** @type {Props} */
     import { page } from "$app/stores";
     import { auth } from "$lib/auth.svelte";
+    import AnnotationQueue from "$lib/components/AnnotationQueue.svelte";
     import "../styles.css";
     let { children } = $props();
 
@@ -99,9 +100,7 @@
             <!-- Sidebar start -->
             <div class="sidebar">
                 <div class="sidebar-menu">
-                    <a href="#" class="active">Annotation Queue</a>
-                    <a href="#">Navigation</a>
-                    <a href="#">Navigation</a>
+                    <AnnotationQueue />
 
                     <button
                         class="logout-button bottom-div"

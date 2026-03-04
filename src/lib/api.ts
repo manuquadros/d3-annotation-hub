@@ -47,6 +47,17 @@ export async function fetchReference(
     return new AnnotationState(data);
 }
 
+export async function fetchQueue(customFetch?: typeof fetch): Promise<string[]> {
+    const url = `${API_BASE_URL}/queue/`;
+    const response = await authenticatedFetch(url, {}, customFetch);
+
+    if (!response.ok) {
+        throw new Error(`Failed to fetch queue: ${response.statusText}`);
+    }
+
+    return response.json();
+}
+
 export async function saveAnnotation(jsonData: string): Promise<void> {
     const url = `${API_BASE_URL}/save/`;
     const response = await authenticatedFetch(url, {
