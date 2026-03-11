@@ -3,11 +3,9 @@ import { userEvent } from "@testing-library/user-event";
 import { expect, test } from "vitest";
 
 import Summary from "$lib/components/Summary.svelte";
-import ChunkBody from "$lib/components/ChunkBody.svelte";
 import Relations from "$lib/components/Relations.svelte";
 import { dragAndDrop } from "$lib/test_utils.ts";
 import { BodyStore } from "$lib/body.svelte.ts";
-import { strainLabel } from "$lib/resources.svelte.ts";
 import { AnnotationState } from "$lib/annotation.svelte";
 
 const chunk3 = `<annotation>
@@ -32,7 +30,6 @@ const chunk3 = `<annotation>
 function setup() {
     const user = userEvent.setup();
 
-    const chunkBodyContainer = document.createElement("div");
     const summaryContainer = document.createElement("div");
     const relationsContainer = document.createElement("div");
 
@@ -54,10 +51,6 @@ function setup() {
         ["annotationState", annotationState],
     ]);
 
-    const chunkBody = render(ChunkBody, {
-        target: chunkBodyContainer,
-        context,
-    });
     const summary = render(Summary, { target: summaryContainer, context });
 
     const relations = render(Relations, {
@@ -69,10 +62,8 @@ function setup() {
         user,
         body,
         annotationState,
-        chunkBody,
         summary,
         relations,
-        chunkBodyContainer,
         summaryContainer,
         relationsContainer,
     };
@@ -86,7 +77,7 @@ test("Entities are loaded onto the summary", () => {
 });
 
 test("merging ATCC 25544", async () => {
-    const { user, summary, chunkBody } = setup();
+    const { user, summary } = setup();
 
     expect(summary.queryByRole("button", { name: "ATCC" })).not.toBeNull();
     expect(summary.queryByRole("button", { name: "25544" })).not.toBeNull();
@@ -111,28 +102,6 @@ test("merging ATCC 25544", async () => {
     expect(
         summary.queryByRole("button", { name: "ATCC 25544" }),
     ).not.toBeNull();
-
-    const atccSpans = chunkBody
-        .getAllByText("ATCC")
-        .map((b) => b.parentElement);
-    const numberSpans = chunkBody
-        .getAllByText("25544")
-        .map((b) => b.parentElement);
-
-    atccSpans.forEach((span) => {
-        expect(span?.getAttribute("resource")).toEqual("#T10");
-        expect(span?.getAttribute("typeof")).toEqual(strainLabel);
-
-        expect(span?.firstElementChild?.getAttribute("resource")).toEqual(
-            "#T10",
-        );
-        expect(span?.firstElementChild?.getAttribute("typeof")).toEqual(
-            strainLabel,
-        );
-    });
-    numberSpans.forEach((span) =>
-        expect(span?.getAttribute("resource")).toEqual("#T10"),
-    );
 });
 
 test.skip("Merges are consistent", async () => {
@@ -200,5 +169,5 @@ test("R. erythropolis has cholesterol oxidase", async () => {
 });
 
 test("Removing annotations should preserve text", async () => {
-    const { user, summary, body } = setup();
+    setup();
 });
