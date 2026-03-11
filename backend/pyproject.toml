@@ -1,0 +1,161 @@
+[project]
+name = "ahbackend"
+version = "0.1.0"
+description = "D3 Annotation Hub Backend"
+authors = [{ name = "Emanuel Souza de Quadros" }]
+readme = "README.md"
+requires-python = ">=3.11"
+license = "GPL-3.0-or-later"
+dependencies = [
+  "cryptography>=46.0.3",
+  "d3textdb",
+  "email-validator>=2.2.0",
+  "fastapi[standard]>=0.115.12",
+  "multimethod>=2.0",
+  "passlib[bcrypt]>=1.7.4",
+  "pydantic>=2.11.4",
+  "pyjwt>=2.10.1",
+  "python-multipart>=0.0.20",
+  "sqlmodel>=0.0.24",
+  "tokenizers>=0.21.1",
+  "uvicorn>=0.34.2",
+  "xmlparser",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = [
+  "autodoc-pydantic>=2.2.0",
+  "devtools>=0.12.2",
+  "flake8-pyproject>=1.2.3",
+  "icecream>=2.1.4",
+  "ipython-autotime>=0.3.2",
+  "ipython>=9.4",
+  "isort>=6.0.1",
+  "mccabe>=0.7.0",
+  "memray>=1.14.0",
+  "prospector[with_everything]>=1.13.3",
+  "pydata-sphinx-theme>=0.16.0",
+  "pyls-memestra>=0.0.16",
+  "pylsp-mypy>=0.6.9",
+  "pylsp-rope>=0.1.17",
+  "pytest-asyncio>=1",
+  "pytest-memray>=1.7.0",
+  "pytest-sugar>=1.0.0",
+  "pytest-watcher>=0.4.3",
+  "pytest-watcher>=0.4.3",
+  "pytest>=8.3.4",
+  "python-lsp-ruff>=2.2.2",
+  "python-lsp-server>=1.12.2",
+  "rope>=1.13.0",
+  "ruff>=0.9.5",
+  "sphinx-book-theme>=1",
+  "sphinx-pydantic>=0.1.1",
+  "sphinx>=8.1.3",
+  "stackprinter>=0.2.12",
+  "types-tqdm>=4.67.0.20241221",
+  "pytest-cov>=6.1.1",
+  "isort>=6.0.1",
+  "debugpy>=1.8.14",
+  "pudb>=2024.1.3",
+  "pre-commit>=4.2.0",
+  "flake8-type-checking>=3.0.0",
+  "beartype>=0.21.0",
+  "rich>=13.9.4",
+]
+
+[tool.flake8]
+per-file-ignores = ["__init__.py:F401"]
+
+[tool.pylsp.plugins]
+python-lsp-ruff.enabled = true
+python-lsp-ruff.format = true
+
+[tool.ruff]
+line-length = 80
+
+[tool.ruff.lint]
+preview = true
+select = [
+  "F",
+  "E",
+  "W",
+  "C90",
+  "I",
+  "N",
+  "D",
+  "UP",
+  "ANN",
+  "ASYNC",
+  "S",
+  "BLE",
+  "FBT",
+  "B",
+  "A",
+  "COM",
+  "C4",
+  "DTZ",
+  "T10",
+  "EM",
+  "EXE",
+  "FA",
+  "ISC",
+  "ICN",
+  "LOG",
+  "G",
+  "INP",
+  "PIE",
+  "T20",
+  "PYI",
+  "PT",
+  "Q",
+  "RSE",
+  "RET",
+  "SLF",
+  "SLOT",
+  "SIM",
+  "TID",
+  "INT",
+  "ARG",
+  "PTH",
+  "TD",
+  "ERA",
+  "PD",
+  "PGH",
+  "PLC",
+  "PLE",
+  "PLR",
+  "PLW",
+  "TRY",
+  "FLY",
+  "PERF",
+  "FURB",
+  "RUF",
+]
+ignore = [
+  "COM812",
+  "D101",
+  "D203",   # requires a blank line before a docstring
+  "D213",
+  "D212",
+  "D400",
+  "D401",
+  "D415",
+  "D211",
+  "T201",
+  "D413",
+  "F722",
+  "TD002",
+  "TD003",
+]
+fixable = ["ANN201", "I"]
+
+[tool.ruff.lint.per-file-ignores]
+"**/scripts/**" = ["INP001"]
+
+[tool.uv.sources]
+xmlparser = { git = "ssh://git@github.com/manuquadros/xmlparser.git" }
+d3textdb = { git = "ssh://git@github.com/manuquadros/d3textdb.git", branch = "dev" }

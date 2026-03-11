@@ -1,0 +1,109 @@
+{
+  "entities": {
+    "56590": {
+      "kind": "d3o:Enzyme",
+      "pointers": [
+        {
+          "offset": 867,
+          "length": 3,
+          "reference": "1511797",
+          "section": "body"
+        },
+        {
+          "offset": 563,
+          "length": 3,
+          "reference": "11703656",
+          "section": "abstract"
+        }
+      ]
+    },
+    "4329": {
+      "kind": "d3o:Strain",
+      "pointers": [
+        {
+          "offset": 907,
+          "length": 23,
+          "reference": "1511797",
+          "section": "body"
+        },
+        {
+          "offset": 588,
+          "length": 13,
+          "reference": "11703656",
+          "section": "abstract"
+        }
+      ]
+    }
+  },
+  "relations": {
+    "HasEnzyme": [
+      {
+        "subject": 4329,
+        "object": 56590,
+        "references": ["1511797", "11703656"]
+      }
+    ],
+    "HasSpecies": [
+      {
+        "subject": 4329,
+        "object": 3494,
+        "references": ["1511797", "11703656"]
+      }
+    ]
+  },
+  "references": {
+    "1511797": {
+      "authors": "Bhakta, S.; Besra, G.S.; Upton, A.M.; Parish, T.; Sholto-Douglas-Vernon, C.; Gibson, K.J.; Knutton, S.; Gordon, S.; daSilva, R.P.; Anderton, M.C.; Sim, E.",
+      "title": "Arylamine N-acetyltransferase is required for synthesis of mycolic acids and complex lipids in Mycobacterium bovis BCG and represents a novel drug target",
+      "journal": "J. Exp. Med.",
+      "volume": "199",
+      "pages": "1191-1199",
+      "year": 2004,
+      "pubmed_id": "15117974",
+      "pmc_id": "2211905",
+      "pmc_open": true,
+      "doi": "10.1084/jem.20031956",
+      "abstract": "Mycolic acids represent a major component of the unique cell wall of mycobacteria. Mycolic acid biosynthesis is inhibited by isoniazid, a key frontline antitubercular drug that is inactivated by mycobacterial and human arylamine N-acetyltransferase (NAT). We show that an in-frame deletion of Mycobacterium bovis BCG nat results in delayed entry into log phase, altered morphology, altered cell wall lipid composition, and increased intracellular killing by macrophages. In particular, deletion of nat perturbs biosynthesis of mycolic acids and their derivatives and increases susceptibility of M. bovis BCG to antibiotics that permeate the cell wall. Phenotypic traits are fully complemented by introduction of Mycobacterium tuberculosis nat. We infer from our findings that NAT is critical to normal mycolic acid synthesis and hence other derivative cell wall components and represents a novel target for antituberculosis therapy. In addition, this is the first report of an endogenous role for NAT in mycobacteria.",
+      "body": "<jats:body xmlns:jats=\"https://jats.nlm.nih.gov/ns/archiving/1.3/\"><jats:sec><jats:p>Genes encoding NAT are present in a range of bacterial genomes (<jats:xref ref-type=\"bibr\" rid=\"bib15\">15</jats:xref>, <jats:xref ref-type=\"bibr\" rid=\"bib16\">16</jats:xref>). This observation first provoked intrigue because human NATs have long been identified as drug metabolizing enzymes (<jats:xref ref-type=\"bibr\" rid=\"bib17\">17</jats:xref>). NAT represents one of the first examples of pharmacogenetic variation and its study revealed the role of acetyl-CoA as an acetyl donor. In particular, NAT2 in humans is known to be responsible for the inactivation of INH through acetylation (<jats:xref ref-type=\"bibr\" rid=\"bib18\">18</jats:xref>–<jats:xref ref-type=\"bibr\" rid=\"bib20\">20</jats:xref>). We have studied mycobacterial NATs in this laboratory as potential contributors to the variation in INH resistance among <jats:italic>M. tuberculosis</jats:italic> clinical isolates. It is now known that <jats:italic>nat</jats:italic> in <jats:italic>M. tuberculosis</jats:italic> is polymorphic (<jats:xref ref-type=\"bibr\" rid=\"bib14\">14</jats:xref>). The expression product acetylates and inactivates INH in vitro, and it has been suggested that this activity and polymorphism might be a contributory factor to INH resistance (<jats:xref ref-type=\"bibr\" rid=\"bib14\">14</jats:xref>, <jats:xref ref-type=\"bibr\" rid=\"bib15\">15</jats:xref>, <jats:xref ref-type=\"bibr\" rid=\"bib21\">21</jats:xref>). We know that <jats:italic>nat</jats:italic> is expressed in <jats:italic>M. tuberculosis</jats:italic> and <jats:italic>Mycobacterium bovis</jats:italic> BCG and the gene product is active (<jats:xref ref-type=\"bibr\" rid=\"bib14\">14</jats:xref>). The genomes of <jats:italic>M. tuberculosis</jats:italic> (<jats:xref ref-type=\"bibr\" rid=\"bib22\">22</jats:xref>) and <jats:italic>M. bovis</jats:italic> (<jats:xref ref-type=\"bibr\" rid=\"bib23\">23</jats:xref>) have been sequenced. <jats:italic>M. bovis</jats:italic> is a member of the <jats:italic>M. tuberculosis</jats:italic> complex. <jats:italic>M. bovis</jats:italic> BCG is an attenuated <jats:italic>M. bovis</jats:italic> strain in use as a vaccine. The <jats:italic>nat</jats:italic> gene is maintained in <jats:italic>M. bovis</jats:italic> BCG and is identical in sequence to that of <jats:italic>M. tuberculosis</jats:italic> (<jats:xref ref-type=\"bibr\" rid=\"bib14\">14</jats:xref>–<jats:xref ref-type=\"bibr\" rid=\"bib16\">16</jats:xref>, <jats:xref ref-type=\"bibr\" rid=\"bib22\">22</jats:xref>, <jats:xref ref-type=\"bibr\" rid=\"bib23\">23</jats:xref>).</jats:p></jats:sec></jats:body>"
+    },
+    "11703656": {
+      "authors": "Upton, A.M.; Mushtaq, A.; Victor, T.C.; Sampson, S.L.; Sandy, J.; Smith, D.M.; Van Helden, P.V.; Sim, E.",
+      "title": "Arylamine N-acetyltransferase of Mycobacterium tuberculosis is a polymorphic enzyme and a site of isoniazid metabolism",
+      "journal": "Mol. Microbiol.",
+      "volume": "42",
+      "pages": "309-317",
+      "year": 2001,
+      "pubmed_id": "11703656",
+      "path": "",
+      "pmc_id": null,
+      "pmc_open": false,
+      "doi": "10.1046/j.1365-2958.2001.02648.x",
+      "created": "2025-01-15T20:39:23.902446+00:00",
+      "enzymes": [56590],
+      "bacteria": {
+        "3445": "Mycobacterium tuberculosis"
+      },
+      "strains": [4329],
+      "other_organisms": {},
+      "relations": {
+        "HasEnzyme": [
+          {
+            "subject": 3445,
+            "object": 56590
+          },
+          {
+            "subject": 4329,
+            "object": 56590
+          }
+        ],
+        "HasSpecies": [
+          {
+            "subject": 4329,
+            "object": 3494
+          }
+        ]
+      },
+      "abstract": "Arylamine N-acetyltransferases (NATs; E.C 2.3.1.5) N-acetylate arylhydralazine and arylamine substrates using acetyl coenzyme A. Human NAT2 acetylates and inactivates the antituberculosis drug, isoniazid (INH), and is polymorphic. We previously demonstrated that there is a homologue of human NAT2 in Mycobacterium tuberculosis, whose product N-acetylates INH in vitro. We now demonstrate that the nat gene is expressed in M. tuberculosis and M. bovis Bacille Calmette-Guerin (BCG), using reverse transcription-polymerase chain reaction and Western blotting. The NAT protein is active in M. bovis BCG in vivo, as detected by the presence of N-acetyl INH in M. bovis BCG lysates grown in INH. Sequence analysis of the M. tuberculosis nat coding region reveals a single nucleotide polymorphism in 18% of a random cohort of M. tuberculosis clinical isolates, conferring a G to R change. The recombinant mutant protein appears less stable than the wild type, and has an apparent affinity for INH of 10-fold less than the wild type. Modelling the change in M. tuberculosis NAT shows that the G to R change is close to the active site, and supports the experimental findings. Minimum inhibitory concentration data suggest that this polymorphism in nat is linked to low-level changes in the INH susceptibility of M. tuberculosis clinical isolates."
+    }
+  }
+}
