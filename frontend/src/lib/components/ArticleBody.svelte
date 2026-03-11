@@ -5,6 +5,7 @@
         annotateHTMLString,
         AnnotationState,
     } from "$lib/annotation.svelte";
+    import DOMPurify from "dompurify";
     import LabelDropdown from "./LabelDropdown.svelte";
     import type { Attachment } from "svelte/attachments";
 
@@ -110,7 +111,7 @@
 
         // Extract plain text from original HTML (without annotations)
         const tempDiv = document.createElement("div");
-        tempDiv.innerHTML = htmlBody;
+        tempDiv.innerHTML = DOMPurify.sanitize(htmlBody);
         const plainText = tempDiv.textContent || "";
 
         if (range && containerElement) {

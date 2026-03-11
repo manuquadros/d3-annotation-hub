@@ -2,6 +2,7 @@ import type { Relation, Pointer, User, Reference, Entity } from "$lib/types.ts";
 import { AnnotationStateSchema } from "$lib/types.ts";
 import { mount } from "svelte";
 import { Map, Set } from "immutable";
+import DOMPurify from "dompurify";
 import ResourceCard from "$lib/components/ResourceCard.svelte";
 
 interface AnnotatedRange {
@@ -43,7 +44,7 @@ export class AnnotationState {
             // Create a temporary element to extract plain text
             const tempDiv = globalThis.document?.createElement("div");
             if (tempDiv) {
-                tempDiv.innerHTML = body;
+                tempDiv.innerHTML = DOMPurify.sanitize(body);
                 const plainText = tempDiv.textContent || "";
 
                 for (const { offset, length } of offsets) {
@@ -132,7 +133,7 @@ export async function annotateHTMLString(
     annotationState: AnnotationState,
 ): Promise<void> {
     elem.replaceChildren();
-    elem.innerHTML = html;
+    elem.innerHTML = DOMPurify.sanitize(html);
     const pointers = annotationState.pointers;
     const entities = annotationState.entities;
 
