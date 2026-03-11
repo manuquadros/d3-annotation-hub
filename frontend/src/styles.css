@@ -1,0 +1,322 @@
+body {
+    margin: 10px;
+}
+
+#container {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    column-gap: 5%;
+    row-gap: 12px;
+}
+
+#chunk {
+    line-height: 3;
+    grid-row: 1 / 5;
+}
+
+/* Summary styling */
+#summary,
+#relations {
+    line-height: 3;
+    grid-column: 2 / 3;
+}
+
+/** Relations styling **/
+#relations {
+    grid-row: 2 / 4;
+}
+
+/* Reduce spacing after summary headers */
+h4.summary-header {
+    margin-bottom: 0; /* Reduce bottom margin */
+    margin-top: 1em; /* Keep reasonable spacing between sections */
+}
+
+/* Adjust spacing for resource buttons */
+button.entity.entitySummary {
+    margin-top: 0.25em; /* Small gap between buttons */
+    margin-bottom: 0.25em;
+    margin-right: 1em;
+}
+
+/* Optional: If buttons need to be closer to their header */
+h4.summary-header + button.entity.entitySummary {
+    margin-top: 0; /* Remove top margin for first button after header */
+}
+
+.relations-summary {
+    margin: 1em auto;
+}
+
+.subject {
+    display: table-cell;
+}
+
+.relations {
+    line-height: normal;
+    display: table-cell;
+}
+
+.subject,
+.object {
+    font-weight: bold;
+}
+
+.entity {
+    box-sizing: border-box;
+    padding: 0.35em 0.35em 0.5em;
+    border-radius: 5px;
+    margin-left: -0.125em;
+    margin-right: -0.125em;
+}
+
+button.entity {
+    border: none;
+    -webkit-user-select: text; /* Safari */
+    user-select: text;
+}
+
+.in-word-left,
+.in-word-right {
+    margin-left: 0em;
+    margin-right: 0em;
+}
+
+.in-word-left {
+    padding-left: 0;
+}
+
+.in-word-right {
+    padding-right: 0;
+}
+
+[typeof="d3o:Strain"] {
+    background-color: #f39a9d;
+}
+
+[typeof="d3o:Bacteria"] {
+    background-color: #cae591;
+}
+
+[typeof="d3o:Enzyme"] {
+    background-color: #9bd1e5;
+}
+
+span.entity::after :not(.entitySummary) {
+    position: relative;
+    bottom: -8px;
+    left: 0.5ex;
+    font-size: 90%;
+    font-weight: bold;
+    padding-right: 0.25em;
+}
+
+span.entity[typeof="d3o:Strain"]::after :not(.entitySummary) {
+    content: "Strain";
+    color: #36155d;
+}
+
+span.entity[typeof="d3o:Bacteria"]::after :not(.entitySummary) {
+    content: "Bacteria";
+    color: #5a249b;
+}
+
+span.entity[typeof="d3o:Enzyme"]::after :not(.entitySummary) {
+    content: "Enzyme";
+    color: #4b1e83;
+}
+
+.dropdown {
+    background-color: white;
+    border: 1px solid #ccc;
+    padding: 5px;
+    z-index: 1000;
+}
+
+.dropdown-button {
+    display: block;
+    width: 100%;
+    padding: 5px;
+    margin: 2px 0;
+    text-align: left;
+}
+
+/* Tables */
+table-wrap {
+    display: grid;
+    grid-template-colums: auto;
+    justify-items: center;
+    max-width: 100%;
+    overflow-x: auto;
+}
+
+td {
+    padding: 1ex;
+}
+
+rt {
+    --button-displacement: -8px;
+    position: absolute;
+}
+
+.delete-button-rt {
+    top: var(--button-displacement);
+    right: var(--button-displacement);
+}
+
+.label-button-rt {
+    bottom: var(--button-displacement);
+    left: var(--button-displacement);
+}
+
+.label-dropdown {
+    position: fixed;
+    background: white;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    box-shadow: 0 2px 2px 0px rgba(0, 0, 0, 0.15);
+    z-index: 1000;
+    min-width: 200px;
+    max-width: 300px;
+}
+
+.label-search-input {
+    width: 100%;
+    padding: 8px;
+    border: none;
+    border-bottom: 1px solid #eee;
+    font-size: 14px;
+    box-sizing: border-box;
+}
+
+.label-search-input:focus {
+    outline: none;
+    border-bottom-color: #afafaf;
+}
+
+.label-options {
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.label-option {
+    display: block;
+    width: 100%;
+    padding: 8px 12px;
+    text-align: left;
+    border: none;
+    background: white;
+    cursor: pointer;
+    font-size: 14px;
+    transition: background-color 0.2s;
+}
+
+.label-option:hover {
+    background-color: #f5f5f5;
+}
+
+.label-option[aria-selected="true"] {
+    background-color: rgba(76, 150, 203, 0.15);
+    font-weight: 600;
+}
+
+.btn.tiny {
+    height: 1.7rem;
+    line-height: 1.7rem;
+    padding: 0 1rem;
+    font-size: 1.2rem;
+}
+
+/* Login page styles */
+.login-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 60vh;
+}
+
+.login-card {
+    background: white;
+    padding: 2rem;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    width: 100%;
+    max-width: 400px;
+}
+
+.form-group {
+    margin-bottom: 1rem;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+}
+
+.form-group input {
+    width: 100%;
+    padding: 0.5rem;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    box-sizing: border-box;
+}
+
+.form-group input:focus {
+    outline: none;
+    border-color: #4a90e2;
+}
+
+.error-message {
+    color: #d32f2f;
+    background-color: #ffebee;
+    padding: 0.5rem;
+    border-radius: 4px;
+    margin-bottom: 1rem;
+    font-size: 0.875rem;
+}
+
+button[type="submit"] {
+    width: 100%;
+    padding: 0.75rem;
+    background-color: #4a90e2;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+button[type="submit"]:hover:not(:disabled) {
+    background-color: #357abd;
+}
+
+button[type="submit"]:disabled {
+    background-color: #ccc;
+    cursor: not-allowed;
+}
+
+/* Header and logout button */
+header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.logout-button {
+    padding: 0.5rem 1rem;
+    background-color: #f44336;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.bottom-div {
+    position: fixed;
+    bottom: 2rem;
+    left: 2.5rem;
+}
+
+.logout-button:hover {
+    background-color: #d32f2f;
+}
