@@ -4,15 +4,14 @@ from typing import Annotated
 import bcrypt
 import jwt
 from ahbackend import config, db
-from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from fastapi import APIRouter, Cookie, Depends, Header, HTTPException, Response, status
+from fastapi.security import OAuth2PasswordRequestForm
 from jwt.exceptions import InvalidTokenError
 from passlib.context import CryptContext
 from pydantic import BaseModel
 
 router = APIRouter()
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
 
 class Token(BaseModel):
@@ -38,8 +37,23 @@ def authenticate_user(username: str, password: str) -> db.User | None:
     return None
 
 
+async def get_token(
+    authorization: Annotated[Optional[str], Header()] = None,
+    auth_token: Annotated[Optional[str], Cookie()] = None,
+) -> str:
+    if authorization and authorization.startswith("Bearer "):
+        return authorization[7:]
+    if auth_token:
+        return auth_token
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Not authenticated",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+
+
 async def get_current_user(
-    token: Annotated[str, Depends(oauth2_scheme)],
+    token: Annotated[str, Depends(get_token)],
 ) -> db.User:
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -83,6 +97,7 @@ def create_access_token(data: dict, expires_delta: timedelta):
 
 @router.post("/token")
 async def login_for_access_token(
+    response: Response,
     form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
 ) -> Token:
     user = authenticate_user(form_data.username, form_data.password)
@@ -96,4 +111,21 @@ async def login_for_access_token(
     access_token = create_access_token(
         data={"sub": user.email}, expires_delta=access_token_expires
     )
+    response.set_cookie(
+        key="auth_token",
+        value=access_token,
+        httponly=True,
+        samesite="strict",
+        max_age=int(access_token_expires.total_seconds()),
+        secure=config.COOKIE_SECURE,
+    )
     return Token(access_token=access_token, token_type="bearer")
+
+
+@router.post("/logout")
+async def logout(response: Response) -> None:
+    response.delete_cookie(
+        key="auth_token",
+        samesite="strict",
+        secure=config.COOKIE_SECURE,
+    )
