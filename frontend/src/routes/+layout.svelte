@@ -9,7 +9,7 @@
     import { auth } from "$lib/auth.svelte";
     import AnnotationQueue from "$lib/components/AnnotationQueue.svelte";
     import "../styles.css";
-    let { children } = $props();
+    let { children, data } = $props();
 
     let isLoginPage = $derived($page.url.pathname === "/login");
 </script>
@@ -22,7 +22,7 @@
     <!-- Page wrapper start -->
     <div
         class="page-wrapper"
-        data-sidebar-hidden={!auth.isAuthenticated || isLoginPage
+        data-sidebar-hidden={!data.authenticated || isLoginPage
             ? "hidden"
             : undefined}
     >
@@ -45,7 +45,7 @@
             </a>
         </div>
 
-        {#if auth.isAuthenticated && !isLoginPage}
+        {#if data.authenticated && !isLoginPage}
             <!-- Sidebar overlay -->
             <div
                 class="sidebar-overlay"

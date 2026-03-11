@@ -1,66 +1,28 @@
-import { browser } from "$app/environment";
 import { goto } from "$app/navigation";
-import { API_BASE_URL } from "$lib/config";
-
-const TOKEN_KEY = "auth_token";
-
-interface Token {
-    access_token: string;
-    token_type: string;
-}
 
 class AuthState {
-    token = $state<string | null>(null);
-
-    constructor() {
-        if (browser) {
-            this.token = localStorage.getItem(TOKEN_KEY);
-        }
-    }
-
-    get isAuthenticated(): boolean {
-        return this.token !== null;
-    }
+    isAuthenticated = $state(false);
 
     async login(username: string, password: string): Promise<boolean> {
-        try {
-            const formData = new FormData();
-            formData.append("username", username);
-            formData.append("password", password);
+        const formData = new FormData();
+        formData.append("username", username);
+        formData.append("password", password);
 
-            const response = await fetch(`${API_BASE_URL}/token`, {
-                method: "POST",
-                body: formData,
-            });
+        const response = await fetch("/api/login", {
+            method: "POST",
+            body: formData,
+        });
 
-            if (!response.ok) {
-                return false;
-            }
+        if (!response.ok) return false;
 
-            const data: Token = await response.json();
-            this.token = data.access_token;
-
-            if (browser) {
-                localStorage.setItem(TOKEN_KEY, data.access_token);
-            }
-
-            return true;
-        } catch (error) {
-            console.error("Login error:", error);
-            return false;
-        }
+        this.isAuthenticated = true;
+        return true;
     }
 
     logout(): void {
-        this.token = null;
-        if (browser) {
-            localStorage.removeItem(TOKEN_KEY);
-        }
+        this.isAuthenticated = false;
+        fetch("/api/logout", { method: "POST" });
         goto("/login");
-    }
-
-    getToken(): string | null {
-        return this.token;
     }
 }
 
