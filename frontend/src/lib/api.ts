@@ -1,8 +1,7 @@
 import { goto } from "$app/navigation";
 import { auth } from "$lib/auth.svelte";
 import { AnnotationState } from "$lib/annotation.svelte";
-
-const API_BASE_URL = "http://localhost:8000";
+import { API_BASE_URL } from "$lib/config";
 
 async function authenticatedFetch(
     url: string,

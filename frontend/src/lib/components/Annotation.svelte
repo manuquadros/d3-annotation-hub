@@ -19,10 +19,9 @@
 
     interface Props {
         initialState: AnnotationState;
-        apiUrl?: string;
     }
 
-    let { initialState, apiUrl = "http://localhost:8000" }: Props = $props();
+    let { initialState }: Props = $props();
 
     let dropdownState = $state<{
         isOpen: boolean;
@@ -48,7 +47,7 @@
         // Trigger auto-save
         saveStatus = { type: 'saving' };
 
-        scheduleSave(initialState, apiUrl).then((result) => {
+        scheduleSave(initialState).then((result) => {
             if (result.success) {
                 saveStatus = { type: 'saved', timestamp: new Date() };
             } else {
@@ -59,7 +58,7 @@
 
     function handleRetry() {
         saveStatus = { type: 'saving' };
-        scheduleSave(initialState, apiUrl).then((result) => {
+        scheduleSave(initialState).then((result) => {
             if (result.success) {
                 saveStatus = { type: 'saved', timestamp: new Date() };
             } else {

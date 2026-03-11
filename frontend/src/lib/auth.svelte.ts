@@ -1,5 +1,6 @@
 import { browser } from "$app/environment";
 import { goto } from "$app/navigation";
+import { API_BASE_URL } from "$lib/config";
 
 const TOKEN_KEY = "auth_token";
 
@@ -27,7 +28,7 @@ class AuthState {
             formData.append("username", username);
             formData.append("password", password);
 
-            const response = await fetch("http://localhost:8000/token", {
+            const response = await fetch(`${API_BASE_URL}/token`, {
                 method: "POST",
                 body: formData,
             });
