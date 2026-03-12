@@ -14,4 +14,8 @@
     const initialState = data.documentData;
 </script>
 
-<Annotation {initialState} />
+{#if initialState}
+    <Annotation {initialState} />
+{:else}
+    <p>No references in the queue.</p>
+{/if}
