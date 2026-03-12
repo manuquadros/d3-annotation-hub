@@ -9,7 +9,7 @@
 
     interface Props {
         fragment: DocumentFragment;
-        pointer_id: number;
+        pointer_id: string;
     }
     const { fragment, pointer_id }: Props = $props();
     const annState = getContext<AnnotationState>("annotationState");
@@ -59,14 +59,9 @@
     }
 
     function handleLabelSelect(label: string) {
-        // Find the pointer entity and update its kind
-        const pointerData = pointers.get(pointer_id);
-        if (pointerData) {
-            const entity = entities.get(pointerData.entity_id);
-            if (entity) {
-                // Create new entity object to trigger reactivity
-                entities.set(pointerData.entity_id, { ...entity, kind: label });
-            }
+        const pointer = annState.pointer(pointer_id);
+        if (pointer) {
+            annState.updateEntityKind(pointer.entity_id, label);
         }
     }
 

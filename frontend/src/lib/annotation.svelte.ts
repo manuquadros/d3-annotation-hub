@@ -1,32 +1,91 @@
 import type { Relation, Pointer, User, Reference, Entity } from "$lib/types.ts";
-import { AnnotationStateSchema } from "$lib/types.ts";
+import { AnnotationStateSchema, nextPointerKey } from "$lib/types.ts";
 import { mount } from "svelte";
 import { Map, Set } from "immutable";
+import type { Map as ImmutableMap, Set as ImmutableSet } from "immutable";
 import DOMPurify from "dompurify";
 import ResourceCard from "$lib/components/ResourceCard.svelte";
 
 interface AnnotatedRange {
-    range: Range;
-    pointer_id: number;
+    range: Range | null;
+    pointer_id: string;
     label: string;
 }
+
+interface Snapshot {
+    entities: ImmutableMap<string, Entity>;
+    pointers: ImmutableMap<string, Pointer>;
+    relations: ImmutableSet<Relation>;
+}
+
 
 export class AnnotationState {
     user: User;
     reference: Reference;
-    entities: Map<string, Entity> = $state(Map());
-    pointers: Map<number, Pointer> = $state(Map());
-    relations: Set<Relation> = $state(Set());
+    entities: ImmutableMap<string, Entity> = $state(Map());
+    pointers: ImmutableMap<string, Pointer> = $state(Map());
+    relations: ImmutableSet<Relation> = $state(Set());
+    completed: boolean = $state(false);
 
-    constructor(annotationData: string) {
-        const validated = AnnotationStateSchema.parse(
-            JSON.parse(annotationData),
-        );
+    #past: Snapshot[] = $state([]);
+    #future: Snapshot[] = $state([]);
+
+    canUndo = $derived(this.#past.length > 0);
+    canRedo = $derived(this.#future.length > 0);
+
+    constructor(annotationData: string | object) {
+        const parsed =
+            typeof annotationData === "string"
+                ? JSON.parse(annotationData)
+                : annotationData;
+        const validated = AnnotationStateSchema.parse(parsed);
         this.user = validated.user;
         this.reference = validated.reference;
         this.entities = validated.entities;
         this.pointers = validated.pointers;
         this.relations = validated.relations;
+        this.completed = validated.completed;
+    }
+
+    #snapshot(): Snapshot {
+        return {
+            entities: this.entities,
+            pointers: this.pointers,
+            relations: this.relations,
+        };
+    }
+
+    #commit(snapshot: Snapshot): void {
+        this.#past = [...this.#past, snapshot];
+        this.#future = [];
+    }
+
+    undo(): void {
+        if (this.#past.length === 0) return;
+        const prev = this.#past[this.#past.length - 1];
+        this.#future = [this.#snapshot(), ...this.#future];
+        this.#past = this.#past.slice(0, -1);
+        this.entities = prev.entities;
+        this.pointers = prev.pointers;
+        this.relations = prev.relations;
+    }
+
+    redo(): void {
+        if (this.#future.length === 0) return;
+        const next = this.#future[0];
+        this.#past = [...this.#past, this.#snapshot()];
+        this.#future = this.#future.slice(1);
+        this.entities = next.entities;
+        this.pointers = next.pointers;
+        this.relations = next.relations;
+    }
+
+    markComplete(): void {
+        this.completed = true;
+    }
+
+    markIncomplete(): void {
+        this.completed = false;
     }
 
     /**
@@ -36,12 +95,13 @@ export class AnnotationState {
         label: string,
         offsets: Array<{ offset: number; length: number }>,
     ): void {
+        const before = this.#snapshot();
+
         // Extract designations from the body text at each offset
         const designations = new globalThis.Set<string>();
         const body = this.reference.body;
 
         if (body) {
-            // Create a temporary element to extract plain text
             const tempDiv = globalThis.document?.createElement("div");
             if (tempDiv) {
                 tempDiv.innerHTML = DOMPurify.sanitize(body);
@@ -60,12 +120,8 @@ export class AnnotationState {
 
         let updatedPointers = this.pointers;
         for (const { offset, length } of offsets) {
-            const newPointerId = Math.floor(
-                Math.random() * Number.MAX_SAFE_INTEGER,
-            );
-            updatedPointers = updatedPointers.set(newPointerId, {
-                pointer_id: newPointerId,
-                user_id: this.user.user_id,
+            const key = nextPointerKey();
+            updatedPointers = updatedPointers.set(key, {
                 entity_id: newEntityId,
                 reference_id: this.reference.reference_id,
                 offset,
@@ -73,8 +129,8 @@ export class AnnotationState {
             });
         }
 
-        // Single state update for all pointers
         this.pointers = updatedPointers;
+        this.#commit(before);
     }
 
     #addEntity(label: string, designations?: globalThis.Set<string>): string {
@@ -88,34 +144,43 @@ export class AnnotationState {
     }
 
     /**
-     * Removes the `entity_id` entry from the entities Map if `entity_id` is not
+     * Removes the `entity_id` entry from the entities Map if it is not
      * referenced by any pointer.
-     *
-     * @param entity_id - ID of the entity possibly be removed.
      */
     #removeEntity(entity_id: string): void {
         if (
             !this.pointers
                 .valueSeq()
-                .some((pointer) => pointer.entity_id == entity_id)
+                .some((pointer) => pointer.entity_id === entity_id)
         ) {
             this.entities = this.entities.delete(entity_id);
         }
     }
 
-    pointer(pointer_id: number): Pointer | undefined {
-        return this.pointers.get(pointer_id);
+    pointer(key: string): Pointer | undefined {
+        return this.pointers.get(key);
     }
 
     entity(entity_id: string): Entity | undefined {
         return this.entities.get(entity_id);
     }
 
-    delete(pointer_id: number): void {
+    delete(key: string): void {
+        const before = this.#snapshot();
         const entity_id: string | undefined =
-            this.pointers.get(pointer_id)?.entity_id;
-        this.pointers = this.pointers.delete(pointer_id);
+            this.pointers.get(key)?.entity_id;
+        this.pointers = this.pointers.delete(key);
         if (entity_id) this.#removeEntity(entity_id);
+        this.#commit(before);
+    }
+
+    updateEntityKind(entity_id: string, kind: string): void {
+        const before = this.#snapshot();
+        const entity = this.entities.get(entity_id);
+        if (entity) {
+            this.entities = this.entities.set(entity_id, { ...entity, kind });
+            this.#commit(before);
+        }
     }
 }
 
@@ -127,11 +192,11 @@ export class AnnotationState {
  * @param pointers - Mapping of pointers in the current annotation state
  * @returns HTMLElement with buttons corresponding to the pointers
  */
-export async function annotateHTMLString(
+export function annotateHTMLString(
     elem: HTMLDivElement,
     html: string,
     annotationState: AnnotationState,
-): Promise<void> {
+): void {
     elem.replaceChildren();
     elem.innerHTML = DOMPurify.sanitize(html);
     const pointers = annotationState.pointers;
@@ -139,26 +204,27 @@ export async function annotateHTMLString(
 
     // Build array here instead of an iterator, because we want to compute all
     // ranges before manipulating the DOM.
-    const ranges: Array<AnnotatedRange> = pointers
-        .valueSeq()
-        .map((pointer) => {
+    const ranges: Array<AnnotatedRange & { range: Range }> = pointers
+        .entrySeq()
+        .map(([key, pointer]) => {
             return {
                 range: rangeFromPointer(elem, pointer),
-                pointer_id: pointer.pointer_id,
+                pointer_id: key,
                 label: entities.get(pointer.entity_id)?.kind || "",
             };
         })
-        .filter((annotatedRange) => annotatedRange.range !== null)
+        .filter((ar): ar is AnnotatedRange & { range: Range } => ar.range !== null)
         .toArray();
-    ranges.forEach(async (range) => await markRange(elem, range));
+    ranges.forEach((range) => markRange(elem, range));
 }
 
-async function markRange(elem: HTMLElement, pointer: AnnotatedRange) {
+function markRange(elem: HTMLElement, pointer: AnnotatedRange & { range: Range }) {
     const doc = elem.ownerDocument;
-    const mark = doc.createElement("span", { id: pointer.pointer_id });
+    const mark = doc.createElement("span");
+    mark.id = pointer.pointer_id;
 
     const fragment = pointer.range.extractContents();
-    await mount(ResourceCard, {
+    mount(ResourceCard, {
         target: mark,
         props: { fragment, pointer_id: pointer.pointer_id },
     });
@@ -167,12 +233,12 @@ async function markRange(elem: HTMLElement, pointer: AnnotatedRange) {
 }
 
 /**
- * Get range  object from input pointer directions.
+ * Get range object from input pointer directions.
  *
  * @param pointer - input Pointer object
  * @returns a Range object
  */
-function rangeFromPointer(anchor: HTMLElement, pointer: Pointer): Range {
+function rangeFromPointer(anchor: HTMLElement, pointer: Pointer): Range | null {
     return createRangeFromOffsets(
         anchor,
         pointer.offset,

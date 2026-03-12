@@ -1,10 +1,13 @@
 import { z } from "zod";
 import { Map, Set, Record } from "immutable";
-import type { AnnotationState } from "$lib/annotation.ts";
+import type { Map as ImmutableMap } from "immutable";
+
+let _pointerCounter = 0;
+export function nextPointerKey(): string {
+    return `ptr_${++_pointerCounter}`;
+}
 
 export type Pointer = {
-    pointer_id: number;
-    user_id: string;
     entity_id: string;
     reference_id: number;
     offset: number;
@@ -12,8 +15,6 @@ export type Pointer = {
 };
 
 export const PointerSchema = z.object({
-    pointer_id: z.int(),
-    user_id: z.uuid(),
     entity_id: z.string(),
     reference_id: z.int(),
     offset: z.int(),
@@ -76,6 +77,7 @@ export const ReferenceSchema = z.object({
 
 // Create an Immutable Record for Relation to ensure value-based equality
 const RelationRecordFactory = Record({
+    relation_id: null as number | null,
     predicate: "",
     subject: "",
     object: "",
@@ -85,6 +87,7 @@ export type Relation = ReturnType<typeof RelationRecordFactory>;
 
 // Helper to create a Relation from plain object
 export function createRelation(obj: {
+    relation_id?: number | null;
     predicate: string;
     subject: string;
     object: string;
@@ -94,6 +97,7 @@ export function createRelation(obj: {
 
 export const RelationSchema = z
     .object({
+        relation_id: z.number().int().nullable().optional(),
         predicate: z.string(),
         subject: z.string(),
         object: z.string(),
@@ -103,15 +107,17 @@ export const RelationSchema = z
 export const AnnotationStateSchema = z.object({
     user: UserSchema,
     reference: ReferenceSchema,
+    // entities are not yet returned by the API; defaults to empty array until
+    // d3textdb includes entity data in ReferenceAnnotation responses.
     entities: z
-        .record(z.string(), EntitySchema)
-        .transform((obj) => Map(Object.entries(obj))),
-    pointers: z
-        .record(z.string(), PointerSchema)
-        .transform((obj) =>
-            Map(Object.entries(obj).map(([k, v]) => [Number(k), v] as const)),
-        ),
+        .array(EntitySchema)
+        .default([])
+        .transform((arr) => Map(arr.map((e) => [e.entity_id, e] as const))),
+    pointers: z.array(PointerSchema).transform((arr): ImmutableMap<string, Pointer> =>
+        Map(arr.map((p) => [nextPointerKey(), p] as const)) as ImmutableMap<string, Pointer>,
+    ),
     relations: z.array(RelationSchema).transform((arr) => Set(arr)),
+    completed: z.boolean().default(false),
 });
 
 export interface DropdownState {

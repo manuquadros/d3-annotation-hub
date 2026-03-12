@@ -1,10 +1,18 @@
 from datetime import datetime, timedelta, timezone
-from typing import Annotated
+from typing import Annotated, Optional
 
 import bcrypt
 import jwt
 from ahbackend import config, db
-from fastapi import APIRouter, Cookie, Depends, Header, HTTPException, Response, status
+from fastapi import (
+    APIRouter,
+    Cookie,
+    Depends,
+    Header,
+    HTTPException,
+    Response,
+    status,
+)
 from fastapi.security import OAuth2PasswordRequestForm
 from jwt.exceptions import InvalidTokenError
 from passlib.context import CryptContext

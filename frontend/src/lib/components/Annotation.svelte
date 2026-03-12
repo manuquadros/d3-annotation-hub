@@ -1,17 +1,11 @@
 <script lang="ts">
     import { setContext } from "svelte";
-    import { SvelteMap, SvelteSet } from "svelte/reactivity";
     import { Set } from "immutable";
     import ChunkHeader from "$lib/components/ChunkHeader.svelte";
     import Summary from "$lib/components/Summary.svelte";
     import Relations from "$lib/components/Relations.svelte";
     import { annotateHTMLString } from "$lib/annotation.svelte.ts";
-    import type {
-        AnnotationState,
-        Entity,
-        Relation,
-        Pointer,
-    } from "$lib/types.ts";
+    import type { AnnotationState } from "$lib/annotation.svelte.ts";
     import ArticleBody from "./ArticleBody.svelte";
     import SaveIndicator from "./SaveIndicator.svelte";
     import type { SaveStatus } from "./SaveIndicator.svelte";
@@ -43,6 +37,7 @@
         const _entities = initialState.entities;
         const _pointers = initialState.pointers;
         const _relations = initialState.relations;
+        const _completed = initialState.completed;
 
         // Trigger auto-save
         saveStatus = { type: 'saving' };
