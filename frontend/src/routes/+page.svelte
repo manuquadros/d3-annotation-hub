@@ -11,11 +11,13 @@
 
     let { data }: Props = $props();
 
-    const initialState = data.documentData;
+    let initialState = $derived(data.documentData);
 </script>
 
 {#if initialState}
-    <Annotation {initialState} />
+    {#key initialState}
+        <Annotation {initialState} />
+    {/key}
 {:else}
     <p>No references in the queue.</p>
 {/if}

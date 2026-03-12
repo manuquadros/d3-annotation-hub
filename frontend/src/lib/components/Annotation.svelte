@@ -1,5 +1,6 @@
 <script lang="ts">
     import { setContext } from "svelte";
+    import { beforeNavigate } from "$app/navigation";
     import { Set } from "immutable";
     import ChunkHeader from "$lib/components/ChunkHeader.svelte";
     import Summary from "$lib/components/Summary.svelte";
@@ -9,7 +10,7 @@
     import ArticleBody from "./ArticleBody.svelte";
     import SaveIndicator from "./SaveIndicator.svelte";
     import type { SaveStatus } from "./SaveIndicator.svelte";
-    import { createDebouncedSave } from "$lib/utils/autosave.ts";
+    import { createDebouncedSave, saveAnnotationState } from "$lib/utils/autosave.ts";
 
     interface Props {
         initialState: AnnotationState;
@@ -49,6 +50,12 @@
                 saveStatus = { type: 'error', message: result.error || 'Unknown error' };
             }
         });
+    });
+
+    // Flush any pending debounced save before navigating away
+    beforeNavigate(() => {
+        cancelPending();
+        saveAnnotationState(initialState);
     });
 
     function handleRetry() {
