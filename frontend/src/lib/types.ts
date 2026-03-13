@@ -104,6 +104,15 @@ export const RelationSchema = z
     })
     .transform((obj) => createRelation(obj));
 
+export interface DropdownState {
+    isOpen: boolean;
+    position: {
+        top: number;
+        left: number;
+    };
+    triggerElement: HTMLElement | null;
+}
+
 export const AnnotationStateSchema = z.object({
     user: UserSchema,
     reference: ReferenceSchema,
@@ -120,11 +129,3 @@ export const AnnotationStateSchema = z.object({
     completed: z.boolean().default(false),
 });
 
-export interface DropdownState {
-    isOpen: boolean;
-    position: {
-        top: number;
-        left: number;
-    };
-    triggerElement: HTMLElement | null;
-}

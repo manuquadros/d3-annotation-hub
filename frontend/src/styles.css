@@ -10,7 +10,7 @@ body {
 }
 
 #chunk {
-    line-height: 3;
+    line-height: 2;
     grid-row: 1 / 5;
 }
 
@@ -301,7 +301,6 @@ header {
     align-items: center;
     margin-bottom: 1rem;
 }
-
 
 /* Sidebar layout: keep logout always visible, queue scrolls */
 .sidebar {
