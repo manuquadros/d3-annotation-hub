@@ -21,8 +21,6 @@
     });
 </script>
 
-<span class="sidebar-label">Annotation Queue</span>
-
 {#if loading}
     <span class="queue-status">Loading...</span>
 {:else if error}

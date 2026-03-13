@@ -100,14 +100,18 @@
             <!-- Sidebar start -->
             <div class="sidebar">
                 <div class="sidebar-menu">
-                    <AnnotationQueue />
+                    <nav class="queue-wrapper">
+                        <p class="title">Annotation Queue</p>
+                        <AnnotationQueue />
+                    </nav>
 
-                    <button
-                        class="logout-button bottom-div"
-                        onclick={() => auth.logout()}
-                    >
-                        Logout
-                    </button>
+                    <nav>
+                        <p class="title">Management</p>
+                        <a class="with-icon" onclick={() => auth.logout()}>
+                            <i class="ph ph-sign-out"></i>
+                            Log out
+                        </a>
+                    </nav>
                 </div>
             </div>
             <!-- Sidebar end -->

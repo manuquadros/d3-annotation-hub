@@ -302,21 +302,21 @@ header {
     margin-bottom: 1rem;
 }
 
-.logout-button {
-    padding: 0.5rem 1rem;
-    background-color: #f44336;
-    color: white;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
+
+/* Sidebar layout: keep logout always visible, queue scrolls */
+.sidebar {
+    overflow: hidden !important;
 }
 
-.bottom-div {
-    position: fixed;
-    bottom: 2rem;
-    left: 2.5rem;
+.sidebar-menu {
+    display: flex;
+    flex-direction: column;
+    height: calc(100% - 8rem); /* match digidive's top: 8rem offset */
+    padding-bottom: 1rem;
 }
 
-.logout-button:hover {
-    background-color: #d32f2f;
+.sidebar-menu nav.queue-wrapper {
+    flex: 1;
+    overflow-y: auto;
+    min-height: 0;
 }
