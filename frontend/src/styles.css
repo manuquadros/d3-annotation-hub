@@ -319,3 +319,8 @@ header {
     overflow-y: auto;
     min-height: 0;
 }
+
+.navbar-breadcrumb {
+    font-size: 1.2rem;
+    margin: 0;
+}

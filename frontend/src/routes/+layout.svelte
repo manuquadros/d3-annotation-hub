@@ -78,6 +78,7 @@
                         action="/media"
                         method="get"
                         class="nav-search ml-auto"
+                        style="margin: 0;"
                     >
                         <div class="input-group">
                             <input
