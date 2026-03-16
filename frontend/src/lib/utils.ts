@@ -1,5 +1,4 @@
 import { rangeToClass } from "$lib/ranges.ts";
-import { Map } from "immutable";
 
 import type { Resource } from "./resources.svelte.ts";
 
@@ -46,38 +45,30 @@ export function wrapRange(range: Range, resource: Resource): HTMLSpanElement {
     return span;
 }
 
-export function getContrastColor(hexColor: string | undefined): string {
-    // Return default if no color provided
-    if (!hexColor) return "#000000";
+export function getContrastColor(color: string | undefined): string {
+    if (!color) return '#000000';
 
-    // Remove # if present
-    const hex = hexColor.replace("#", "");
+    const hslMatch = color.match(/hsl\(\s*\d+\s*,\s*[\d.]+%\s*,\s*([\d.]+)%/);
+    if (hslMatch) {
+        return parseFloat(hslMatch[1]) > 55 ? '#000000' : '#ffffff';
+    }
 
-    // Parse RGB values
+    const hex = color.replace('#', '');
     const r = parseInt(hex.substring(0, 2), 16) / 255;
     const g = parseInt(hex.substring(2, 4), 16) / 255;
     const b = parseInt(hex.substring(4, 6), 16) / 255;
-
-    // Convert to linear RGB
     const toLinear = (c: number) =>
         c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
-    const rLinear = toLinear(r);
-    const gLinear = toLinear(g);
-    const bLinear = toLinear(b);
-
-    // Calculate relative luminance (WCAG formula)
-    const luminance = 0.2126 * rLinear + 0.7152 * gLinear + 0.0722 * bLinear;
-
-    // Return black for light backgrounds, white for dark backgrounds
-    return luminance > 0.179 ? "#000000" : "#ffffff";
+    const luminance = 0.2126 * toLinear(r) + 0.7152 * toLinear(g) + 0.0722 * toLinear(b);
+    return luminance > 0.179 ? '#000000' : '#ffffff';
 }
 
-export function getLabelColor(label: string): string | undefined {
-    const labelColors = Map([
-        ["d3o:Strain", "#ECAF00"],
-        ["d3o:Bacteria", "#B61F29"],
-        ["d3o:Enzyme", "#000064"],
-    ]);
-
-    return labelColors.get(label) ?? "#CCCCCC"; // Return gray as fallback
+export function getLabelColor(label: string): string {
+    if (!label) return '#CCCCCC';
+    let hash = 0;
+    for (let i = 0; i < label.length; i++) {
+        hash = (hash * 31 + label.charCodeAt(i)) >>> 0;
+    }
+    const hue = hash % 360;
+    return `hsl(${hue}, 65%, 45%)`;
 }
