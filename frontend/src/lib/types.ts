@@ -23,7 +23,7 @@ export const PointerSchema = z.object({
 
 export type Entity = {
     entity_id: string;
-    uri?: string;
+    uri?: string | null;
     preferred_name: string;
     kind: string;
     synonyms: Set<string>;
@@ -116,10 +116,10 @@ export type EntitySearchResult = {
 };
 
 export type EditorState =
-    | { mode: 'closed' }
-    | { mode: 'create'; offset: number; length: number; sentenceStart: number }
-    | { mode: 'edit-pointer'; pointerId: string; sentenceStart: number }
-    | { mode: 'edit-entity'; entityId: string };
+    | { mode: "closed" }
+    | { mode: "create"; offset: number; length: number; sentenceStart: number }
+    | { mode: "edit-pointer"; pointerId: string; sentenceStart: number }
+    | { mode: "edit-entity"; entityId: string };
 
 export const AnnotationStateSchema = z.object({
     user: UserSchema,
@@ -128,9 +128,14 @@ export const AnnotationStateSchema = z.object({
         .array(EntitySchema)
         .default([])
         .transform((arr) => Map(arr.map((e) => [e.entity_id, e] as const))),
-    pointers: z.array(PointerSchema).transform((arr): ImmutableMap<string, Pointer> =>
-        Map(arr.map((p) => [nextPointerKey(), p] as const)) as ImmutableMap<string, Pointer>,
-    ),
+    pointers: z
+        .array(PointerSchema)
+        .transform(
+            (arr): ImmutableMap<string, Pointer> =>
+                Map(
+                    arr.map((p) => [nextPointerKey(), p] as const),
+                ) as ImmutableMap<string, Pointer>,
+        ),
     relations: z.array(RelationSchema).transform((arr) => Set(arr)),
     completed: z.boolean().default(false),
 });
