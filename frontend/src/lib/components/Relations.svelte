@@ -47,37 +47,7 @@
      * Prefers designations if available, otherwise extracts text from the first pointer.
      */
     function getEntityName(entity: Entity, entityId: string): string {
-        // If designations exist, use the first one
-        if (entity.designations && entity.designations.size > 0) {
-            return (
-                entity.designations.first() || `Entity ${entityId.slice(-6)}`
-            );
-        }
-
-        // Otherwise, try to get text from the first pointer (only in browser)
-        if (typeof document !== "undefined") {
-            const entityPointers = annotationState.pointers
-                .valueSeq()
-                .filter((pointer) => pointer.entity_id === entityId)
-                .toArray();
-
-            if (entityPointers.length > 0) {
-                const firstPointer = entityPointers[0];
-                const body = annotationState.reference.body;
-                if (body) {
-                    // Extract the text at the pointer's offset
-                    const tempDiv = document.createElement("div");
-                    tempDiv.innerHTML = body;
-                    const plainText = tempDiv.textContent || "";
-                    return plainText.slice(
-                        firstPointer.offset,
-                        firstPointer.offset + firstPointer.length,
-                    );
-                }
-            }
-        }
-
-        return `Entity ${entityId.slice(-6)}`;
+        return entity.preferred_name || `Entity ${entityId.slice(-6)}`;
     }
 
     /**

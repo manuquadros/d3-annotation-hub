@@ -89,34 +89,31 @@ export class AnnotationState {
     }
 
     /**
-     * Label `offsets` with `label`, adding an entity and pointers to the state.
+     * Creates a new entity with the given kind and preferred name, then creates
+     * pointers at each offset. The text at each offset is added as a synonym.
      */
     add(
-        label: string,
+        kind: string,
+        preferredName: string,
         offsets: Array<{ offset: number; length: number }>,
     ): void {
         const before = this.#snapshot();
-
-        // Extract designations from the body text at each offset
-        const designations = new globalThis.Set<string>();
         const body = this.reference.body;
+        const synonyms = new globalThis.Set<string>();
 
         if (body) {
             const tempDiv = globalThis.document?.createElement("div");
             if (tempDiv) {
                 tempDiv.innerHTML = DOMPurify.sanitize(body);
                 const plainText = tempDiv.textContent || "";
-
                 for (const { offset, length } of offsets) {
-                    const text = plainText.slice(offset, offset + length);
-                    if (text) {
-                        designations.add(text);
-                    }
+                    const text = plainText.slice(offset, offset + length).trim();
+                    if (text) synonyms.add(text);
                 }
             }
         }
 
-        const newEntityId = this.#addEntity(label, designations);
+        const newEntityId = this.#createEntity(kind, preferredName, synonyms);
 
         let updatedPointers = this.pointers;
         for (const { offset, length } of offsets) {
@@ -133,20 +130,57 @@ export class AnnotationState {
         this.#commit(before);
     }
 
-    #addEntity(label: string, designations?: globalThis.Set<string>): string {
+    /**
+     * Adds new pointer(s) to an existing entity and appends the highlighted
+     * text as a synonym if it isn't already present.
+     */
+    addToExistingEntity(
+        entityId: string,
+        synonym: string,
+        offsets: Array<{ offset: number; length: number }>,
+    ): void {
+        const before = this.#snapshot();
+        const entity = this.entities.get(entityId);
+        if (!entity) return;
+
+        const trimmed = synonym.trim();
+        if (trimmed && !entity.synonyms.has(trimmed)) {
+            this.entities = this.entities.set(entityId, {
+                ...entity,
+                synonyms: entity.synonyms.add(trimmed),
+            });
+        }
+
+        let updatedPointers = this.pointers;
+        for (const { offset, length } of offsets) {
+            const key = nextPointerKey();
+            updatedPointers = updatedPointers.set(key, {
+                entity_id: entityId,
+                reference_id: this.reference.reference_id,
+                offset,
+                length,
+            });
+        }
+
+        this.pointers = updatedPointers;
+        this.#commit(before);
+    }
+
+    #createEntity(
+        kind: string,
+        preferredName: string,
+        synonyms?: globalThis.Set<string>,
+    ): string {
         const newEntityId = `entity_${Date.now()}_${Math.random().toString(36).substring(7)}`;
         this.entities = this.entities.set(newEntityId, {
             entity_id: newEntityId,
-            kind: label,
-            designations: designations ? Set(designations) : undefined,
+            kind,
+            preferred_name: preferredName,
+            synonyms: synonyms ? Set(synonyms) : Set(),
         });
         return newEntityId;
     }
 
-    /**
-     * Removes the `entity_id` entry from the entities Map if it is not
-     * referenced by any pointer.
-     */
     #removeEntity(entity_id: string): void {
         if (
             !this.pointers
@@ -174,6 +208,29 @@ export class AnnotationState {
         this.#commit(before);
     }
 
+    deleteEntity(entityId: string): void {
+        const before = this.#snapshot();
+
+        const pointerKeys = this.pointers
+            .entrySeq()
+            .filter(([, p]) => p.entity_id === entityId)
+            .map(([k]) => k)
+            .toArray();
+
+        let updatedPointers = this.pointers;
+        for (const k of pointerKeys) updatedPointers = updatedPointers.delete(k);
+        this.pointers = updatedPointers;
+
+        const relationsArray = this.relations.toArray();
+        const filteredRelations = relationsArray.filter(
+            (r) => r.subject !== entityId && r.object !== entityId,
+        );
+        this.relations = Set(filteredRelations);
+
+        this.entities = this.entities.delete(entityId);
+        this.#commit(before);
+    }
+
     updateEntityKind(entity_id: string, kind: string): void {
         const before = this.#snapshot();
         const entity = this.entities.get(entity_id);
@@ -182,15 +239,85 @@ export class AnnotationState {
             this.#commit(before);
         }
     }
+
+    updateEntityPreferredName(entity_id: string, preferred_name: string): void {
+        const before = this.#snapshot();
+        const entity = this.entities.get(entity_id);
+        if (entity) {
+            this.entities = this.entities.set(entity_id, { ...entity, preferred_name });
+            this.#commit(before);
+        }
+    }
+
+    updateEntityUri(entity_id: string, uri: string): void {
+        const before = this.#snapshot();
+        const entity = this.entities.get(entity_id);
+        if (entity) {
+            this.entities = this.entities.set(entity_id, { ...entity, uri });
+            this.#commit(before);
+        }
+    }
+
+    addSynonym(entity_id: string, synonym: string): void {
+        const before = this.#snapshot();
+        const entity = this.entities.get(entity_id);
+        if (entity && synonym.trim()) {
+            this.entities = this.entities.set(entity_id, {
+                ...entity,
+                synonyms: entity.synonyms.add(synonym.trim()),
+            });
+            this.#commit(before);
+        }
+    }
+
+    removeSynonym(entity_id: string, synonym: string): void {
+        const before = this.#snapshot();
+        const entity = this.entities.get(entity_id);
+        if (entity) {
+            this.entities = this.entities.set(entity_id, {
+                ...entity,
+                synonyms: entity.synonyms.delete(synonym),
+            });
+            this.#commit(before);
+        }
+    }
+
+    updatePointerOffsets(pointerId: string, offset: number, length: number): void {
+        const before = this.#snapshot();
+        const pointer = this.pointers.get(pointerId);
+        if (pointer) {
+            this.pointers = this.pointers.set(pointerId, { ...pointer, offset, length });
+            this.#commit(before);
+        }
+    }
+}
+
+/**
+ * Extracts the sentence containing the character at `offset` from plain text.
+ * Returns the sentence string and its start offset in the full text.
+ */
+export function extractSentence(
+    plainText: string,
+    offset: number,
+): { text: string; start: number } {
+    const sentenceEnders = /[.!?]/;
+    let start = offset;
+    while (start > 0 && !sentenceEnders.test(plainText[start - 1])) {
+        start--;
+    }
+    let end = offset;
+    while (end < plainText.length && !sentenceEnders.test(plainText[end])) {
+        end++;
+    }
+    if (end < plainText.length) end++; // include the punctuation
+
+    const raw = plainText.slice(start, end);
+    const leadingSpaces = raw.length - raw.trimStart().length;
+    return { text: raw.trim(), start: start + leadingSpaces };
 }
 
 /**
  * Returns an HTMLElement annotated according to the state parameters.
- *
- * @param html - initial document to be annotated
- * @param entities - Mapping of entities in the current annotation state
- * @param pointers - Mapping of pointers in the current annotation state
- * @returns HTMLElement with buttons corresponding to the pointers
  */
 export function annotateHTMLString(
     elem: HTMLDivElement,
@@ -202,8 +329,6 @@ export function annotateHTMLString(
     const pointers = annotationState.pointers;
     const entities = annotationState.entities;
 
-    // Build array here instead of an iterator, because we want to compute all
-    // ranges before manipulating the DOM.
     const ranges: Array<AnnotatedRange & { range: Range }> = pointers
         .entrySeq()
         .map(([key, pointer]) => {
@@ -232,12 +357,6 @@ function markRange(elem: HTMLElement, pointer: AnnotatedRange & { range: Range }
     pointer.range.detach?.();
 }
 
-/**
- * Get range object from input pointer directions.
- *
- * @param pointer - input Pointer object
- * @returns a Range object
- */
 function rangeFromPointer(anchor: HTMLElement, pointer: Pointer): Range | null {
     return createRangeFromOffsets(
         anchor,
@@ -246,12 +365,6 @@ function rangeFromPointer(anchor: HTMLElement, pointer: Pointer): Range | null {
     );
 }
 
-/**
- * Returns an array containing the Text nodes present in the input element.
- *
- * @param element - input element
- * @returns array of Text nodes
- */
 function getTextNodes(element: HTMLElement): Text[] {
     const textNodes: Text[] = [];
     const treeWalker = element.ownerDocument.createTreeWalker(
@@ -267,15 +380,6 @@ function getTextNodes(element: HTMLElement): Text[] {
     return textNodes;
 }
 
-/**
- * Returns a Range object locating a piece of text inside of the input element.
- *
- * @param element - input element
- * @param startOffset - initial position of the offset
- * @param endOffset - final position of the offset
- * @returns a Range, if the offsets are within the boundaries of the input
-       element.
- */
 function createRangeFromOffsets(
     element: HTMLElement,
     startOffset: number,
@@ -293,17 +397,15 @@ function createRangeFromOffsets(
     for (const node of textNodes) {
         const nodeLength = node.length;
 
-        // Check if the start offset is within this node
         if (currentOffset + nodeLength >= startOffset && !startNode) {
             startNode = node;
             startNodeOffset = startOffset - currentOffset;
         }
 
-        // Check if the end offset is within this node
         if (currentOffset + nodeLength >= endOffset && !endNode) {
             endNode = node;
             endNodeOffset = endOffset - currentOffset;
-            break; // We can stop once we find both nodes
+            break;
         }
 
         currentOffset += nodeLength;
@@ -316,5 +418,5 @@ function createRangeFromOffsets(
         return range;
     }
 
-    return null; // Return null if the range could not be created
+    return null;
 }

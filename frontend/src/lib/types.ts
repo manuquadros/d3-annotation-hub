@@ -23,14 +23,18 @@ export const PointerSchema = z.object({
 
 export type Entity = {
     entity_id: string;
+    uri?: string;
+    preferred_name: string;
     kind: string;
-    designations?: Set<string>;
+    synonyms: Set<string>;
 };
 
 export const EntitySchema = z.object({
     entity_id: z.string(),
+    uri: z.string().optional(),
+    preferred_name: z.string(),
     kind: z.string(),
-    designations: z.optional(z.array(z.string()).transform((arr) => Set(arr))),
+    synonyms: z.array(z.string()).transform((arr) => Set(arr)),
 }) satisfies z.ZodType<Entity>;
 
 export type User = {
@@ -104,20 +108,15 @@ export const RelationSchema = z
     })
     .transform((obj) => createRelation(obj));
 
-export interface DropdownState {
-    isOpen: boolean;
-    position: {
-        top: number;
-        left: number;
-    };
-    triggerElement: HTMLElement | null;
-}
+export type EditorState =
+    | { mode: 'closed' }
+    | { mode: 'create'; offset: number; length: number; sentenceStart: number }
+    | { mode: 'edit-pointer'; pointerId: string; sentenceStart: number }
+    | { mode: 'edit-entity'; entityId: string };
 
 export const AnnotationStateSchema = z.object({
     user: UserSchema,
     reference: ReferenceSchema,
-    // entities are not yet returned by the API; defaults to empty array until
-    // d3textdb includes entity data in ReferenceAnnotation responses.
     entities: z
         .array(EntitySchema)
         .default([])
@@ -128,4 +127,3 @@ export const AnnotationStateSchema = z.object({
     relations: z.array(RelationSchema).transform((arr) => Set(arr)),
     completed: z.boolean().default(false),
 });
-

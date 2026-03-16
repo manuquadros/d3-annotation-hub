@@ -1,8 +1,5 @@
 import type { RequestHandler } from "./$types";
 
-export const PUT: RequestHandler = (params) => {
-    console.log("test");
-    console.log(params.body);
-
+export const PUT: RequestHandler = (_params) => {
     return new Response("ok");
 };

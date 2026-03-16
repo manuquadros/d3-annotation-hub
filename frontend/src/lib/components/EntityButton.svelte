@@ -4,7 +4,7 @@
     import { AnnotationState } from "$lib/annotation.svelte";
     import { getLabelColor, getContrastColor } from "$lib/utils.ts";
     import { createRelation } from "$lib/types.ts";
-    import LabelDropdown from "./LabelDropdown.svelte";
+    import type { EditorState } from "$lib/types.ts";
 
     interface Props {
         entityId: string;
@@ -12,157 +12,25 @@
 
     const { entityId }: Props = $props();
     const annotationState = getContext<AnnotationState>("annotationState");
-    const dropdownState = getContext<{
-        isOpen: boolean;
-        position: { top: number; left: number };
-        triggerElement: HTMLElement | null;
-    }>("dropdownState");
+    const editorStateCtx = getContext<{ value: EditorState }>("editorState");
 
-    /**
-     * Gets the entity from the annotation state.
-     */
     const entity = $derived(annotationState.entity(entityId));
 
-    /**
-     * Gets all pointers that reference this entity.
-     */
-    const entityPointers = $derived.by(() => {
-        return annotationState.pointers
-            .valueSeq()
-            .filter((pointer) => pointer.entity_id === entityId)
-            .toArray();
-    });
+    const entityPointers = $derived(
+        annotationState.pointers
+            .entrySeq()
+            .filter(([, p]) => p.entity_id === entityId)
+            .toArray(),
+    );
 
-    /**
-     * Gets a display name for the entity.
-     * Prefers designations if available, otherwise uses text from the first pointer.
-     */
-    const displayName = $derived.by(() => {
-        if (!entity) return "";
-
-        // If designations exist, use the first one
-        if (entity.designations && entity.designations.size > 0) {
-            return entity.designations.first() || "";
-        }
-
-        // Otherwise, try to get text from the first pointer (only in browser)
-        if (typeof document !== "undefined" && entityPointers.length > 0) {
-            const firstPointer = entityPointers[0];
-            const body = annotationState.reference.body;
-            if (body) {
-                // Extract the text at the pointer's offset
-                const tempDiv = document.createElement("div");
-                tempDiv.innerHTML = body;
-                const plainText = tempDiv.textContent || "";
-                return plainText.slice(
-                    firstPointer.offset,
-                    firstPointer.offset + firstPointer.length,
-                );
-            }
-        }
-
-        return `Entity ${entityId.slice(-6)}`;
-    });
-
+    const displayName = $derived(entity?.preferred_name ?? "");
     const labelColor = $derived(getLabelColor(entity?.kind || ""));
     const textColor = $derived(getContrastColor(labelColor));
 
-    let buttonElement: HTMLButtonElement;
-
-    /**
-     * Toggles the dropdown open/closed when button is clicked.
-     */
-    function toggleDropdown() {
-        if (
-            dropdownState.isOpen &&
-            dropdownState.triggerElement === buttonElement
-        ) {
-            // If already open for this button, close it
-            dropdownState.isOpen = false;
-            dropdownState.triggerElement = null;
-        } else {
-            // Open dropdown for this button
-            if (buttonElement) {
-                const rect = buttonElement.getBoundingClientRect();
-                dropdownState.position = {
-                    top: rect.bottom + window.scrollY,
-                    left: rect.left + window.scrollX,
-                };
-                dropdownState.triggerElement = buttonElement;
-                dropdownState.isOpen = true;
-            }
-        }
+    function openEditor() {
+        editorStateCtx.value = { mode: 'edit-entity', entityId };
     }
 
-    /**
-     * Handles label selection from dropdown by updating entity kind.
-     */
-    function handleLabelSelect(label: string) {
-        if (!entity) return;
-        annotationState.entities = annotationState.entities.set(entityId, {
-            ...entity,
-            kind: label,
-        });
-    }
-
-    /**
-     * Deletes the entity and all its associated pointers and relations from the annotation state.
-     */
-    function deleteEntity() {
-        // Get all pointer IDs for this entity
-        const pointerIdsToDelete = annotationState.pointers
-            .valueSeq()
-            .filter((pointer) => pointer.entity_id === entityId)
-            .map((pointer) => pointer.pointer_id)
-            .toArray();
-
-        // Delete all pointers for this entity
-        let updatedPointers = annotationState.pointers;
-        for (const pointerId of pointerIdsToDelete) {
-            updatedPointers = updatedPointers.delete(pointerId);
-        }
-        annotationState.pointers = updatedPointers;
-
-        // Delete all relations that reference this entity
-        // Convert to array, filter, then create new Set to ensure proper deletion
-        const relationsArray = annotationState.relations.toArray();
-        const filteredRelations = relationsArray.filter(
-            (relation) => relation.subject !== entityId && relation.object !== entityId
-        );
-        annotationState.relations = Set(filteredRelations);
-
-        // Delete the entity
-        annotationState.entities = annotationState.entities.delete(entityId);
-    }
-
-    /**
-     * Scrolls to and highlights the first annotation for this entity.
-     */
-    function scrollToAnnotation() {
-        if (entityPointers.length === 0) return;
-
-        const firstPointer = entityPointers[0];
-        const annotationElement = document.querySelector(
-            `[id="${firstPointer.pointer_id}"]`,
-        );
-
-        if (annotationElement) {
-            annotationElement.scrollIntoView({
-                behavior: "smooth",
-                block: "center",
-            });
-
-            // Add a temporary highlight effect
-            annotationElement.classList.add("highlight-pulse");
-            setTimeout(() => {
-                annotationElement.classList.remove("highlight-pulse");
-            }, 2000);
-        }
-    }
-
-    /**
-     * Handles drag start event - stores the entity ID in the dataTransfer.
-     */
     function handleDragStart(event: DragEvent) {
         if (event.dataTransfer) {
             event.dataTransfer.setData("text/plain", entityId);
@@ -170,9 +38,6 @@
         }
     }
 
-    /**
-     * Handles drag over event - allows dropping.
-     */
     function handleDragOver(event: DragEvent) {
         event.preventDefault();
         if (event.dataTransfer) {
@@ -180,82 +45,52 @@
         }
     }
 
-    /**
-     * Determines the appropriate predicate based on entity kinds.
-     */
-    function guessPredicate(
-        sourceKind: string,
-        targetKind: string,
-    ): string | null {
-        const isStrain = (kind: string) => kind === "d3o:Strain";
-        const isBacteria = (kind: string) => kind === "d3o:Bacteria";
-        const isEnzyme = (kind: string) => kind === "d3o:Enzyme";
-        const isOrganism = (kind: string) => isBacteria(kind) || isStrain(kind);
+    function guessPredicate(sourceKind: string, targetKind: string): string | null {
+        const isStrain = (k: string) => k === "d3o:Strain";
+        const isBacteria = (k: string) => k === "d3o:Bacteria";
+        const isEnzyme = (k: string) => k === "d3o:Enzyme";
+        const isOrganism = (k: string) => isBacteria(k) || isStrain(k);
 
-        if (isStrain(sourceKind) && isBacteria(targetKind)) {
-            return "d3o:hasSpecies";
-        } else if (isBacteria(sourceKind) && isStrain(targetKind)) {
-            // Reverse: target is the subject
-            return null; // Will be handled by swapping
-        } else if (isEnzyme(sourceKind) && isOrganism(targetKind)) {
-            return "d3o:hasEnzyme";
-        } else if (isOrganism(sourceKind) && isEnzyme(targetKind)) {
-            // Reverse: source keeps being the subject
-            return "d3o:hasEnzyme";
-        }
-
+        if (isStrain(sourceKind) && isBacteria(targetKind)) return "d3o:hasSpecies";
+        if (isEnzyme(sourceKind) && isOrganism(targetKind)) return "d3o:hasEnzyme";
+        if (isOrganism(sourceKind) && isEnzyme(targetKind)) return "d3o:hasEnzyme";
         return null;
     }
 
-    /**
-     * Handles drop event - creates a relation between entities.
-     */
     function handleDrop(event: DragEvent) {
         event.preventDefault();
-
         const sourceEntityId = event.dataTransfer?.getData("text/plain");
         if (!sourceEntityId || sourceEntityId === entityId) return;
 
         const sourceEntity = annotationState.entity(sourceEntityId);
         const targetEntity = entity;
-
         if (!sourceEntity || !targetEntity) return;
 
         const sourceKind = sourceEntity.kind;
         const targetKind = targetEntity.kind;
 
-        // If same kind, merge the entities
         if (sourceKind === targetKind) {
-            // Union the designations from both entities
-            const sourceDesignations = sourceEntity.designations || Set<string>();
-            const targetDesignations = targetEntity.designations || Set<string>();
-            const mergedDesignations = sourceDesignations.union(targetDesignations);
-
-            // Update target entity with merged designations
+            // Merge: union synonyms, re-point all pointers, remove source
+            const mergedSynonyms = (sourceEntity.synonyms || Set<string>()).union(
+                targetEntity.synonyms || Set<string>(),
+            );
             annotationState.entities = annotationState.entities.set(entityId, {
                 ...targetEntity,
-                designations: mergedDesignations,
+                synonyms: mergedSynonyms,
             });
 
-            // Update all pointers from source entity to point to target entity
             let updatedPointers = annotationState.pointers;
-            annotationState.pointers.forEach((pointer) => {
+            annotationState.pointers.forEach((pointer, key) => {
                 if (pointer.entity_id === sourceEntityId) {
-                    updatedPointers = updatedPointers.set(pointer.pointer_id, {
-                        ...pointer,
-                        entity_id: entityId,
-                    });
+                    updatedPointers = updatedPointers.set(key, { ...pointer, entity_id: entityId });
                 }
             });
             annotationState.pointers = updatedPointers;
 
-            // Update all relations that reference the source entity
             let updatedRelations = annotationState.relations;
             annotationState.relations.forEach((relation) => {
                 if (relation.subject === sourceEntityId || relation.object === sourceEntityId) {
-                    // Remove the old relation
                     updatedRelations = updatedRelations.delete(relation);
-                    // Add updated relation with target entity ID
                     updatedRelations = updatedRelations.add(
                         createRelation({
                             subject: relation.subject === sourceEntityId ? entityId : relation.subject,
@@ -266,84 +101,47 @@
                 }
             });
             annotationState.relations = updatedRelations;
-
-            // Remove the source entity
             annotationState.entities = annotationState.entities.delete(sourceEntityId);
-
             return;
         }
 
-        // Determine the correct predicate and subject/object order
         let subject: string;
         let object: string;
         let predicate: string | null;
 
         if (sourceKind === "d3o:Bacteria" && targetKind === "d3o:Strain") {
-            // Swap: Strain should be subject
-            subject = entityId;
-            object = sourceEntityId;
-            predicate = "d3o:hasSpecies";
+            subject = entityId; object = sourceEntityId; predicate = "d3o:hasSpecies";
         } else if (sourceKind === "d3o:Enzyme" && targetKind === "d3o:Strain") {
-            // Swap: Organism should be subject
-            subject = entityId;
-            object = sourceEntityId;
-            predicate = "d3o:hasEnzyme";
-        } else if (
-            sourceKind === "d3o:Enzyme" &&
-            targetKind === "d3o:Bacteria"
-        ) {
-            // Swap: Organism should be subject
-            subject = entityId;
-            object = sourceEntityId;
-            predicate = "d3o:hasEnzyme";
+            subject = entityId; object = sourceEntityId; predicate = "d3o:hasEnzyme";
+        } else if (sourceKind === "d3o:Enzyme" && targetKind === "d3o:Bacteria") {
+            subject = entityId; object = sourceEntityId; predicate = "d3o:hasEnzyme";
         } else {
-            subject = sourceEntityId;
-            object = entityId;
+            subject = sourceEntityId; object = entityId;
             predicate = guessPredicate(sourceKind, targetKind);
         }
 
         if (predicate) {
-            // Add the relation - Set with Record ensures uniqueness automatically
             annotationState.relations = annotationState.relations.add(
-                createRelation({
-                    subject,
-                    predicate,
-                    object,
-                }),
+                createRelation({ subject, predicate, object }),
             );
         }
     }
 </script>
 
 <button
-    bind:this={buttonElement}
     class="entity-button"
     style:background-color={labelColor}
     style:color={textColor}
-    onclick={toggleDropdown}
+    onclick={openEditor}
     draggable="true"
     ondragstart={handleDragStart}
     ondragover={handleDragOver}
     ondrop={handleDrop}
-    aria-label={`Manage ${displayName} annotations`}
-    aria-haspopup="listbox"
-    aria-expanded={dropdownState.isOpen &&
-        dropdownState.triggerElement === buttonElement}
+    aria-label={`Edit ${displayName}`}
 >
     {displayName}
     <span class="entity-count">{entityPointers.length}</span>
 </button>
-
-{#if dropdownState.isOpen && dropdownState.triggerElement === buttonElement}
-    <LabelDropdown
-        onSelect={handleLabelSelect}
-        currentLabel={entity?.kind}
-        customActions={[
-            { label: "View annotations", handler: scrollToAnnotation },
-            { label: "Delete entity", handler: deleteEntity },
-        ]}
-    />
-{/if}
 
 <style>
     .entity-button {
@@ -388,13 +186,7 @@
     }
 
     @keyframes pulse {
-        0%,
-        100% {
-            opacity: 1;
-        }
-        50% {
-            opacity: 0.6;
-            transform: scale(1.02);
-        }
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.6; transform: scale(1.02); }
     }
 </style>
