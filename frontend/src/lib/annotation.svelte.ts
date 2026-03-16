@@ -294,6 +294,7 @@ export class AnnotationState {
         kind: string,
         preferredName: string,
         offsets: Array<{ offset: number; length: number }>,
+        confirmed = true,
     ): void {
         const before = this.#snapshot();
 
@@ -303,6 +304,7 @@ export class AnnotationState {
                 kind,
                 preferred_name: preferredName,
                 synonyms: Set(),
+                confirmed,
             });
         }
 

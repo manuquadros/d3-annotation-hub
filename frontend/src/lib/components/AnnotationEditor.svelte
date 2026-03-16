@@ -258,6 +258,7 @@
                 result?.kind ?? "",
                 result?.preferred_name ?? "",
                 [{ offset, length }],
+                result?.confirmed ?? true,
             );
         } else {
             if (!selectedKind || !preferredName.trim()) return;
