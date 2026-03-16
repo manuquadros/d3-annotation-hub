@@ -282,6 +282,44 @@ export class AnnotationState {
         }
     }
 
+    /**
+     * Adds pointer(s) for an entity identified by a known ID (e.g. an ontology
+     * CURIE). If the entity is not yet in the local state it is created with the
+     * given kind and preferredName; if it already exists the pointer is simply
+     * appended and the highlighted text is added as a synonym.
+     */
+    addWithId(
+        entityId: string,
+        kind: string,
+        preferredName: string,
+        offsets: Array<{ offset: number; length: number }>,
+    ): void {
+        const before = this.#snapshot();
+
+        if (!this.entities.has(entityId)) {
+            this.entities = this.entities.set(entityId, {
+                entity_id: entityId,
+                kind,
+                preferred_name: preferredName,
+                synonyms: Set(),
+            });
+        }
+
+        let updatedPointers = this.pointers;
+        for (const { offset, length } of offsets) {
+            const key = nextPointerKey();
+            updatedPointers = updatedPointers.set(key, {
+                entity_id: entityId,
+                reference_id: this.reference.reference_id,
+                offset,
+                length,
+            });
+        }
+
+        this.pointers = updatedPointers;
+        this.#commit(before);
+    }
+
     updatePointerOffsets(pointerId: string, offset: number, length: number): void {
         const before = this.#snapshot();
         const pointer = this.pointers.get(pointerId);
@@ -322,12 +360,11 @@ export function extractSentence(
 export function annotateHTMLString(
     elem: HTMLDivElement,
     html: string,
-    annotationState: AnnotationState,
+    pointers: ImmutableMap<string, Pointer>,
+    entities: ImmutableMap<string, Entity>,
 ): void {
     elem.replaceChildren();
     elem.innerHTML = DOMPurify.sanitize(html);
-    const pointers = annotationState.pointers;
-    const entities = annotationState.entities;
 
     const ranges: Array<AnnotatedRange & { range: Range }> = pointers
         .entrySeq()

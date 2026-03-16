@@ -2,7 +2,8 @@
     import { getContext } from "svelte";
     import { browser } from "$app/environment";
     import { AnnotationState, extractSentence } from "$lib/annotation.svelte";
-    import type { EditorState } from "$lib/types.ts";
+    import type { EditorState, EntitySearchResult } from "$lib/types.ts";
+    import { searchEntities } from "$lib/api.ts";
     import DOMPurify from "dompurify";
 
     interface Props {
@@ -116,7 +117,7 @@
         newSynonym = "";
         entitySearch = "";
         selectedExistingEntityId = null;
-        createTab = annotationState.entities.size > 0 ? 'existing' : 'new';
+        createTab = 'existing';
 
         if (editorState.mode === 'create') {
             selectedKind = ONTOLOGY_KINDS[0];
@@ -197,18 +198,38 @@
         selection.removeAllRanges();
     }
 
-    // ── Filtered entities for "add to existing" ───────────────────────────────
+    // ── Entity search (API) for "add to existing" ─────────────────────────────
 
-    const filteredEntities = $derived.by(() => {
-        const q = entitySearch.toLowerCase();
-        return annotationState.entities
-            .valueSeq()
-            .filter((e) =>
-                !q ||
-                e.preferred_name.toLowerCase().includes(q) ||
-                e.synonyms.some((s) => s.toLowerCase().includes(q)),
-            )
-            .toArray();
+    let searchResults = $state<EntitySearchResult[]>(
+        annotationState.entities.valueSeq().map((e) => ({
+            entity_id: e.entity_id,
+            preferred_name: e.preferred_name,
+            kind: e.kind,
+            uri: e.uri,
+        })).toArray()
+    );
+    let searchLoading = $state(false);
+
+    $effect(() => {
+        const q = entitySearch;
+        if (q.length < 2) {
+            searchResults = annotationState.entities.valueSeq().map((e) => ({
+                entity_id: e.entity_id,
+                preferred_name: e.preferred_name,
+                kind: e.kind,
+                uri: e.uri,
+            })).toArray();
+            searchLoading = false;
+            return;
+        }
+        searchLoading = true;
+        const timer = setTimeout(() => {
+            searchEntities(q).then((results) => {
+                searchResults = results;
+                searchLoading = false;
+            });
+        }, 300);
+        return () => clearTimeout(timer);
     });
 
     // ── Confirm handlers ──────────────────────────────────────────────────────
@@ -218,7 +239,13 @@
         const { offset, length } = editorState;
         if (createTab === 'existing') {
             if (!selectedExistingEntityId) return;
-            annotationState.addToExistingEntity(selectedExistingEntityId, highlightedText, [{ offset, length }]);
+            const result = searchResults.find((e) => e.entity_id === selectedExistingEntityId);
+            annotationState.addWithId(
+                selectedExistingEntityId,
+                result?.kind ?? "",
+                result?.preferred_name ?? "",
+                [{ offset, length }],
+            );
         } else {
             if (!selectedKind || !preferredName.trim()) return;
             annotationState.add(selectedKind, preferredName.trim(), [{ offset, length }]);
@@ -347,7 +374,6 @@
             <button
                 class:active={createTab === 'existing'}
                 onclick={() => { createTab = 'existing'; selectedExistingEntityId = null; }}
-                disabled={annotationState.entities.size === 0}
             >
                 Add to existing entity
             </button>
@@ -367,22 +393,26 @@
                 bind:value={entitySearch}
             />
             <ul class="entity-list">
-                {#each filteredEntities as e}
-                    <li>
-                        <label class="entity-option">
-                            <input
-                                type="radio"
-                                name="existing-entity"
-                                value={e.entity_id}
-                                bind:group={selectedExistingEntityId}
-                            />
-                            <span class="entity-name">{e.preferred_name}</span>
-                            <span class="entity-kind">{e.kind}</span>
-                        </label>
-                    </li>
-                {/each}
-                {#if filteredEntities.length === 0}
-                    <li class="empty">No entities match.</li>
+                {#if searchLoading}
+                    <li class="empty">Searching…</li>
+                {:else}
+                    {#each searchResults as e}
+                        <li>
+                            <label class="entity-option">
+                                <input
+                                    type="radio"
+                                    name="existing-entity"
+                                    value={e.entity_id}
+                                    bind:group={selectedExistingEntityId}
+                                />
+                                <span class="entity-name">{e.preferred_name}</span>
+                                <span class="entity-kind">{e.kind}</span>
+                            </label>
+                        </li>
+                    {/each}
+                    {#if searchResults.length === 0}
+                        <li class="empty">No entities match.</li>
+                    {/if}
                 {/if}
             </ul>
         {:else}

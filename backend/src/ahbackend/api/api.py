@@ -3,8 +3,8 @@ import json
 from typing import Annotated, Optional
 
 from ahbackend import users
-from ahbackend.db import get_annotation_queue, query, upsert_annotation
-from d3textdb.schema import ReferenceAnnotation, User
+from ahbackend.db import get_annotation_queue, query, search_entities, upsert_annotation
+from d3textdb.schema import EntityAnnotation, ReferenceAnnotation, User
 from fastapi import Body, Depends, FastAPI, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import EmailStr
@@ -89,6 +89,17 @@ def fetch_annotation(
             )
         }
     ).model_dump_json()
+
+
+@app.get("/entity/search")
+def entity_search(
+    q: str,
+    current_user: Annotated[User, Depends(users.get_current_active_user)],
+    limit: int = 20,
+    project_id: int | None = None,
+) -> list[EntityAnnotation]:
+    """Search entities by name or synonym prefix."""
+    return search_entities(q, limit, project_id)
 
 
 @app.get("/queue/")

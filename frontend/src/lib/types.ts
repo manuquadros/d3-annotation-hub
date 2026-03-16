@@ -108,6 +108,13 @@ export const RelationSchema = z
     })
     .transform((obj) => createRelation(obj));
 
+export type EntitySearchResult = {
+    entity_id: string;
+    preferred_name: string;
+    kind: string;
+    uri?: string;
+};
+
 export type EditorState =
     | { mode: 'closed' }
     | { mode: 'create'; offset: number; length: number; sentenceStart: number }

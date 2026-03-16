@@ -1,5 +1,6 @@
 import { goto } from "$app/navigation";
 import { AnnotationState } from "$lib/annotation.svelte";
+import type { EntitySearchResult } from "$lib/types.ts";
 
 export async function fetchReference(
     refIdentifier: string,
@@ -30,6 +31,18 @@ export async function fetchQueue(
         throw new Error(`Failed to fetch queue: ${response.statusText}`);
     }
 
+    return response.json();
+}
+
+export async function searchEntities(
+    q: string,
+    limit = 20,
+): Promise<EntitySearchResult[]> {
+    const params = new URLSearchParams({ q, limit: String(limit) });
+    const response = await fetch(`/api/entity?${params}`);
+    if (!response.ok) {
+        throw new Error(`Entity search failed: ${response.statusText}`);
+    }
     return response.json();
 }
 
