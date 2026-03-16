@@ -4,7 +4,10 @@ from typing import Annotated, Optional
 
 from ahbackend import db, users
 from ahbackend.db import (
+    delete_ontology,
     get_annotation_queue,
+    get_entity_types,
+    get_ontology_entities,
     list_ontologies,
     query,
     run_ontology_import,
@@ -145,6 +148,37 @@ async def import_ontology(
         raise HTTPException(status_code=422, detail=f"OWL parse error: {exc}") from exc
 
     return run_ontology_import(parsed, name, prefix, base_iri, version)
+
+
+@app.get("/admin/ontologies/{ontology_id}/entities")
+def list_ontology_entities(
+    ontology_id: int,
+    current_user: Annotated[User, Depends(users.get_current_admin_user)],
+    limit: int = 50,
+    offset: int = 0,
+) -> dict:
+    """Return a page of entities for an ontology plus the total count."""
+    entities, total = get_ontology_entities(ontology_id, limit, offset)
+    return {"entities": entities, "total": total}
+
+
+@app.delete("/admin/ontologies/{ontology_id}")
+def remove_ontology(
+    ontology_id: int,
+    current_user: Annotated[User, Depends(users.get_current_admin_user)],
+) -> dict:
+    """Delete an ontology and all its entities, names, and triples."""
+    delete_ontology(ontology_id)
+    return {"ok": True}
+
+
+@app.get("/entity/types")
+def list_entity_types(
+    current_user: Annotated[User, Depends(users.get_current_active_user)],
+    q: str = "",
+) -> list[EntityAnnotation]:
+    """Return entity classes available as annotation types."""
+    return get_entity_types(q)
 
 
 @app.get("/entity/search")

@@ -7,16 +7,24 @@
         version: string | null;
     }
 
+    interface Entity {
+        entity_id: string;
+        preferred_name: string;
+        kind: string;
+    }
+
     interface ImportResult {
         ontology_id: number;
         entities: number;
         triples: number;
     }
 
+    const PAGE_SIZE = 50;
+
     let { data } = $props();
     let ontologies = $state<Ontology[]>(data.ontologies);
 
-    // ── Form state ────────────────────────────────────────────────────────────
+    // ── Import form state ──────────────────────────────────────────────────────
     let file = $state<File | null>(null);
     let name = $state("");
     let prefix = $state("");
@@ -52,10 +60,8 @@
                 errorMessage = detail.detail ?? res.statusText;
             } else {
                 result = await res.json();
-                // Refresh ontology list
                 const listRes = await fetch("/api/admin/ontology");
                 if (listRes.ok) ontologies = await listRes.json();
-                // Reset form
                 file = null;
                 name = "";
                 prefix = "";
@@ -66,6 +72,66 @@
             errorMessage = String(err);
         } finally {
             submitting = false;
+        }
+    }
+
+    // ── Entity viewer state ────────────────────────────────────────────────────
+    let viewingId = $state<number | null>(null);
+    let entities = $state<Entity[]>([]);
+    let entityTotal = $state(0);
+    let entityOffset = $state(0);
+    let entityLoading = $state(false);
+
+    async function loadEntities(ontologyId: number, offset: number) {
+        entityLoading = true;
+        try {
+            const res = await fetch(
+                `/api/admin/ontology/${ontologyId}?limit=${PAGE_SIZE}&offset=${offset}`,
+            );
+            if (!res.ok) return;
+            const data = await res.json();
+            entities = offset === 0 ? data.entities : [...entities, ...data.entities];
+            entityTotal = data.total;
+            entityOffset = offset + data.entities.length;
+        } finally {
+            entityLoading = false;
+        }
+    }
+
+    function toggleView(ontologyId: number) {
+        if (viewingId === ontologyId) {
+            viewingId = null;
+            entities = [];
+            entityTotal = 0;
+            entityOffset = 0;
+        } else {
+            viewingId = ontologyId;
+            entities = [];
+            entityOffset = 0;
+            loadEntities(ontologyId, 0);
+        }
+    }
+
+    // ── Delete state ───────────────────────────────────────────────────────────
+    let confirmDeleteId = $state<number | null>(null);
+    let deleting = $state(false);
+
+    async function handleDelete(ontologyId: number) {
+        deleting = true;
+        try {
+            const res = await fetch(`/api/admin/ontology/${ontologyId}`, {
+                method: "DELETE",
+            });
+            if (res.ok) {
+                ontologies = ontologies.filter((o) => o.ontology_id !== ontologyId);
+                if (viewingId === ontologyId) {
+                    viewingId = null;
+                    entities = [];
+                }
+            }
+        } finally {
+            deleting = false;
+            confirmDeleteId = null;
         }
     }
 </script>
@@ -150,16 +216,93 @@
                         <th>Name</th>
                         <th>URI</th>
                         <th>Version</th>
+                        <th></th>
                     </tr>
                 </thead>
                 <tbody>
-                    {#each ontologies as onto}
-                        <tr>
+                    {#each ontologies as onto (onto.ontology_id)}
+                        <tr class:expanded={viewingId === onto.ontology_id}>
                             <td><code>{onto.prefix}</code></td>
                             <td>{onto.name}</td>
                             <td class="uri">{onto.uri}</td>
                             <td>{onto.version ?? "—"}</td>
+                            <td class="actions-cell">
+                                {#if confirmDeleteId === onto.ontology_id}
+                                    <span class="confirm-prompt">Remove?</span>
+                                    <button
+                                        class="btn-danger-sm"
+                                        disabled={deleting}
+                                        onclick={() => handleDelete(onto.ontology_id)}
+                                    >
+                                        {deleting ? "…" : "Yes"}
+                                    </button>
+                                    <button
+                                        class="btn-ghost-sm"
+                                        onclick={() => (confirmDeleteId = null)}
+                                    >Cancel</button>
+                                {:else}
+                                    <button
+                                        class="btn-ghost-sm"
+                                        onclick={() => toggleView(onto.ontology_id)}
+                                    >
+                                        {viewingId === onto.ontology_id ? "Hide" : "View"}
+                                    </button>
+                                    <button
+                                        class="btn-ghost-sm danger"
+                                        onclick={() => (confirmDeleteId = onto.ontology_id)}
+                                    >Remove</button>
+                                {/if}
+                            </td>
                         </tr>
+
+                        {#if viewingId === onto.ontology_id}
+                            <tr class="entity-panel-row">
+                                <td colspan="5">
+                                    <div class="entity-panel">
+                                        <p class="entity-panel-header">
+                                            {onto.name} —
+                                            {entityLoading && entities.length === 0
+                                                ? "loading…"
+                                                : `${entityTotal.toLocaleString()} entities`}
+                                        </p>
+                                        {#if entities.length > 0}
+                                            <table class="entity-table">
+                                                <thead>
+                                                    <tr>
+                                                        <th>CURIE</th>
+                                                        <th>Name</th>
+                                                        <th>Type</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {#each entities as e}
+                                                        <tr>
+                                                            <td><code>{e.entity_id}</code></td>
+                                                            <td>{e.preferred_name}</td>
+                                                            <td class="kind">{e.kind || "—"}</td>
+                                                        </tr>
+                                                    {/each}
+                                                </tbody>
+                                            </table>
+                                            {#if entityOffset < entityTotal}
+                                                <button
+                                                    class="btn-ghost-sm load-more"
+                                                    disabled={entityLoading}
+                                                    onclick={() =>
+                                                        loadEntities(onto.ontology_id, entityOffset)}
+                                                >
+                                                    {entityLoading
+                                                        ? "Loading…"
+                                                        : `Load more (${entityTotal - entityOffset} remaining)`}
+                                                </button>
+                                            {/if}
+                                        {:else if !entityLoading}
+                                            <p class="empty">No entities found.</p>
+                                        {/if}
+                                    </div>
+                                </td>
+                            </tr>
+                        {/if}
                     {/each}
                 </tbody>
             </table>
@@ -257,6 +400,49 @@
         background: #111;
     }
 
+    .btn-ghost-sm {
+        padding: 0.2rem 0.6rem;
+        background: transparent;
+        border: 1px solid #ccc;
+        border-radius: 3px;
+        cursor: pointer;
+        font-size: 0.8rem;
+        color: #444;
+    }
+
+    .btn-ghost-sm:hover {
+        background: #f5f5f5;
+    }
+
+    .btn-ghost-sm:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+
+    .btn-ghost-sm.danger {
+        color: #b00;
+        border-color: #e0a0a0;
+    }
+
+    .btn-ghost-sm.danger:hover {
+        background: #fff0f0;
+    }
+
+    .btn-danger-sm {
+        padding: 0.2rem 0.6rem;
+        background: #b00;
+        color: #fff;
+        border: none;
+        border-radius: 3px;
+        cursor: pointer;
+        font-size: 0.8rem;
+    }
+
+    .btn-danger-sm:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+
     .error {
         color: #c00;
         font-size: 0.875rem;
@@ -294,7 +480,11 @@
     td {
         padding: 0.5rem 0.6rem;
         border-bottom: 1px solid #f0f0f0;
-        vertical-align: top;
+        vertical-align: middle;
+    }
+
+    tr.expanded > td {
+        border-bottom: none;
     }
 
     .uri {
@@ -303,10 +493,66 @@
         word-break: break-all;
     }
 
+    .actions-cell {
+        white-space: nowrap;
+        display: flex;
+        gap: 0.4rem;
+        align-items: center;
+    }
+
+    .confirm-prompt {
+        font-size: 0.8rem;
+        color: #666;
+        margin-right: 0.2rem;
+    }
+
     code {
         background: #f0f0f0;
         padding: 0.1em 0.3em;
         border-radius: 3px;
         font-size: 0.85em;
+    }
+
+    /* Entity panel */
+    .entity-panel-row > td {
+        padding: 0;
+        border-bottom: 2px solid #eee;
+    }
+
+    .entity-panel {
+        background: #fafafa;
+        border-top: 1px solid #eee;
+        padding: 1rem 1.5rem;
+    }
+
+    .entity-panel-header {
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: #555;
+        margin: 0 0 0.8rem;
+    }
+
+    .entity-table {
+        font-size: 0.8rem;
+    }
+
+    .entity-table th {
+        font-size: 0.7rem;
+        padding: 0.3rem 0.5rem;
+    }
+
+    .entity-table td {
+        padding: 0.3rem 0.5rem;
+    }
+
+    .kind {
+        color: #666;
+        font-size: 0.75rem;
+    }
+
+    .load-more {
+        margin-top: 0.8rem;
+        width: 100%;
+        text-align: center;
     }
 </style>

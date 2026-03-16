@@ -1,9 +1,11 @@
 <script lang="ts">
-    import { getContext } from "svelte";
+    import { getContext, onMount } from "svelte";
     import { browser } from "$app/environment";
     import { AnnotationState, extractSentence } from "$lib/annotation.svelte";
     import type { EditorState, EntitySearchResult } from "$lib/types.ts";
-    import { searchEntities } from "$lib/api.ts";
+    import { searchEntities, fetchEntityTypes } from "$lib/api.ts";
+    import type { KindOption } from "$lib/api.ts";
+    import ClassPicker from "$lib/components/ClassPicker.svelte";
     import DOMPurify from "dompurify";
 
     interface Props {
@@ -14,8 +16,19 @@
 
     const annotationState = getContext<AnnotationState>("annotationState");
 
-    // Ontology stub — replace with API call when ontology is ready
-    const ONTOLOGY_KINDS = ["d3o:Strain", "d3o:Bacteria", "d3o:Enzyme"];
+    let availableKinds = $state<KindOption[]>([]);
+    onMount(() => { fetchEntityTypes().then((kinds) => (availableKinds = kinds)); });
+
+    const sortedKinds = $derived.by(() => {
+        const freq = new Map<string, number>();
+        for (const entity of annotationState.entities.values()) {
+            if (entity.kind) freq.set(entity.kind, (freq.get(entity.kind) ?? 0) + 1);
+        }
+        return [...availableKinds].sort((a, b) => {
+            const diff = (freq.get(b.curie) ?? 0) - (freq.get(a.curie) ?? 0);
+            return diff !== 0 ? diff : a.label.localeCompare(b.label);
+        });
+    });
 
     let dialog: HTMLDialogElement;
 
@@ -120,7 +133,7 @@
         createTab = 'existing';
 
         if (editorState.mode === 'create') {
-            selectedKind = ONTOLOGY_KINDS[0];
+            selectedKind = "";
             preferredName = highlightedText;
             synonymList = [highlightedText];
             uriValue = "";
@@ -427,11 +440,7 @@
 
             <div class="field">
                 <label for="kind-create">Class</label>
-                <select id="kind-create" bind:value={selectedKind}>
-                    {#each ONTOLOGY_KINDS as k}
-                        <option value={k}>{k}</option>
-                    {/each}
-                </select>
+                <ClassPicker id="kind-create" bind:value={selectedKind} options={sortedKinds} />
             </div>
         {/if}
 
@@ -478,11 +487,7 @@
 
         <div class="field">
             <label for="kind-ep">Class</label>
-            <select id="kind-ep" bind:value={selectedKind}>
-                {#each ONTOLOGY_KINDS as k}
-                    <option value={k}>{k}</option>
-                {/each}
-            </select>
+            <ClassPicker id="kind-ep" bind:value={selectedKind} options={sortedKinds} />
         </div>
 
         <div class="field">
@@ -522,11 +527,7 @@
 
         <div class="field">
             <label for="kind-ee">Class</label>
-            <select id="kind-ee" bind:value={selectedKind}>
-                {#each ONTOLOGY_KINDS as k}
-                    <option value={k}>{k}</option>
-                {/each}
-            </select>
+            <ClassPicker id="kind-ee" bind:value={selectedKind} options={sortedKinds} />
         </div>
 
         <div class="field">
@@ -711,8 +712,7 @@
         margin-top: 0;
     }
 
-    .field input[type="text"],
-    .field select {
+    .field input[type="text"] {
         width: 100%;
         padding: 0.4rem 0.6rem;
         border: 1px solid #ccc;

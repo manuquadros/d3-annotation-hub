@@ -34,6 +34,18 @@ export async function fetchQueue(
     return response.json();
 }
 
+export interface KindOption {
+    curie: string;
+    label: string;
+}
+
+export async function fetchEntityTypes(): Promise<KindOption[]> {
+    const response = await fetch("/api/entity/types");
+    if (!response.ok) return [];
+    const items: Array<{ entity_id: string; preferred_name: string }> = await response.json();
+    return items.map((item) => ({ curie: item.entity_id, label: item.preferred_name }));
+}
+
 export async function searchEntities(
     q: string,
     limit = 20,

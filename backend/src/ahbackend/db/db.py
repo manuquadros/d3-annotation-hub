@@ -45,8 +45,22 @@ def search_entities(
     return annodb.search_entities(query, limit, project_id)
 
 
+def get_entity_types(query: str = "") -> list[EntityAnnotation]:
+    return annodb.get_entity_types(query)
+
+
 def list_ontologies() -> list[Ontology]:
     return annodb.list_ontologies()
+
+
+def get_ontology_entities(
+    ontology_id: int, limit: int = 50, offset: int = 0
+) -> tuple[list[EntityAnnotation], int]:
+    return annodb.get_ontology_entities(ontology_id, limit, offset)
+
+
+def delete_ontology(ontology_id: int) -> None:
+    annodb.delete_ontology(ontology_id)
 
 
 def run_ontology_import(
