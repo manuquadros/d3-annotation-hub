@@ -434,7 +434,7 @@ function createRangeFromOffsets(
     for (const node of textNodes) {
         const nodeLength = node.length;
 
-        if (currentOffset + nodeLength >= startOffset && !startNode) {
+        if (currentOffset + nodeLength > startOffset && !startNode) {
             startNode = node;
             startNodeOffset = startOffset - currentOffset;
         }
