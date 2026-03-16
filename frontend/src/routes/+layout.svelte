@@ -108,6 +108,12 @@
 
                     <nav>
                         <p class="title">Management</p>
+                        {#if data.isAdmin}
+                            <a class="with-icon" href="/admin">
+                                <i class="ph ph-gear"></i>
+                                Admin
+                            </a>
+                        {/if}
                         <a class="with-icon" onclick={() => auth.logout()}>
                             <i class="ph ph-sign-out"></i>
                             Log out

@@ -1,7 +1,8 @@
 import { redirect } from "@sveltejs/kit";
+import { API_BASE_URL } from "$lib/config";
 import type { LayoutServerLoad } from "./$types";
 
-export const load: LayoutServerLoad = ({ cookies, url }) => {
+export const load: LayoutServerLoad = async ({ cookies, url }) => {
     const token = cookies.get("auth_token");
     if (!token && url.pathname !== "/login") {
         redirect(302, "/login");

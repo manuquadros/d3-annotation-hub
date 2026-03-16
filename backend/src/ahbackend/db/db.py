@@ -5,7 +5,15 @@ from importlib import resources
 from typing import Any, Optional
 
 from d3textdb import D3TextDB, ParsedOntology
-from d3textdb.schema import AnnotationSnapshot, EntityAnnotation, Ontology, Reference, ReferenceAnnotation, User, UserAuth
+from d3textdb.schema import (
+    AnnotationSnapshot,
+    EntityAnnotation,
+    Ontology,
+    Reference,
+    ReferenceAnnotation,
+    User,
+    UserAuth,
+)
 from multimethod import multimethod
 from pydantic import EmailStr
 from rich import print
@@ -27,8 +35,8 @@ def get_user_auth(user_id: uuid.UUID) -> UserAuth | None:
     return annodb.get_user_auth(user_id)
 
 
-def create_user(user: User) -> None:
-    annodb.create_user(user)
+def create_user(user: User, role: str = "annotator") -> None:
+    annodb.create_user(user, role)
 
 
 def search_entities(

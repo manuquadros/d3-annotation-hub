@@ -132,7 +132,6 @@ async def import_ontology(
     file: UploadFile,
     name: str = Form(...),
     prefix: str = Form(...),
-    entity_type: str = Form(...),
     base_iri: str = Form(default=""),
     version: str | None = Form(default=None),
 ) -> dict:
@@ -141,7 +140,7 @@ async def import_ontology(
 
     content = await file.read()
     try:
-        parsed = parse_owl(io.BytesIO(content), prefix, base_iri, entity_type)
+        parsed = parse_owl(io.BytesIO(content), prefix, base_iri)
     except Exception as exc:
         raise HTTPException(status_code=422, detail=f"OWL parse error: {exc}") from exc
 
