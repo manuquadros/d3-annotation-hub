@@ -2,12 +2,20 @@ import base64
 import json
 from typing import Annotated, Optional
 
-from ahbackend import users
-from ahbackend.db import get_annotation_queue, query, search_entities, upsert_annotation
-from d3textdb.schema import EntityAnnotation, ReferenceAnnotation, User
-from fastapi import Body, Depends, FastAPI, Form, HTTPException
+from ahbackend import db, users
+from ahbackend.db import (
+    get_annotation_queue,
+    list_ontologies,
+    query,
+    run_ontology_import,
+    search_entities,
+    upsert_annotation,
+)
+from d3textdb.owl import parse_owl
+from d3textdb.schema import EntityAnnotation, Ontology, ReferenceAnnotation, User
+from fastapi import Body, Depends, FastAPI, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import EmailStr
+from pydantic import BaseModel, EmailStr
 from xmlparser import (
     XMLSyntaxError,
     replace_annotation,
@@ -89,6 +97,55 @@ def fetch_annotation(
             )
         }
     ).model_dump_json()
+
+
+class UserInfo(BaseModel):
+    user_id: str
+    email: str
+    role: str
+
+
+@app.get("/me")
+def get_me(
+    current_user: Annotated[User, Depends(users.get_current_active_user)],
+) -> UserInfo:
+    """Return the authenticated user's profile and role."""
+    user_auth = db.get_user_auth(current_user.user_id)
+    return UserInfo(
+        user_id=str(current_user.user_id),
+        email=str(current_user.email),
+        role=user_auth.role if user_auth else "annotator",
+    )
+
+
+@app.get("/admin/ontologies")
+def get_ontologies(
+    current_user: Annotated[User, Depends(users.get_current_admin_user)],
+) -> list[Ontology]:
+    """List all ontologies loaded into the database."""
+    return list_ontologies()
+
+
+@app.post("/admin/ontology/import")
+async def import_ontology(
+    current_user: Annotated[User, Depends(users.get_current_admin_user)],
+    file: UploadFile,
+    name: str = Form(...),
+    prefix: str = Form(...),
+    entity_type: str = Form(...),
+    base_iri: str = Form(default=""),
+    version: str | None = Form(default=None),
+) -> dict:
+    """Upload an OWL file and import its classes and hierarchy into the DB."""
+    import io
+
+    content = await file.read()
+    try:
+        parsed = parse_owl(io.BytesIO(content), prefix, base_iri, entity_type)
+    except Exception as exc:
+        raise HTTPException(status_code=422, detail=f"OWL parse error: {exc}") from exc
+
+    return run_ontology_import(parsed, name, prefix, base_iri, version)
 
 
 @app.get("/entity/search")

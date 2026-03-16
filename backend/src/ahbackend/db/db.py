@@ -37,6 +37,33 @@ def search_entities(
     return annodb.search_entities(query, limit, project_id)
 
 
+def list_ontologies() -> list[Ontology]:
+    return annodb.list_ontologies()
+
+
+def run_ontology_import(
+    parsed: ParsedOntology,
+    name: str,
+    prefix: str,
+    base_iri: str,
+    version: str | None,
+) -> dict[str, int]:
+    """Store ontology metadata, bulk-load entities and triples.
+
+    Returns a summary dict with ``ontology_id``, ``entities``, ``triples``.
+    """
+    ontology_id = annodb.store_ontology(
+        name=name, prefix=prefix, uri=base_iri, version=version
+    )
+    entity_count = annodb.load_ontology_entities(ontology_id, parsed.entities)
+    triple_count = annodb.load_ontology_triples(parsed.triples)
+    return {
+        "ontology_id": ontology_id,
+        "entities": entity_count,
+        "triples": triple_count,
+    }
+
+
 def upsert_annotation(annotation: ReferenceAnnotation) -> None:
     """Insert or update the database annotation corresponding to `annotation`."""
 
