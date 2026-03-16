@@ -45,18 +45,6 @@
         }
     }
 
-    function guessPredicate(sourceKind: string, targetKind: string): string | null {
-        const isStrain = (k: string) => k === "d3o:Strain";
-        const isBacteria = (k: string) => k === "d3o:Bacteria";
-        const isEnzyme = (k: string) => k === "d3o:Enzyme";
-        const isOrganism = (k: string) => isBacteria(k) || isStrain(k);
-
-        if (isStrain(sourceKind) && isBacteria(targetKind)) return "d3o:hasSpecies";
-        if (isEnzyme(sourceKind) && isOrganism(targetKind)) return "d3o:hasEnzyme";
-        if (isOrganism(sourceKind) && isEnzyme(targetKind)) return "d3o:hasEnzyme";
-        return null;
-    }
-
     function handleDrop(event: DragEvent) {
         event.preventDefault();
         const sourceEntityId = event.dataTransfer?.getData("text/plain");
@@ -69,62 +57,40 @@
         const sourceKind = sourceEntity.kind;
         const targetKind = targetEntity.kind;
 
-        if (sourceKind === targetKind) {
-            // Merge: union synonyms, re-point all pointers, remove source
-            const mergedSynonyms = (sourceEntity.synonyms || Set<string>()).union(
-                targetEntity.synonyms || Set<string>(),
-            );
-            annotationState.entities = annotationState.entities.set(entityId, {
-                ...targetEntity,
-                synonyms: mergedSynonyms,
-            });
+        if (sourceEntity.kind !== targetEntity.kind) return; // cross-kind: no-op
 
-            let updatedPointers = annotationState.pointers;
-            annotationState.pointers.forEach((pointer, key) => {
-                if (pointer.entity_id === sourceEntityId) {
-                    updatedPointers = updatedPointers.set(key, { ...pointer, entity_id: entityId });
-                }
-            });
-            annotationState.pointers = updatedPointers;
+        // Same-kind merge: union synonyms, re-point all pointers, remove source
+        const mergedSynonyms = (sourceEntity.synonyms || Set<string>()).union(
+            targetEntity.synonyms || Set<string>(),
+        );
+        annotationState.entities = annotationState.entities.set(entityId, {
+            ...targetEntity,
+            synonyms: mergedSynonyms,
+        });
 
-            let updatedRelations = annotationState.relations;
-            annotationState.relations.forEach((relation) => {
-                if (relation.subject === sourceEntityId || relation.object === sourceEntityId) {
-                    updatedRelations = updatedRelations.delete(relation);
-                    updatedRelations = updatedRelations.add(
-                        createRelation({
-                            subject: relation.subject === sourceEntityId ? entityId : relation.subject,
-                            predicate: relation.predicate,
-                            object: relation.object === sourceEntityId ? entityId : relation.object,
-                        }),
-                    );
-                }
-            });
-            annotationState.relations = updatedRelations;
-            annotationState.entities = annotationState.entities.delete(sourceEntityId);
-            return;
-        }
+        let updatedPointers = annotationState.pointers;
+        annotationState.pointers.forEach((pointer, key) => {
+            if (pointer.entity_id === sourceEntityId) {
+                updatedPointers = updatedPointers.set(key, { ...pointer, entity_id: entityId });
+            }
+        });
+        annotationState.pointers = updatedPointers;
 
-        let subject: string;
-        let object: string;
-        let predicate: string | null;
-
-        if (sourceKind === "d3o:Bacteria" && targetKind === "d3o:Strain") {
-            subject = entityId; object = sourceEntityId; predicate = "d3o:hasSpecies";
-        } else if (sourceKind === "d3o:Enzyme" && targetKind === "d3o:Strain") {
-            subject = entityId; object = sourceEntityId; predicate = "d3o:hasEnzyme";
-        } else if (sourceKind === "d3o:Enzyme" && targetKind === "d3o:Bacteria") {
-            subject = entityId; object = sourceEntityId; predicate = "d3o:hasEnzyme";
-        } else {
-            subject = sourceEntityId; object = entityId;
-            predicate = guessPredicate(sourceKind, targetKind);
-        }
-
-        if (predicate) {
-            annotationState.relations = annotationState.relations.add(
-                createRelation({ subject, predicate, object }),
-            );
-        }
+        let updatedRelations = annotationState.relations;
+        annotationState.relations.forEach((relation) => {
+            if (relation.subject === sourceEntityId || relation.object === sourceEntityId) {
+                updatedRelations = updatedRelations.delete(relation);
+                updatedRelations = updatedRelations.add(
+                    createRelation({
+                        subject: relation.subject === sourceEntityId ? entityId : relation.subject,
+                        predicate: relation.predicate,
+                        object: relation.object === sourceEntityId ? entityId : relation.object,
+                    }),
+                );
+            }
+        });
+        annotationState.relations = updatedRelations;
+        annotationState.entities = annotationState.entities.delete(sourceEntityId);
     }
 </script>
 
