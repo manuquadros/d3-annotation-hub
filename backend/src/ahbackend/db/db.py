@@ -63,6 +63,12 @@ def delete_ontology(ontology_id: int) -> None:
     annodb.delete_ontology(ontology_id)
 
 
+def list_proposed_entities(
+    limit: int = 50, offset: int = 0
+) -> tuple[list[EntityAnnotation], int]:
+    return annodb.list_proposed_entities(limit, offset)
+
+
 def run_ontology_import(
     parsed: ParsedOntology,
     name: str,

@@ -177,6 +177,7 @@ export class AnnotationState {
             kind,
             preferred_name: preferredName,
             synonyms: synonyms ? Set(synonyms) : Set(),
+            confirmed: false,
         });
         return newEntityId;
     }

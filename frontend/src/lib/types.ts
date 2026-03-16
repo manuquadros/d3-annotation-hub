@@ -27,14 +27,16 @@ export type Entity = {
     preferred_name: string;
     kind: string;
     synonyms: Set<string>;
+    confirmed: boolean;
 };
 
 export const EntitySchema = z.object({
     entity_id: z.string(),
-    uri: z.string().optional(),
+    uri: z.string().nullish(),
     preferred_name: z.string(),
     kind: z.string(),
     synonyms: z.array(z.string()).transform((arr) => Set(arr)),
+    confirmed: z.boolean().default(true),
 }) satisfies z.ZodType<Entity>;
 
 export type User = {
@@ -113,6 +115,7 @@ export type EntitySearchResult = {
     preferred_name: string;
     kind: string;
     uri?: string;
+    confirmed: boolean;
 };
 
 export type EditorState =

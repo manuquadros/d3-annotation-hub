@@ -9,6 +9,7 @@ from ahbackend.db import (
     get_entity_types,
     get_ontology_entities,
     list_ontologies,
+    list_proposed_entities,
     query,
     run_ontology_import,
     search_entities,
@@ -159,6 +160,17 @@ def list_ontology_entities(
 ) -> dict:
     """Return a page of entities for an ontology plus the total count."""
     entities, total = get_ontology_entities(ontology_id, limit, offset)
+    return {"entities": entities, "total": total}
+
+
+@app.get("/admin/entities/proposed")
+def get_proposed_entities(
+    current_user: Annotated[User, Depends(users.get_current_admin_user)],
+    limit: int = 50,
+    offset: int = 0,
+) -> dict:
+    """Return unconfirmed (user-coined) entities pending curator review."""
+    entities, total = list_proposed_entities(limit, offset)
     return {"entities": entities, "total": total}
 
 
