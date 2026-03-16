@@ -6,5 +6,13 @@ export const load: LayoutServerLoad = ({ cookies, url }) => {
     if (!token && url.pathname !== "/login") {
         redirect(302, "/login");
     }
-    return { authenticated: !!token };
+    if (!token) return { authenticated: false, isAdmin: false };
+
+    const meRes = await fetch(`${API_BASE_URL}/me`, {
+        headers: { Authorization: `Bearer ${token}` },
+    });
+    const me = meRes.ok ? await meRes.json() : null;
+    const isAdmin = me?.role === "admin";
+
+    return { authenticated: true, isAdmin };
 };

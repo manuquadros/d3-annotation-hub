@@ -4,8 +4,8 @@ from collections.abc import Iterable, Iterator
 from importlib import resources
 from typing import Any, Optional
 
-from d3textdb import D3TextDB
-from d3textdb.schema import AnnotationSnapshot, EntityAnnotation, Reference, ReferenceAnnotation, User, UserAuth
+from d3textdb import D3TextDB, ParsedOntology
+from d3textdb.schema import AnnotationSnapshot, EntityAnnotation, Ontology, Reference, ReferenceAnnotation, User, UserAuth
 from multimethod import multimethod
 from pydantic import EmailStr
 from rich import print

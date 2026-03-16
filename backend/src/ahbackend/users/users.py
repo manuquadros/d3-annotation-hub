@@ -93,6 +93,15 @@ async def get_current_active_user(
     return current_user
 
 
+async def get_current_admin_user(
+    current_user: Annotated[db.User, Depends(get_current_active_user)],
+) -> db.User:
+    user_auth = db.get_user_auth(current_user.user_id)
+    if not user_auth or user_auth.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    return current_user
+
+
 def create_access_token(data: dict, expires_delta: timedelta):
     to_encode = data.copy()
     expire = datetime.now(timezone.utc) + expires_delta
