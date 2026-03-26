@@ -2,11 +2,6 @@ import { z } from "zod";
 import { Map, Set, Record } from "immutable";
 import type { Map as ImmutableMap } from "immutable";
 
-let _pointerCounter = 0;
-/** @internal */
-export function nextPointerKey(): string {
-    return `ptr_${++_pointerCounter}`;
-}
 
 export type Pointer = {
     entity_id: string;
@@ -138,7 +133,7 @@ export const AnnotationStateSchema = z.object({
         .transform(
             (arr): ImmutableMap<string, Pointer> =>
                 Map(
-                    arr.map((p) => [nextPointerKey(), p] as const),
+                    arr.map((p, i) => [`ptr_${i}`, p] as const),
                 ) as ImmutableMap<string, Pointer>,
         ),
     relations: z.array(RelationSchema).transform((arr) => Set(arr)),

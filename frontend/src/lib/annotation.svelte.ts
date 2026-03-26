@@ -1,5 +1,6 @@
 import type { Relation, Pointer, User, Reference, Entity } from "$lib/types.ts";
-import { AnnotationStateSchema, nextPointerKey } from "$lib/types.ts";
+import { AnnotationStateSchema } from "$lib/types.ts";
+import { nextPointerKey, initPointerCounter } from "$lib/pointers.ts";
 import { mount } from "svelte";
 import { Map, Set } from "immutable";
 import type { Map as ImmutableMap, Set as ImmutableSet } from "immutable";
@@ -45,6 +46,7 @@ export class AnnotationState {
         this.pointers = validated.pointers;
         this.relations = validated.relations;
         this.completed = validated.completed;
+        initPointerCounter(this.pointers.size);
     }
 
     #snapshot(): Snapshot {
