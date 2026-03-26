@@ -1,5 +1,6 @@
 import { goto } from "$app/navigation";
 
+/** @internal */
 class AuthState {
     isAuthenticated = $state(false);
 

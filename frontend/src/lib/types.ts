@@ -3,6 +3,7 @@ import { Map, Set, Record } from "immutable";
 import type { Map as ImmutableMap } from "immutable";
 
 let _pointerCounter = 0;
+/** @internal */
 export function nextPointerKey(): string {
     return `ptr_${++_pointerCounter}`;
 }
@@ -82,6 +83,7 @@ export const ReferenceSchema = z.object({
 }) satisfies z.ZodType<Reference>;
 
 // Create an Immutable Record for Relation to ensure value-based equality
+/** @internal */
 const RelationRecordFactory = Record({
     relation_id: null as number | null,
     predicate: "",

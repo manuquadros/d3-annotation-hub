@@ -30,7 +30,7 @@ export class RelationStore extends SvelteSet<Triple> {
     /**
      * Generates the relation store and subscribes to the resource store.
      *
-     * @param resources - Svelte resource store
+     * @param resourcesGetter - Svelte resource store
      */
     constructor(resourcesGetter: () => Map<string, Resource>) {
         super();
