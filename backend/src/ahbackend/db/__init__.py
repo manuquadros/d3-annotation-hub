@@ -15,5 +15,6 @@ from .db import (
     run_ontology_import,
     search_entities,
     update_entity_curie,
+    update_password,
     upsert_annotation,
 )

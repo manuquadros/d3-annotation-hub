@@ -81,6 +81,10 @@ def update_entity_curie(old_curie: str, new_curie: str) -> None:
     annodb.update_entity_curie(old_curie, new_curie)
 
 
+def update_password(user_id: uuid.UUID, new_password: str) -> None:
+    annodb.update_password(user_id, new_password)
+
+
 def run_ontology_import(
     parsed: ParsedOntology,
     name: str,
