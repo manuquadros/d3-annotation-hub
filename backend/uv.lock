@@ -803,7 +803,7 @@ wheels = [
 [[package]]
 name = "d3textdb"
 version = "0.1.0"
-source = { git = "ssh://git@github.com/manuquadros/d3textdb.git?branch=dev#2792994ac8f4c2e43ee6aa4becd8727fbf3e534e" }
+source = { git = "ssh://git@github.com/manuquadros/d3textdb.git?branch=dev#894fe3cea58bc48da4fe51ae3c8a1c74d17910dc" }
 dependencies = [
     { name = "bcrypt" },
     { name = "email-validator" },

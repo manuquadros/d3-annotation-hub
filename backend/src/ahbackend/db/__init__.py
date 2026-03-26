@@ -1,6 +1,8 @@
 from .db import (
     User,
+    confirm_entity,
     create_user,
+    delete_entity,
     delete_ontology,
     get_annotation_queue,
     get_entity_types,
@@ -8,8 +10,10 @@ from .db import (
     get_user,
     get_user_auth,
     list_ontologies,
+    list_proposed_entities,
     query,
     run_ontology_import,
     search_entities,
+    update_entity_curie,
     upsert_annotation,
 )

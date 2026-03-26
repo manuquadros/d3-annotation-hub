@@ -69,6 +69,18 @@ def list_proposed_entities(
     return annodb.list_proposed_entities(limit, offset)
 
 
+def confirm_entity(curie: str) -> None:
+    annodb.confirm_entity(curie)
+
+
+def delete_entity(curie: str) -> None:
+    annodb.delete_entity(curie)
+
+
+def update_entity_curie(old_curie: str, new_curie: str) -> None:
+    annodb.update_entity_curie(old_curie, new_curie)
+
+
 def run_ontology_import(
     parsed: ParsedOntology,
     name: str,

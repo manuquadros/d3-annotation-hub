@@ -218,7 +218,8 @@
             entity_id: e.entity_id,
             preferred_name: e.preferred_name,
             kind: e.kind,
-            uri: e.uri,
+            uri: e.uri ?? undefined,
+            confirmed: e.confirmed,
         })).toArray()
     );
     let searchLoading = $state(false);
@@ -230,7 +231,8 @@
                 entity_id: e.entity_id,
                 preferred_name: e.preferred_name,
                 kind: e.kind,
-                uri: e.uri,
+                uri: e.uri ?? undefined,
+                confirmed: e.confirmed,
             })).toArray();
             searchLoading = false;
             return;
@@ -420,6 +422,7 @@
                                     bind:group={selectedExistingEntityId}
                                 />
                                 <span class="entity-name">{e.preferred_name}</span>
+                                {#if !e.confirmed}<span class="entity-proposed">proposed</span>{/if}
                                 <span class="entity-kind">{e.kind}</span>
                             </label>
                         </li>
@@ -687,6 +690,17 @@
     .entity-kind {
         font-size: 0.75rem;
         color: #777;
+    }
+
+    .entity-proposed {
+        font-size: 0.7rem;
+        font-weight: 600;
+        color: #a06000;
+        background: #fff3cd;
+        border: 1px solid #f0c040;
+        border-radius: 3px;
+        padding: 0 0.3em;
+        line-height: 1.4;
     }
 
     .empty {

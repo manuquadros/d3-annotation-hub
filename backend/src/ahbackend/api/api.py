@@ -4,6 +4,8 @@ from typing import Annotated, Optional
 
 from ahbackend import db, users
 from ahbackend.db import (
+    confirm_entity,
+    delete_entity,
     delete_ontology,
     get_annotation_queue,
     get_entity_types,
@@ -13,6 +15,7 @@ from ahbackend.db import (
     query,
     run_ontology_import,
     search_entities,
+    update_entity_curie,
     upsert_annotation,
 )
 from d3textdb.owl import parse_owl
@@ -172,6 +175,41 @@ def get_proposed_entities(
     """Return unconfirmed (user-coined) entities pending curator review."""
     entities, total = list_proposed_entities(limit, offset)
     return {"entities": entities, "total": total}
+
+
+class UpdateCurieRequest(BaseModel):
+    new_curie: str
+
+
+@app.post("/admin/entities/{curie:path}/confirm")
+def confirm_proposed_entity(
+    curie: str,
+    current_user: Annotated[User, Depends(users.get_current_admin_user)],
+) -> dict:
+    """Confirm (accept) a proposed entity."""
+    confirm_entity(curie)
+    return {"ok": True}
+
+
+@app.delete("/admin/entities/{curie:path}")
+def remove_proposed_entity(
+    curie: str,
+    current_user: Annotated[User, Depends(users.get_current_admin_user)],
+) -> dict:
+    """Delete a proposed entity and all its annotations."""
+    delete_entity(curie)
+    return {"ok": True}
+
+
+@app.patch("/admin/entities/{curie:path}/curie")
+def rename_entity_curie(
+    curie: str,
+    body: UpdateCurieRequest,
+    current_user: Annotated[User, Depends(users.get_current_admin_user)],
+) -> dict:
+    """Rename an entity's CURIE across all tables."""
+    update_entity_curie(curie, body.new_curie)
+    return {"ok": True}
 
 
 @app.delete("/admin/ontologies/{ontology_id}")

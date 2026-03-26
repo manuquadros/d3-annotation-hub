@@ -112,6 +112,97 @@
         }
     }
 
+    // ── Proposed entities state ────────────────────────────────────────────────
+    interface ProposedEntity {
+        entity_id: string;
+        preferred_name: string;
+        kind: string;
+    }
+
+    let proposedEntities = $state<ProposedEntity[]>(data.proposedEntities ?? []);
+    let proposedTotal = $state<number>(data.proposedTotal ?? 0);
+    let proposedOffset = $state((data.proposedEntities ?? []).length);
+    let proposedLoading = $state(false);
+
+    async function loadMoreProposed() {
+        proposedLoading = true;
+        try {
+            const res = await fetch(
+                `/api/admin/proposed?limit=${PAGE_SIZE}&offset=${proposedOffset}`,
+            );
+            if (!res.ok) return;
+            const d = await res.json();
+            proposedEntities = [...proposedEntities, ...d.entities];
+            proposedOffset += d.entities.length;
+        } finally {
+            proposedLoading = false;
+        }
+    }
+
+    // ── Proposed entity actions ────────────────────────────────────────────────
+    let confirmRejectId = $state<string | null>(null);
+    let editCurieId = $state<string | null>(null);
+    let editCurieValue = $state("");
+    let actionPending = $state<string | null>(null); // curie of entity being acted upon
+
+    async function handleAccept(curie: string) {
+        actionPending = curie;
+        try {
+            const res = await fetch(
+                `/api/admin/proposed/${encodeURIComponent(curie)}?action=confirm`,
+                { method: "POST" },
+            );
+            if (res.ok) {
+                proposedEntities = proposedEntities.filter((e) => e.entity_id !== curie);
+                proposedTotal = Math.max(0, proposedTotal - 1);
+                proposedOffset = Math.max(0, proposedOffset - 1);
+            }
+        } finally {
+            actionPending = null;
+        }
+    }
+
+    async function handleReject(curie: string) {
+        actionPending = curie;
+        try {
+            const res = await fetch(`/api/admin/proposed/${encodeURIComponent(curie)}`, {
+                method: "DELETE",
+            });
+            if (res.ok) {
+                proposedEntities = proposedEntities.filter((e) => e.entity_id !== curie);
+                proposedTotal = Math.max(0, proposedTotal - 1);
+                proposedOffset = Math.max(0, proposedOffset - 1);
+                confirmRejectId = null;
+            }
+        } finally {
+            actionPending = null;
+        }
+    }
+
+    async function handleEditCurie(oldCurie: string) {
+        const newCurie = editCurieValue.trim();
+        if (!newCurie || newCurie === oldCurie) {
+            editCurieId = null;
+            return;
+        }
+        actionPending = oldCurie;
+        try {
+            const res = await fetch(`/api/admin/proposed/${encodeURIComponent(oldCurie)}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ new_curie: newCurie }),
+            });
+            if (res.ok) {
+                proposedEntities = proposedEntities.map((e) =>
+                    e.entity_id === oldCurie ? { ...e, entity_id: newCurie } : e,
+                );
+            }
+        } finally {
+            actionPending = null;
+            editCurieId = null;
+        }
+    }
+
     // ── Delete state ───────────────────────────────────────────────────────────
     let confirmDeleteId = $state<number | null>(null);
     let deleting = $state(false);
@@ -306,6 +397,103 @@
                     {/each}
                 </tbody>
             </table>
+        {/if}
+    </section>
+
+    <section class="card">
+        <h2>Proposed Entities <span class="proposed-count">({proposedTotal})</span></h2>
+        {#if proposedEntities.length === 0}
+            <p class="empty">No proposed entities.</p>
+        {:else}
+            <table class="entity-table">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Kind</th>
+                        <th>CURIE</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {#each proposedEntities as e}
+                        <tr>
+                            <td>{e.preferred_name}</td>
+                            <td class="kind">{e.kind || "—"}</td>
+                            <td>
+                                {#if editCurieId === e.entity_id}
+                                    <input
+                                        class="curie-input"
+                                        type="text"
+                                        bind:value={editCurieValue}
+                                        onkeydown={(ev) => {
+                                            if (ev.key === "Enter") handleEditCurie(e.entity_id);
+                                            if (ev.key === "Escape") editCurieId = null;
+                                        }}
+                                    />
+                                {:else}
+                                    <code>{e.entity_id}</code>
+                                {/if}
+                            </td>
+                            <td class="actions-cell">
+                                {#if confirmRejectId === e.entity_id}
+                                    <span class="confirm-prompt">Reject?</span>
+                                    <button
+                                        class="btn-danger-sm"
+                                        disabled={actionPending === e.entity_id}
+                                        onclick={() => handleReject(e.entity_id)}
+                                    >
+                                        {actionPending === e.entity_id ? "…" : "Yes"}
+                                    </button>
+                                    <button
+                                        class="btn-ghost-sm"
+                                        onclick={() => (confirmRejectId = null)}
+                                    >Cancel</button>
+                                {:else if editCurieId === e.entity_id}
+                                    <button
+                                        class="btn-ghost-sm"
+                                        disabled={actionPending === e.entity_id}
+                                        onclick={() => handleEditCurie(e.entity_id)}
+                                    >
+                                        {actionPending === e.entity_id ? "…" : "Save"}
+                                    </button>
+                                    <button
+                                        class="btn-ghost-sm"
+                                        onclick={() => (editCurieId = null)}
+                                    >Cancel</button>
+                                {:else}
+                                    <button
+                                        class="btn-ghost-sm accept"
+                                        disabled={actionPending === e.entity_id}
+                                        onclick={() => handleAccept(e.entity_id)}
+                                    >Accept</button>
+                                    <button
+                                        class="btn-ghost-sm"
+                                        onclick={() => {
+                                            editCurieId = e.entity_id;
+                                            editCurieValue = e.entity_id;
+                                        }}
+                                    >Edit CURIE</button>
+                                    <button
+                                        class="btn-ghost-sm danger"
+                                        onclick={() => (confirmRejectId = e.entity_id)}
+                                    >Reject</button>
+                                {/if}
+                            </td>
+                        </tr>
+                    {/each}
+                </tbody>
+            </table>
+            {#if proposedOffset < proposedTotal}
+                <button
+                    class="btn-ghost-sm load-more"
+                    disabled={proposedLoading}
+                    onclick={loadMoreProposed}
+                >
+                    {proposedLoading
+                        ? "Loading…"
+                        : `Load more (${proposedTotal - proposedOffset} remaining)`}
+                </button>
+            {/if}
         {/if}
     </section>
 </div>
@@ -554,5 +742,30 @@
         margin-top: 0.8rem;
         width: 100%;
         text-align: center;
+    }
+
+    .proposed-count {
+        font-weight: 400;
+        color: #888;
+        font-size: 0.9em;
+    }
+
+    .btn-ghost-sm.accept {
+        color: #060;
+        border-color: #a0c8a0;
+    }
+
+    .btn-ghost-sm.accept:hover {
+        background: #f0fff0;
+    }
+
+    .curie-input {
+        width: 100%;
+        padding: 0.15rem 0.4rem;
+        border: 1px solid #aaa;
+        border-radius: 3px;
+        font-size: 0.8rem;
+        font-family: monospace;
+        box-sizing: border-box;
     }
 </style>
