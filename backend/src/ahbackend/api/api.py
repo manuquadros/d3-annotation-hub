@@ -1,25 +1,50 @@
 import base64
 import json
+import secrets
+import string
 from typing import Annotated, Optional
 
 from ahbackend import db, users
 from ahbackend.db import (
+    add_project_member,
+    add_reference_to_project,
+    assign_ontology_to_project,
     confirm_entity,
+    create_project,
+    create_user,
     delete_entity,
     delete_ontology,
     get_annotation_queue,
+    get_curation_queue,
     get_entity_types,
     get_ontology_entities,
+    get_project,
+    get_project_annotation_queue,
+    get_project_members,
+    get_reference_by_pubmed_id,
+    get_user,
+    get_user_project_roles,
     list_ontologies,
+    list_projects,
     list_proposed_entities,
+    list_user_projects,
     query,
+    remove_ontology_from_project,
+    remove_project_member,
+    remove_reference_from_project,
     run_ontology_import,
     search_entities,
     update_entity_curie,
     upsert_annotation,
 )
 from d3textdb.owl import parse_owl
-from d3textdb.schema import EntityAnnotation, Ontology, ReferenceAnnotation, User
+from d3textdb.schema import (
+    EntityAnnotation,
+    Ontology,
+    Project,
+    ReferenceAnnotation,
+    User,
+)
 from fastapi import Body, Depends, FastAPI, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, EmailStr
@@ -127,7 +152,7 @@ def get_me(
 
 @app.get("/admin/ontologies")
 def get_ontologies(
-    current_user: Annotated[User, Depends(users.get_current_admin_user)],
+    current_user: Annotated[User, Depends(users.get_current_superuser)],
 ) -> list[Ontology]:
     """List all ontologies loaded into the database."""
     return list_ontologies()
@@ -135,7 +160,7 @@ def get_ontologies(
 
 @app.post("/admin/ontology/import")
 async def import_ontology(
-    current_user: Annotated[User, Depends(users.get_current_admin_user)],
+    current_user: Annotated[User, Depends(users.get_current_superuser)],
     file: UploadFile,
     name: str = Form(...),
     prefix: str = Form(...),
@@ -157,7 +182,7 @@ async def import_ontology(
 @app.get("/admin/ontologies/{ontology_id}/entities")
 def list_ontology_entities(
     ontology_id: int,
-    current_user: Annotated[User, Depends(users.get_current_admin_user)],
+    current_user: Annotated[User, Depends(users.get_current_superuser)],
     limit: int = 50,
     offset: int = 0,
 ) -> dict:
@@ -168,7 +193,7 @@ def list_ontology_entities(
 
 @app.get("/admin/entities/proposed")
 def get_proposed_entities(
-    current_user: Annotated[User, Depends(users.get_current_admin_user)],
+    current_user: Annotated[User, Depends(users.get_current_superuser)],
     limit: int = 50,
     offset: int = 0,
 ) -> dict:
@@ -184,7 +209,7 @@ class UpdateCurieRequest(BaseModel):
 @app.post("/admin/entities/{curie:path}/confirm")
 def confirm_proposed_entity(
     curie: str,
-    current_user: Annotated[User, Depends(users.get_current_admin_user)],
+    current_user: Annotated[User, Depends(users.get_current_superuser)],
 ) -> dict:
     """Confirm (accept) a proposed entity."""
     confirm_entity(curie)
@@ -194,7 +219,7 @@ def confirm_proposed_entity(
 @app.delete("/admin/entities/{curie:path}")
 def remove_proposed_entity(
     curie: str,
-    current_user: Annotated[User, Depends(users.get_current_admin_user)],
+    current_user: Annotated[User, Depends(users.get_current_superuser)],
 ) -> dict:
     """Delete a proposed entity and all its annotations."""
     delete_entity(curie)
@@ -205,7 +230,7 @@ def remove_proposed_entity(
 def rename_entity_curie(
     curie: str,
     body: UpdateCurieRequest,
-    current_user: Annotated[User, Depends(users.get_current_admin_user)],
+    current_user: Annotated[User, Depends(users.get_current_superuser)],
 ) -> dict:
     """Rename an entity's CURIE across all tables."""
     update_entity_curie(curie, body.new_curie)
@@ -215,7 +240,7 @@ def rename_entity_curie(
 @app.delete("/admin/ontologies/{ontology_id}")
 def remove_ontology(
     ontology_id: int,
-    current_user: Annotated[User, Depends(users.get_current_admin_user)],
+    current_user: Annotated[User, Depends(users.get_current_superuser)],
 ) -> dict:
     """Delete an ontology and all its entities, names, and triples."""
     delete_ontology(ontology_id)
@@ -269,3 +294,301 @@ def get_response_json(*args) -> str:
     response = query(*args)
     response.content = transform_article(response.content)
     return response.model_dump_json()
+
+
+# ---------------------------------------------------------------------------
+# Helper
+# ---------------------------------------------------------------------------
+
+
+def _generate_password(length: int = 16) -> str:
+    alphabet = string.ascii_letters + string.digits
+    return "".join(secrets.choice(alphabet) for _ in range(length))
+
+
+# ---------------------------------------------------------------------------
+# Project CRUD
+# ---------------------------------------------------------------------------
+
+
+class CreateProjectRequest(BaseModel):
+    name: str
+    description: str | None = None
+    required_annotators: int = 2
+
+
+class ProjectResponse(BaseModel):
+    project_id: int
+    name: str
+    description: str | None
+    required_annotators: int
+
+    @classmethod
+    def from_orm(cls, p: Project) -> "ProjectResponse":
+        return cls(
+            project_id=p.project_id,
+            name=p.name,
+            description=p.description,
+            required_annotators=p.required_annotators,
+        )
+
+
+@app.post("/projects", status_code=201)
+def create_new_project(
+    body: CreateProjectRequest,
+    _: Annotated[User, Depends(users.get_current_superuser)],
+) -> ProjectResponse:
+    """Create a new annotation project (superuser only)."""
+    project_id = create_project(
+        body.name, body.description, body.required_annotators
+    )
+    project = get_project(project_id)
+    return ProjectResponse.from_orm(project)
+
+
+@app.get("/projects")
+def list_all_projects(
+    current_user: Annotated[User, Depends(users.get_current_active_user)],
+) -> list[ProjectResponse]:
+    """List projects. Superusers see all; other users see only their own."""
+    user_auth = db.get_user_auth(current_user.user_id)
+    if user_auth and user_auth.role == "superuser":
+        projects = list_projects()
+    else:
+        projects = list_user_projects(current_user.user_id)
+    return [ProjectResponse.from_orm(p) for p in projects]
+
+
+@app.get("/projects/{project_id}")
+def get_one_project(
+    project_id: int,
+    current_user: Annotated[User, Depends(users.get_current_active_user)],
+) -> ProjectResponse:
+    """Return a single project. Accessible to any member or superuser."""
+    project = get_project(project_id)
+    if project is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+    user_auth = db.get_user_auth(current_user.user_id)
+    if not (user_auth and user_auth.role == "superuser"):
+        roles = get_user_project_roles(current_user.user_id, project_id)
+        if not roles:
+            raise HTTPException(status_code=403, detail="Access denied")
+    return ProjectResponse.from_orm(project)
+
+
+# ---------------------------------------------------------------------------
+# Project members
+# ---------------------------------------------------------------------------
+
+
+class AddMemberRequest(BaseModel):
+    email: EmailStr
+    role: str  # "project_manager" | "annotator" | "curator"
+
+
+class MemberInfo(BaseModel):
+    user_id: str
+    email: str
+    roles: list[str]
+    generated_password: str | None = None
+
+
+@app.get("/projects/{project_id}/members")
+def list_project_members(
+    project_id: int,
+    _: Annotated[User, Depends(users.require_project_manager)],
+) -> list[MemberInfo]:
+    """Return all members of a project with their roles."""
+    members = get_project_members(project_id)
+    return [
+        MemberInfo(user_id=str(u.user_id), email=str(u.email), roles=roles)
+        for u, roles in members
+    ]
+
+
+@app.post("/projects/{project_id}/members", status_code=201)
+def add_member_to_project(
+    project_id: int,
+    body: AddMemberRequest,
+    _: Annotated[User, Depends(users.require_project_manager)],
+) -> MemberInfo:
+    """Add a user to a project.
+
+    If the user does not exist, they are created with a randomly generated
+    password that is returned in the response (shown only once).
+    """
+    if get_project(project_id) is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    valid_roles = {"project_manager", "annotator", "curator"}
+    if body.role not in valid_roles:
+        raise HTTPException(
+            status_code=422,
+            detail=f"role must be one of {sorted(valid_roles)}",
+        )
+
+    generated_password: str | None = None
+    user = get_user(body.email)
+    if user is None:
+        generated_password = _generate_password()
+        from d3textdb.schema import User as DbUser
+
+        create_user(
+            DbUser(email=body.email), generated_password, role="user"
+        )
+        user = get_user(body.email)
+        if user is None:
+            raise HTTPException(
+                status_code=500, detail="Failed to create user"
+            )
+
+    add_project_member(project_id, user.user_id, body.role)
+    roles = get_user_project_roles(user.user_id, project_id)
+    return MemberInfo(
+        user_id=str(user.user_id),
+        email=str(user.email),
+        roles=roles,
+        generated_password=generated_password,
+    )
+
+
+@app.delete("/projects/{project_id}/members/{user_id}/{role}", status_code=204)
+def remove_member_from_project(
+    project_id: int,
+    user_id: str,
+    role: str,
+    _: Annotated[User, Depends(users.require_project_manager)],
+) -> None:
+    """Remove a specific role from a user within a project."""
+    import uuid as _uuid
+
+    try:
+        uid = _uuid.UUID(user_id)
+    except ValueError:
+        raise HTTPException(status_code=422, detail="Invalid user_id")
+    remove_project_member(project_id, uid, role)
+
+
+# ---------------------------------------------------------------------------
+# Project ontologies
+# ---------------------------------------------------------------------------
+
+
+@app.post("/projects/{project_id}/ontologies/{ontology_id}", status_code=204)
+def assign_ontology(
+    project_id: int,
+    ontology_id: int,
+    _: Annotated[User, Depends(users.require_project_manager)],
+) -> None:
+    """Make an ontology available for annotation within a project."""
+    if get_project(project_id) is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+    assign_ontology_to_project(project_id, ontology_id)
+
+
+@app.delete("/projects/{project_id}/ontologies/{ontology_id}", status_code=204)
+def unassign_ontology(
+    project_id: int,
+    ontology_id: int,
+    _: Annotated[User, Depends(users.require_project_manager)],
+) -> None:
+    """Remove an ontology from a project."""
+    remove_ontology_from_project(project_id, ontology_id)
+
+
+# ---------------------------------------------------------------------------
+# Project references
+# ---------------------------------------------------------------------------
+
+
+class AddReferencesRequest(BaseModel):
+    pubmed_ids: list[int]
+
+
+@app.post("/projects/{project_id}/references", status_code=204)
+def add_references(
+    project_id: int,
+    body: AddReferencesRequest,
+    _: Annotated[User, Depends(users.require_project_manager)],
+) -> None:
+    """Add references to a project by PubMed ID."""
+    if get_project(project_id) is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+    not_found = []
+    for pmid in body.pubmed_ids:
+        ref = get_reference_by_pubmed_id(pmid)
+        if ref is None:
+            not_found.append(pmid)
+        else:
+            add_reference_to_project(project_id, ref.reference_id)
+    if not_found:
+        raise HTTPException(
+            status_code=404,
+            detail=f"References not found for PubMed IDs: {not_found}",
+        )
+
+
+@app.delete("/projects/{project_id}/references/{reference_id}", status_code=204)
+def remove_reference(
+    project_id: int,
+    reference_id: int,
+    _: Annotated[User, Depends(users.require_project_manager)],
+) -> None:
+    """Remove a reference from a project."""
+    remove_reference_from_project(project_id, reference_id)
+
+
+# ---------------------------------------------------------------------------
+# Project annotation queue
+# ---------------------------------------------------------------------------
+
+
+@app.get("/projects/{project_id}/queue")
+def project_annotation_queue(
+    project_id: int,
+    current_user: Annotated[User, Depends(users.get_current_active_user)],
+) -> list[str]:
+    """Return the annotation queue for the current user within a project."""
+    roles = get_user_project_roles(current_user.user_id, project_id)
+    user_auth = db.get_user_auth(current_user.user_id)
+    if not roles and not (user_auth and user_auth.role == "superuser"):
+        raise HTTPException(status_code=403, detail="Access denied")
+    return get_project_annotation_queue(project_id, current_user.user_id)
+
+
+# ---------------------------------------------------------------------------
+# Curation queue
+# ---------------------------------------------------------------------------
+
+
+class ReferenceInfo(BaseModel):
+    reference_id: int
+    pubmed_id: int | None
+    title: str
+    authors: str
+    year: int
+
+
+@app.get("/projects/{project_id}/curation/queue")
+def curation_queue(
+    project_id: int,
+    current_user: Annotated[User, Depends(users.get_current_active_user)],
+) -> list[ReferenceInfo]:
+    """Return references ready for curation (have enough annotator completions)."""
+    user_auth = db.get_user_auth(current_user.user_id)
+    roles = get_user_project_roles(current_user.user_id, project_id)
+    if "curator" not in roles and not (
+        user_auth and user_auth.role == "superuser"
+    ):
+        raise HTTPException(status_code=403, detail="Curator access required")
+    refs = get_curation_queue(project_id)
+    return [
+        ReferenceInfo(
+            reference_id=r.reference_id,
+            pubmed_id=r.pubmed_id,
+            title=r.title,
+            authors=r.authors,
+            year=r.year,
+        )
+        for r in refs
+    ]

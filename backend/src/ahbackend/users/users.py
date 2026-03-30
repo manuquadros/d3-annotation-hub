@@ -93,12 +93,28 @@ async def get_current_active_user(
     return current_user
 
 
-async def get_current_admin_user(
+async def get_current_superuser(
     current_user: Annotated[db.User, Depends(get_current_active_user)],
 ) -> db.User:
     user_auth = db.get_user_auth(current_user.user_id)
-    if not user_auth or user_auth.role != "admin":
-        raise HTTPException(status_code=403, detail="Admin access required")
+    if not user_auth or user_auth.role != "superuser":
+        raise HTTPException(status_code=403, detail="Superuser access required")
+    return current_user
+
+
+async def require_project_manager(
+    project_id: int,
+    current_user: Annotated[db.User, Depends(get_current_active_user)],
+) -> db.User:
+    """Allow superusers and users with the project_manager role in this project."""
+    user_auth = db.get_user_auth(current_user.user_id)
+    if user_auth and user_auth.role == "superuser":
+        return current_user
+    roles = db.get_user_project_roles(current_user.user_id, project_id)
+    if "project_manager" not in roles:
+        raise HTTPException(
+            status_code=403, detail="Project manager access required"
+        )
     return current_user
 
 
@@ -166,7 +182,7 @@ async def change_password(
 async def reset_password(
     username: str,
     body: ResetPasswordRequest,
-    _: Annotated[db.User, Depends(get_current_admin_user)],
+    _: Annotated[db.User, Depends(get_current_superuser)],
 ) -> None:
     user = db.get_user(username)
     if user is None:

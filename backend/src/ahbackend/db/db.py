@@ -7,10 +7,14 @@ from typing import Any, Optional
 from d3textdb import D3TextDB, ParsedOntology
 from d3textdb.schema import (
     AnnotationSnapshot,
+    AnnotatorSnapshot,
     EntityAnnotation,
     Ontology,
+    Pointer,
+    Project,
     Reference,
     ReferenceAnnotation,
+    Relation,
     User,
     UserAuth,
 )
@@ -35,8 +39,12 @@ def get_user_auth(user_id: uuid.UUID) -> UserAuth | None:
     return annodb.get_user_auth(user_id)
 
 
-def create_user(user: User, role: str = "annotator") -> None:
-    annodb.create_user(user, role)
+def create_user(user: User, password: str, role: str = "user") -> uuid.UUID | None:
+    return annodb.create_user(user, password, role)
+
+
+def get_reference_by_pubmed_id(pubmed_id: int) -> Reference | None:
+    return annodb.get_article_by_pubmed_id(pubmed_id)
 
 
 def search_entities(
@@ -144,6 +152,105 @@ def upsert_annotation(annotation: ReferenceAnnotation) -> None:
 #             chunk=chunk,
 #             content=chunk.content,
 #         )
+
+
+# ------------------------------------------------------------------
+# Project management
+# ------------------------------------------------------------------
+
+
+def create_project(
+    name: str,
+    description: str | None = None,
+    required_annotators: int = 2,
+) -> int:
+    return annodb.create_project(name, description, required_annotators)
+
+
+def get_project(project_id: int) -> Project | None:
+    return annodb.get_project(project_id)
+
+
+def list_projects() -> list[Project]:
+    return annodb.list_projects()
+
+
+def list_user_projects(user_id: uuid.UUID) -> list[Project]:
+    return annodb.list_user_projects(user_id)
+
+
+def add_project_member(
+    project_id: int, user_id: uuid.UUID, role: str
+) -> None:
+    annodb.add_project_member(project_id, user_id, role)
+
+
+def remove_project_member(
+    project_id: int, user_id: uuid.UUID, role: str
+) -> None:
+    annodb.remove_project_member(project_id, user_id, role)
+
+
+def get_project_members(
+    project_id: int,
+) -> list[tuple[User, list[str]]]:
+    return annodb.get_project_members(project_id)
+
+
+def get_user_project_roles(user_id: uuid.UUID, project_id: int) -> list[str]:
+    return annodb.get_user_project_roles(user_id, project_id)
+
+
+def assign_ontology_to_project(project_id: int, ontology_id: int) -> None:
+    annodb.assign_ontology_to_project(project_id, ontology_id)
+
+
+def remove_ontology_from_project(project_id: int, ontology_id: int) -> None:
+    annodb.remove_ontology_from_project(project_id, ontology_id)
+
+
+def add_reference_to_project(project_id: int, reference_id: int) -> None:
+    annodb.add_reference_to_project(project_id, reference_id)
+
+
+def remove_reference_from_project(project_id: int, reference_id: int) -> None:
+    annodb.remove_reference_from_project(project_id, reference_id)
+
+
+def get_user_last_project(user_id: uuid.UUID) -> int | None:
+    return annodb.get_user_last_project(user_id)
+
+
+def set_user_last_project(user_id: uuid.UUID, project_id: int) -> None:
+    annodb.set_user_last_project(user_id, project_id)
+
+
+def get_project_annotation_queue(
+    project_id: int, user_id: uuid.UUID
+) -> list[str]:
+    return annodb.get_project_annotation_queue(project_id, user_id)
+
+
+def get_curation_queue(project_id: int) -> list[Reference]:
+    return annodb.get_curation_queue(project_id)
+
+
+def get_annotator_snapshots(
+    project_id: int, reference_id: int
+) -> list[AnnotatorSnapshot]:
+    return annodb.get_annotator_snapshots(project_id, reference_id)
+
+
+def save_curated_annotation(
+    project_id: int,
+    reference_id: int,
+    curator_id: uuid.UUID,
+    pointers: list[Pointer],
+    relations: list[Relation],
+) -> int:
+    return annodb.save_curated_annotation(
+        project_id, reference_id, curator_id, pointers, relations
+    )
 
 
 def get_annotation_queue(user_id: uuid.UUID) -> list[str]:
