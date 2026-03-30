@@ -14,6 +14,7 @@ from ahbackend.db import (
     create_user,
     delete_entity,
     delete_ontology,
+    get_annotator_snapshots,
     get_annotation_queue,
     get_curation_queue,
     get_entity_types,
@@ -35,6 +36,7 @@ from ahbackend.db import (
     remove_project_member,
     remove_reference_from_project,
     run_ontology_import,
+    save_curated_annotation,
     search_entities,
     set_user_last_project,
     update_entity_curie,
@@ -44,8 +46,10 @@ from d3textdb.owl import parse_owl
 from d3textdb.schema import (
     EntityAnnotation,
     Ontology,
+    Pointer,
     Project,
     ReferenceAnnotation,
+    Relation,
     User,
 )
 from fastapi import Body, Depends, FastAPI, Form, HTTPException, UploadFile
@@ -623,3 +627,130 @@ def curation_queue(
         )
         for r in refs
     ]
+
+
+# ---------------------------------------------------------------------------
+# Curation: annotator snapshots and save
+# ---------------------------------------------------------------------------
+
+
+class PointerOut(BaseModel):
+    reference_id: int
+    entity_id: str
+    offset: int
+    length: int
+
+
+class RelationOut(BaseModel):
+    relation_id: int | None
+    predicate: str
+    subject: str
+    object: str
+
+
+class AnnotatorSnapshotResponse(BaseModel):
+    user_id: str
+    email: str
+    reference_id: int
+    pointers: list[PointerOut]
+    relations: list[RelationOut]
+    created_at: str
+
+
+def _curator_or_superuser(
+    project_id: int, current_user: User
+) -> None:
+    user_auth = db.get_user_auth(current_user.user_id)
+    if user_auth and user_auth.role == "superuser":
+        return
+    roles = get_user_project_roles(current_user.user_id, project_id)
+    if "curator" not in roles:
+        raise HTTPException(
+            status_code=403, detail="Curator access required"
+        )
+
+
+@app.get(
+    "/projects/{project_id}/curation/{reference_id}/snapshots"
+)
+def annotator_snapshots(
+    project_id: int,
+    reference_id: int,
+    current_user: Annotated[User, Depends(users.get_current_active_user)],
+) -> list[AnnotatorSnapshotResponse]:
+    """Return each annotator's completed snapshot for a reference.
+
+    Used by the curation view to compare annotations side-by-side.
+    """
+    _curator_or_superuser(project_id, current_user)
+    snapshots = get_annotator_snapshots(project_id, reference_id)
+    return [
+        AnnotatorSnapshotResponse(
+            user_id=str(s.user.user_id),
+            email=str(s.user.email),
+            reference_id=s.reference_id,
+            pointers=[
+                PointerOut(
+                    reference_id=p.reference_id,
+                    entity_id=p.entity_id,
+                    offset=p.offset,
+                    length=p.length,
+                )
+                for p in s.pointers
+            ],
+            relations=[
+                RelationOut(
+                    relation_id=r.relation_id,
+                    predicate=r.predicate,
+                    subject=r.subject,
+                    object=r.object,
+                )
+                for r in s.relations
+            ],
+            created_at=s.created_at.isoformat(),
+        )
+        for s in snapshots
+    ]
+
+
+class SaveCuratedRequest(BaseModel):
+    pointers: list[PointerOut]
+    relations: list[RelationOut]
+
+
+@app.post(
+    "/projects/{project_id}/curation/{reference_id}",
+    status_code=204,
+)
+def save_curated(
+    project_id: int,
+    reference_id: int,
+    body: SaveCuratedRequest,
+    current_user: Annotated[User, Depends(users.get_current_active_user)],
+) -> None:
+    """Persist the curator's curated annotation for a reference.
+
+    Replaces any previous curated annotation by the same curator for this
+    (project, reference) pair.
+    """
+    _curator_or_superuser(project_id, current_user)
+    pointers = [
+        Pointer(
+            reference_id=p.reference_id,
+            entity_id=p.entity_id,
+            offset=p.offset,
+            length=p.length,
+        )
+        for p in body.pointers
+    ]
+    relations = [
+        Relation(
+            predicate=r.predicate,
+            subject=r.subject,
+            object=r.object,
+        )
+        for r in body.relations
+    ]
+    save_curated_annotation(
+        project_id, reference_id, current_user.user_id, pointers, relations
+    )
