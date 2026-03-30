@@ -21,8 +21,10 @@ from ahbackend.db import (
     get_project,
     get_project_annotation_queue,
     get_project_members,
+    get_reference_annotation,
     get_reference_by_pubmed_id,
     get_user,
+    get_user_last_project,
     get_user_project_roles,
     list_ontologies,
     list_projects,
@@ -34,6 +36,7 @@ from ahbackend.db import (
     remove_reference_from_project,
     run_ontology_import,
     search_entities,
+    set_user_last_project,
     update_entity_curie,
     upsert_annotation,
 )
@@ -103,10 +106,13 @@ def index() -> str:
 @app.get("/reference/")
 def fetch_annotation(
     ref_identifier: str,
+    project_id: int,
     current_user: Annotated[User, Depends(users.get_current_active_user)],
 ) -> str:
     try:
-        reference_annotation = query(ref_identifier, str(current_user.user_id))
+        reference_annotation = get_reference_annotation(
+            ref_identifier, str(current_user.user_id), project_id
+        )
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
 
@@ -146,8 +152,33 @@ def get_me(
     return UserInfo(
         user_id=str(current_user.user_id),
         email=str(current_user.email),
-        role=user_auth.role if user_auth else "annotator",
+        role=user_auth.role if user_auth else "user",
     )
+
+
+class LastProjectResponse(BaseModel):
+    project_id: int | None
+
+
+@app.get("/me/last-project")
+def get_last_project(
+    current_user: Annotated[User, Depends(users.get_current_active_user)],
+) -> LastProjectResponse:
+    """Return the user's last active project id, or null if none."""
+    return LastProjectResponse(
+        project_id=get_user_last_project(current_user.user_id)
+    )
+
+
+@app.put("/me/last-project", status_code=204)
+def set_last_project(
+    project_id: int,
+    current_user: Annotated[User, Depends(users.get_current_active_user)],
+) -> None:
+    """Record the user's last active project."""
+    if get_project(project_id) is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+    set_user_last_project(current_user.user_id, project_id)
 
 
 @app.get("/admin/ontologies")

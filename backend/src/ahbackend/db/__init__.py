@@ -21,6 +21,7 @@ from .db import (
     get_project,
     get_project_annotation_queue,
     get_project_members,
+    get_reference_annotation,
     get_reference_by_pubmed_id,
     get_user,
     get_user_auth,

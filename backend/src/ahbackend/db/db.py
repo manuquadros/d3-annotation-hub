@@ -276,9 +276,12 @@ def query(pmid: int) -> Reference:
     return annodb.get_article_by_pubmed_id(pmid)
 
 
-@query.register
-def _(ref_identifier: str, user: str) -> ReferenceAnnotation:
-    return annodb.get_reference_annotation(int(ref_identifier), uuid.UUID(user))
+def get_reference_annotation(
+    ref_identifier: str, user_id: str, project_id: int
+) -> ReferenceAnnotation:
+    return annodb.get_reference_annotation(
+        int(ref_identifier), uuid.UUID(user_id), project_id
+    )
 
 
 @query.register
