@@ -1,13 +1,10 @@
 <script lang="ts">
     import { getContext } from "svelte";
     import { AnnotationState } from "$lib/annotation.svelte";
-    import type { Entity, Relation } from "$lib/types.ts";
+    import type { Relation } from "$lib/types.ts";
+    import EntityButton from "$lib/components/EntityButton.svelte";
 
     const annotationState = getContext<AnnotationState>("annotationState");
-
-    function getEntityName(entity: Entity, entityId: string): string {
-        return entity.preferred_name || `Entity ${entityId.slice(-6)}`;
-    }
 
     function displayPredicate(predicate: string): string {
         const local = predicate.includes(":")
@@ -48,9 +45,9 @@
                         {@const object = annotationState.entity(rel.object)}
                         {#if subject && object}
                             <li class="triple">
-                                <span class="entity">{getEntityName(subject, rel.subject)}</span>
+                                <EntityButton entityId={rel.subject} />
                                 <span class="arrow">→</span>
-                                <span class="entity">{getEntityName(object, rel.object)}</span>
+                                <EntityButton entityId={rel.object} />
                                 <button
                                     class="delete-btn"
                                     onclick={() => annotationState.removeRelation(rel)}
@@ -89,13 +86,6 @@
         align-items: baseline;
         gap: 0.4rem;
         flex-wrap: wrap;
-    }
-
-    .entity {
-        font-weight: 600;
-        font-size: 0.9rem;
-        overflow-wrap: break-word;
-        min-width: 0;
     }
 
     .arrow {
