@@ -167,6 +167,52 @@
         }
     }
 
+    // Keyboard navigation: Space = toggle, j/↓ = next, k/↑ = prev
+    $effect(() => {
+        function onKeydown(e: KeyboardEvent) {
+            const tag = (e.target as HTMLElement).tagName;
+            if (tag === "INPUT" || tag === "BUTTON" || tag === "TEXTAREA")
+                return;
+
+            if (e.key === " " && activePointerKey !== null) {
+                e.preventDefault();
+                togglePointer(activePointerKey);
+                return;
+            }
+
+            const isNext = e.key === "ArrowDown" || e.key === "j";
+            const isPrev = e.key === "ArrowUp" || e.key === "k";
+            if (!isNext && !isPrev) return;
+            e.preventDefault();
+
+            const keys = sortedPointerKeys;
+            if (keys.length === 0) return;
+
+            let idx =
+                activePointerKey === null
+                    ? isNext
+                        ? -1
+                        : 0
+                    : keys.indexOf(activePointerKey);
+
+            idx = isNext
+                ? Math.min(idx + 1, keys.length - 1)
+                : Math.max(idx - 1, 0);
+
+            focusPointer(keys[idx]);
+
+            // Scroll the focused table row into view after Svelte updates the DOM
+            const key = keys[idx];
+            requestAnimationFrame(() => {
+                document
+                    .querySelector(`tr[data-pkey="${CSS.escape(key)}"]`)
+                    ?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+            });
+        }
+        document.addEventListener("keydown", onKeydown);
+        return () => document.removeEventListener("keydown", onKeydown);
+    });
+
     // ---------------------------------------------------------------------------
     // Accepted keys from previously saved curated annotation
     // (must be declared before the sort computations below)
@@ -441,7 +487,7 @@
                                 <th class="th-accept"></th>
                                 <th>Entity</th>
                                 <th>Identifier</th>
-                                <th>Kind</th>
+                                <th>Class</th>
                                 <th>Agreement</th>
                             </tr>
                         </thead>
@@ -588,6 +634,7 @@
                                     )} {activePointerKey === k
                                         ? 'focused'
                                         : ''}"
+                                    data-pkey={k}
                                     onclick={() => focusPointer(k)}
                                 >
                                     <td class="td-accept">
