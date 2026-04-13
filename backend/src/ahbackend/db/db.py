@@ -156,6 +156,18 @@ def get_project_properties(project_id: int) -> list[OntologyProperty]:
     return annodb.get_project_properties(project_id)
 
 
+def get_ontology_triples(
+    ontology_id: int, limit: int = 50, offset: int = 0
+) -> tuple[list[dict], int]:
+    """Return a page of triples for an ontology and the total count."""
+    return annodb.get_ontology_triples(ontology_id, limit, offset)
+
+
+def get_ontology_properties_by_id(ontology_id: int) -> list[OntologyProperty]:
+    """Return all object properties defined in a specific ontology."""
+    return annodb.get_ontology_properties_by_id(ontology_id)
+
+
 def upsert_annotation(annotation: ReferenceAnnotation) -> None:
     """Insert or update the database annotation corresponding to `annotation`."""
 

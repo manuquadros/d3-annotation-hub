@@ -159,7 +159,11 @@
                     {#each projectOntologies as o (o.ontology_id)}
                         <tr>
                             <td><code>{o.prefix}</code></td>
-                            <td>{o.name}</td>
+                            <td>
+                                <a href="/projects/{data.projectId}/ontologies/{o.ontology_id}">
+                                    {o.name}
+                                </a>
+                            </td>
                             <td class="uri">{o.uri}</td>
                             <td>{o.version ?? "—"}</td>
                             <td>

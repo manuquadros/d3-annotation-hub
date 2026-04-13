@@ -51,6 +51,8 @@ from .db import (
     remove_project_member,
     remove_reference_from_project,
     get_project_properties,
+    get_ontology_triples,
+    get_ontology_properties_by_id,
     run_ontology_import,
     save_curated_annotation,
     search_entities,

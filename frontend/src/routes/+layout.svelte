@@ -38,6 +38,15 @@
             ];
         }
         if (path.includes("/documents")) return [{ label: "Documents" }];
+        const ontologyDetailMatch = path.match(/^\/projects\/(\d+)\/ontologies\/(\d+)$/);
+        if (ontologyDetailMatch) {
+            const projectId = ontologyDetailMatch[1];
+            const ontologyName = pd.ontology?.name ?? `Ontology ${ontologyDetailMatch[2]}`;
+            return [
+                { label: "Ontologies", href: `/projects/${projectId}/ontologies` },
+                { label: ontologyName },
+            ];
+        }
         if (path.includes("/ontologies")) return [{ label: "Ontologies" }];
         if (path.includes("/users")) return [{ label: "Users" }];
         if (/^\/projects\/\d+$/.test(path)) return [{ label: "Management" }];

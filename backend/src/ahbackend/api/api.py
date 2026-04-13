@@ -7,6 +7,8 @@ from typing import Annotated, Optional, Self
 from ahbackend import db, users
 from ahbackend.db import (
     get_project_properties,
+    get_ontology_triples,
+    get_ontology_properties_by_id,
     add_project_member,
     add_reference_to_project,
     assign_ontology_to_project,
@@ -247,13 +249,55 @@ async def import_ontology(
 @app.get("/admin/ontologies/{ontology_id}/entities")
 def list_ontology_entities(
     ontology_id: int,
-    current_user: Annotated[User, Depends(users.get_current_superuser)],
+    current_user: Annotated[User, Depends(users.get_current_admin)],
     limit: int = 50,
     offset: int = 0,
 ) -> dict:
     """Return a page of entities for an ontology plus the total count."""
     entities, total = get_ontology_entities(ontology_id, limit, offset)
     return {"entities": entities, "total": total}
+
+
+class OntologyTripleOut(BaseModel):
+    subject_curie: str
+    subject_name: str
+    predicate: str
+    object_curie: str | None
+    object_name: str | None
+    object_literal: str | None
+
+
+@app.get("/admin/ontologies/{ontology_id}/triples")
+def list_ontology_triples(
+    ontology_id: int,
+    current_user: Annotated[User, Depends(users.get_current_admin)],
+    limit: int = 50,
+    offset: int = 0,
+) -> dict:
+    """Return a page of triples for an ontology plus the total count."""
+    rows, total = get_ontology_triples(ontology_id, limit, offset)
+    return {"triples": [OntologyTripleOut(**r) for r in rows], "total": total}
+
+
+class PropertyResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    curie: str
+    label: str
+    domain_curie: str | None
+    range_curie: str | None
+
+
+@app.get("/admin/ontologies/{ontology_id}/properties")
+def list_ontology_properties(
+    ontology_id: int,
+    current_user: Annotated[User, Depends(users.get_current_admin)],
+) -> list[PropertyResponse]:
+    """Return all object properties defined in a specific ontology."""
+    return [
+        PropertyResponse.model_validate(p)
+        for p in get_ontology_properties_by_id(ontology_id)
+    ]
 
 
 @app.get("/admin/entities/proposed")
@@ -618,15 +662,6 @@ def assign_ontology(
     if get_project(project_id) is None:
         raise HTTPException(status_code=404, detail="Project not found")
     assign_ontology_to_project(project_id, ontology_id)
-
-
-class PropertyResponse(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    curie: str
-    label: str
-    domain_curie: str | None
-    range_curie: str | None
 
 
 @app.get("/projects/{project_id}/properties")
