@@ -17,7 +17,6 @@ from ahbackend.db import (
     get_annotator_snapshots,
     get_annotation_queue,
     get_entities_by_curies,
-    is_project_manager,
     get_curation_queue,
     get_entity_types,
     get_ontology_entities,
@@ -159,11 +158,12 @@ def get_me(
 ) -> UserInfo:
     """Return the authenticated user's profile and role."""
     user_auth = db.get_user_auth(current_user.user_id)
+    role = user_auth.role if user_auth else "user"
     return UserInfo(
         user_id=str(current_user.user_id),
         email=str(current_user.email),
-        role=user_auth.role if user_auth else "user",
-        is_project_manager=is_project_manager(current_user.user_id),
+        role=role,
+        is_project_manager=role == "project_manager",
     )
 
 
@@ -426,12 +426,13 @@ class ProjectResponse(BaseModel):
 @app.post("/projects", status_code=201)
 def create_new_project(
     body: CreateProjectRequest,
-    _: Annotated[User, Depends(users.get_current_superuser)],
+    current_user: Annotated[User, Depends(users.get_current_admin)],
 ) -> ProjectResponse:
-    """Create a new annotation project (superuser only)."""
+    """Create a new annotation project (admin only)."""
     project_id = create_project(
         body.name, body.description, body.required_annotators
     )
+    add_project_member(project_id, current_user.user_id, "project_manager")
     project = get_project(project_id)
     return ProjectResponse.model_validate(project)
 

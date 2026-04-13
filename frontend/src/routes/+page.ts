@@ -3,9 +3,12 @@ import { redirect } from "@sveltejs/kit";
 import type { PageLoad } from "./$types";
 
 export const load: PageLoad = async ({ fetch, url, parent }) => {
-    const { currentProjectId } = await parent();
+    const { currentProjectId, isAdmin } = await parent();
 
     if (currentProjectId === null) {
+        if (isAdmin) {
+            redirect(302, "/projects/new");
+        }
         return { documentData: null };
     }
 

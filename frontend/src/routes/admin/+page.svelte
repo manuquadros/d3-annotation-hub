@@ -48,44 +48,6 @@
     // ── Project state ──────────────────────────────────────────────────────────
     let projects = $state<Project[]>(data.projects);
 
-    // Create project form
-    let newProjectName = $state("");
-    let newProjectDescription = $state("");
-    let newProjectAnnotators = $state(2);
-    let creatingProject = $state(false);
-    let createProjectError = $state<string | null>(null);
-
-    async function handleCreateProject(e: SubmitEvent) {
-        e.preventDefault();
-        creatingProject = true;
-        createProjectError = null;
-        try {
-            const res = await fetch("/api/projects", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    name: newProjectName,
-                    description: newProjectDescription || null,
-                    required_annotators: newProjectAnnotators,
-                }),
-            });
-            if (!res.ok) {
-                const d = await res.json().catch(() => ({ detail: res.statusText }));
-                createProjectError = d.detail ?? res.statusText;
-            } else {
-                const created = await res.json();
-                projects = [...projects, created];
-                newProjectName = "";
-                newProjectDescription = "";
-                newProjectAnnotators = 2;
-            }
-        } catch (err) {
-            createProjectError = String(err);
-        } finally {
-            creatingProject = false;
-        }
-    }
-
     // Per-project expanded panel
     let expandedProjectId = $state<number | null>(null);
     let projectMembers = $state<Record<number, ProjectMember[]>>({});
@@ -398,53 +360,10 @@
 
     <!-- ── Projects ─────────────────────────────────────────────────────────── -->
     <section class="card">
-        <h2>Projects</h2>
-
-        {#if data.isSuperuser}
-            <form class="create-form" onsubmit={handleCreateProject}>
-                <div class="field-row">
-                    <div class="field">
-                        <label for="proj-name">Name</label>
-                        <input
-                            id="proj-name"
-                            type="text"
-                            bind:value={newProjectName}
-                            placeholder="My Annotation Project"
-                            required
-                        />
-                    </div>
-                    <div class="field">
-                        <label for="proj-annotators">Required annotators</label>
-                        <input
-                            id="proj-annotators"
-                            type="number"
-                            min="1"
-                            bind:value={newProjectAnnotators}
-                        />
-                    </div>
-                </div>
-                <div class="field">
-                    <label for="proj-desc">
-                        Description <span class="optional">(optional)</span>
-                    </label>
-                    <input
-                        id="proj-desc"
-                        type="text"
-                        bind:value={newProjectDescription}
-                        placeholder="Short description"
-                    />
-                </div>
-                {#if createProjectError}
-                    <p class="error">{createProjectError}</p>
-                {/if}
-                <div class="actions">
-                    <button type="submit" class="btn-primary" disabled={creatingProject}>
-                        {creatingProject ? "Creating…" : "Create project"}
-                    </button>
-                </div>
-            </form>
-            <hr class="divider" />
-        {/if}
+        <div class="section-header">
+            <h2>Projects</h2>
+            <a href="/projects/new" class="btn-ghost-sm">+ New Project</a>
+        </div>
 
         {#if projects.length === 0}
             <p class="empty">No projects yet.</p>
@@ -983,7 +902,14 @@
     h2 {
         font-size: 1rem;
         font-weight: 600;
-        margin: 0 0 1.2rem;
+        margin: 0;
+    }
+
+    .section-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 1.2rem;
     }
 
     .card {

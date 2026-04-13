@@ -102,6 +102,16 @@ async def get_current_superuser(
     return current_user
 
 
+async def get_current_admin(
+    current_user: Annotated[db.User, Depends(get_current_active_user)],
+) -> db.User:
+    """Allow superusers and system-level project managers."""
+    user_auth = db.get_user_auth(current_user.user_id)
+    if not user_auth or user_auth.role not in ("superuser", "project_manager"):
+        raise HTTPException(status_code=403, detail="Admin access required")
+    return current_user
+
+
 async def require_project_manager(
     project_id: int,
     current_user: Annotated[db.User, Depends(get_current_active_user)],

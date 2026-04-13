@@ -104,10 +104,10 @@
                 <div class="sidebar-menu">
                     {#if data.projects.length > 0 && data.currentProjectId !== null}
                         <div class="sidebar-section">
-                            <p class="title">Project</p>
                             <ProjectSwitcher
                                 projects={data.projects}
                                 currentProjectId={data.currentProjectId}
+                                isAdmin={data.isAdmin}
                             />
                         </div>
 
@@ -121,7 +121,10 @@
                         {#if data.isCurator}
                             <nav>
                                 <p class="title">Curation</p>
-                                <a class="with-icon" href="/curate?project={data.currentProjectId}">
+                                <a
+                                    class="with-icon"
+                                    href="/curate?project={data.currentProjectId}"
+                                >
                                     <i class="ph ph-check-square"></i>
                                     Curation Queue
                                 </a>
@@ -136,6 +139,12 @@
                     <nav>
                         <p class="title">Management</p>
                         {#if data.isAdmin}
+                            <a class="with-icon" href="/projects/new">
+                                <i class="ph ph-plus"></i>
+                                New Project
+                            </a>
+                        {/if}
+                        {#if data.isSuperuser}
                             <a class="with-icon" href="/admin">
                                 <i class="ph ph-gear"></i>
                                 Admin
