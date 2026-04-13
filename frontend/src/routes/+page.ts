@@ -3,7 +3,7 @@ import { redirect } from "@sveltejs/kit";
 import type { PageLoad } from "./$types";
 
 export const load: PageLoad = async ({ fetch, url, parent }) => {
-    const { currentProjectId, isAdmin } = await parent();
+    const { currentProjectId, isAdmin, isCurator } = await parent();
 
     if (currentProjectId === null) {
         if (isAdmin) {
@@ -12,14 +12,20 @@ export const load: PageLoad = async ({ fetch, url, parent }) => {
         return { documentData: null };
     }
 
+    // Curators land on the curation queue by default.
+    if (isCurator && !url.searchParams.get("ref")) {
+        redirect(302, `/curate?project=${currentProjectId}`);
+    }
+
     const ref = url.searchParams.get("ref");
 
     if (!ref) {
         const queue = await fetchQueue(currentProjectId, fetch);
-        if (queue.length === 0) {
+        const first = queue.find((item) => !item.completed) ?? queue[0];
+        if (!first) {
             return { documentData: null };
         }
-        redirect(302, `/?ref=${encodeURIComponent(queue[0])}&project=${currentProjectId}`);
+        redirect(302, `/?ref=${encodeURIComponent(first.ref)}&project=${currentProjectId}`);
     }
 
     const documentData = await fetchReference(ref, currentProjectId, fetch);

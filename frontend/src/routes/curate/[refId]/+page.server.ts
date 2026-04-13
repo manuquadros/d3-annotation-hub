@@ -38,12 +38,15 @@ export interface ReferenceInfo {
     title: string;
     authors: string;
     year: number;
+    body: string | null;
 }
 
 export interface SnapshotsData {
     reference: ReferenceInfo;
     entities: Record<string, EntityOut>;
     snapshots: AnnotatorSnapshot[];
+    curated_pointers: PointerOut[];
+    curated_relations: RelationOut[];
 }
 
 export const load: PageServerLoad = async ({ cookies, params, url, parent }) => {

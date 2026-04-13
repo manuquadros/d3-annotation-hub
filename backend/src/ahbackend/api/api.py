@@ -15,6 +15,7 @@ from ahbackend.db import (
     delete_entity,
     delete_ontology,
     get_annotator_snapshots,
+    get_curated_annotation,
     get_annotation_queue,
     get_entities_by_curies,
     get_curation_queue,
@@ -656,6 +657,7 @@ class ReferenceInfo(BaseModel):
     title: str
     authors: str
     year: int
+    body: str | None = None
 
 
 @app.get("/projects/{project_id}/references")
@@ -776,6 +778,26 @@ def uncomplete_queue_item(
 
 
 # ---------------------------------------------------------------------------
+# Curator entity management
+# ---------------------------------------------------------------------------
+
+
+@app.patch("/projects/{project_id}/curation/entity-curie", status_code=204)
+def curator_rename_entity_curie(
+    project_id: int,
+    curie: str,
+    body: UpdateCurieRequest,
+    current_user: Annotated[User, Depends(users.get_current_active_user)],
+) -> None:
+    """Rename a proposed entity's CURIE (curator access).
+
+    Only unconfirmed (proposed) entities may be renamed via this endpoint.
+    """
+    _curator_or_superuser(project_id, current_user)
+    update_entity_curie(curie, body.new_curie)
+
+
+# ---------------------------------------------------------------------------
 # Curation queue
 # ---------------------------------------------------------------------------
 
@@ -847,11 +869,15 @@ class SnapshotsResponse(BaseModel):
     ``entities`` maps each CURIE that appears in any pointer to its display
     name and kind, so the frontend doesn't need a separate lookup.
     ``reference`` carries the reference title and metadata for display.
+    ``curated_pointers`` and ``curated_relations`` carry this curator's
+    previously saved curated annotation (empty lists if none yet).
     """
 
     reference: ReferenceInfo
     entities: dict[str, EntityOut]
     snapshots: list[AnnotatorSnapshotResponse]
+    curated_pointers: list[PointerOut] = []
+    curated_relations: list[RelationOut] = []
 
 
 def _curator_or_superuser(
@@ -925,6 +951,35 @@ def annotator_snapshots(
         )
         for s in snapshots
     ]
+    body_html: str | None = None
+    if ref.body:
+        try:
+            body_html = transform_article(ref.body)
+        except Exception:
+            body_html = None
+
+    curated_ptr_rows, curated_rel_rows = get_curated_annotation(
+        project_id, reference_id, current_user.user_id
+    )
+    curated_pointers = [
+        PointerOut(
+            reference_id=p.reference_id,
+            entity_id=p.entity_id,
+            offset=p.offset,
+            length=p.length,
+        )
+        for p in curated_ptr_rows
+    ]
+    curated_relations = [
+        RelationOut(
+            relation_id=r.relation_id,
+            predicate=r.predicate,
+            subject=r.subject,
+            object=r.object,
+        )
+        for r in curated_rel_rows
+    ]
+
     return SnapshotsResponse(
         reference=ReferenceInfo(
             reference_id=ref.reference_id,
@@ -933,9 +988,12 @@ def annotator_snapshots(
             title=ref.title,
             authors=ref.authors,
             year=ref.year,
+            body=body_html,
         ),
         entities=entities,
         snapshots=snapshot_responses,
+        curated_pointers=curated_pointers,
+        curated_relations=curated_relations,
     )
 
 

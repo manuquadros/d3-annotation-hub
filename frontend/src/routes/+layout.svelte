@@ -111,7 +111,7 @@
                             />
                         </div>
 
-                        {#if !data.isAdmin}
+                        {#if !data.isAdmin && !data.isCurator}
                             <nav class="queue-wrapper">
                                 <p class="title">Annotation Queue</p>
                                 <AnnotationQueue

@@ -1,4 +1,6 @@
 <script lang="ts">
+    import { invalidateAll } from "$app/navigation";
+    import { browser } from "$app/environment";
     import type { PageData } from "./$types";
     import type { PointerOut, RelationOut } from "./+page.server";
 
@@ -8,16 +10,50 @@
 
     let { data }: Props = $props();
 
-    const { reference, entities, snapshots } = data.data;
+    const {
+        reference,
+        entities: initialEntities,
+        snapshots,
+        curated_pointers,
+        curated_relations,
+    } = data.data;
 
-    // Build a unified list of unique pointers across all snapshots.
-    // Key: "entity_id|offset|length"
+    // ---------------------------------------------------------------------------
+    // Plain-text extraction from the HTML body (client-side only)
+    // ---------------------------------------------------------------------------
+
+    let plainText = $derived(
+        browser && reference.body
+            ? (() => {
+                  const doc = new DOMParser().parseFromString(
+                      reference.body!,
+                      "text/html",
+                  );
+                  return doc.body.textContent ?? "";
+              })()
+            : "",
+    );
+
+    function getAnnotatedText(offset: number, length: number): string {
+        if (!plainText) return "";
+        return plainText.slice(offset, offset + length);
+    }
+
+    // ---------------------------------------------------------------------------
+    // Entity state (mutable so CURIE edits can update local keys)
+    // ---------------------------------------------------------------------------
+
+    let entities = $state({ ...initialEntities });
+
+    // ---------------------------------------------------------------------------
+    // Build unique pointer map: key = "entity_id|offset|length"
+    // ---------------------------------------------------------------------------
+
     type PointerKey = string;
     function pointerKey(p: PointerOut): PointerKey {
         return `${p.entity_id}|${p.offset}|${p.length}`;
     }
 
-    // Map from pointerKey -> set of annotator emails who tagged it
     const pointerAnnotators = new Map<PointerKey, Set<string>>();
     const pointerData = new Map<PointerKey, PointerOut>();
 
@@ -32,17 +68,24 @@
         }
     }
 
-    // Sort: pointers tagged by more annotators first, then by entity name
-    const sortedPointerKeys = [...pointerAnnotators.keys()].sort((a, b) => {
-        const countDiff =
-            pointerAnnotators.get(b)!.size - pointerAnnotators.get(a)!.size;
-        if (countDiff !== 0) return countDiff;
-        const nameA = entities[pointerData.get(a)!.entity_id]?.preferred_name ?? a;
-        const nameB = entities[pointerData.get(b)!.entity_id]?.preferred_name ?? b;
-        return nameA.localeCompare(nameB);
-    });
+    // ---------------------------------------------------------------------------
+    // Build unique entity map: entity_id → set of annotators who used it
+    // ---------------------------------------------------------------------------
 
-    // Build unique relations similarly
+    const entityAnnotators = new Map<string, Set<string>>();
+    for (const snap of snapshots) {
+        for (const p of snap.pointers) {
+            if (!entityAnnotators.has(p.entity_id)) {
+                entityAnnotators.set(p.entity_id, new Set());
+            }
+            entityAnnotators.get(p.entity_id)!.add(snap.email);
+        }
+    }
+
+    // ---------------------------------------------------------------------------
+    // Build unique relations
+    // ---------------------------------------------------------------------------
+
     type RelationKey = string;
     function relationKey(r: RelationOut): RelationKey {
         return `${r.predicate}|${r.subject}|${r.object}`;
@@ -62,30 +105,92 @@
         }
     }
 
+    // ---------------------------------------------------------------------------
+    // Accepted keys from previously saved curated annotation
+    // (must be declared before the sort computations below)
+    // ---------------------------------------------------------------------------
+
+    const acceptedPointerKeys = new Set<PointerKey>(
+        curated_pointers.map((p) => pointerKey(p)),
+    );
+
+    const acceptedRelationKeys = new Set<RelationKey>(
+        curated_relations.map((r) => relationKey(r)),
+    );
+
+    // Accepted entity ids: any entity that appears in an accepted pointer
+    const acceptedEntityIds = new Set<string>(
+        curated_pointers.map((p) => p.entity_id),
+    );
+
+    // ---------------------------------------------------------------------------
+    // Sorted keys (reference accepted* sets declared above)
+    // ---------------------------------------------------------------------------
+
+    const sortedPointerKeys = [...pointerAnnotators.keys()].sort((a, b) => {
+        // Accepted pointers go to the bottom
+        const aAccepted = acceptedPointerKeys.has(a) ? 1 : 0;
+        const bAccepted = acceptedPointerKeys.has(b) ? 1 : 0;
+        if (aAccepted !== bAccepted) return aAccepted - bAccepted;
+        const countDiff =
+            pointerAnnotators.get(b)!.size - pointerAnnotators.get(a)!.size;
+        if (countDiff !== 0) return countDiff;
+        const nameA =
+            entities[pointerData.get(a)!.entity_id]?.preferred_name ?? a;
+        const nameB =
+            entities[pointerData.get(b)!.entity_id]?.preferred_name ?? b;
+        return nameA.localeCompare(nameB);
+    });
+
+    const sortedEntityIds = [...entityAnnotators.keys()].sort((a, b) => {
+        // Accepted entities go to the bottom
+        const aAccepted = acceptedEntityIds.has(a) ? 1 : 0;
+        const bAccepted = acceptedEntityIds.has(b) ? 1 : 0;
+        if (aAccepted !== bAccepted) return aAccepted - bAccepted;
+        const countDiff =
+            entityAnnotators.get(b)!.size - entityAnnotators.get(a)!.size;
+        if (countDiff !== 0) return countDiff;
+        return (entities[a]?.preferred_name ?? a).localeCompare(
+            entities[b]?.preferred_name ?? b,
+        );
+    });
+
     const sortedRelationKeys = [...relationAnnotators.keys()].sort((a, b) => {
+        const aAccepted = acceptedRelationKeys.has(a) ? 1 : 0;
+        const bAccepted = acceptedRelationKeys.has(b) ? 1 : 0;
+        if (aAccepted !== bAccepted) return aAccepted - bAccepted;
         return (
             relationAnnotators.get(b)!.size - relationAnnotators.get(a)!.size
         );
     });
 
-    // Selection state: which pointers/relations to include in curated output
+    // ---------------------------------------------------------------------------
+    // Pointer/relation selection state
+    // Pre-select from saved curation if available, otherwise unanimous agreement
+    // ---------------------------------------------------------------------------
+
+    const hasSavedCuration = acceptedPointerKeys.size > 0 || acceptedRelationKeys.size > 0;
+
     let selectedPointers = $state<Set<PointerKey>>(
-        // Pre-select pointers that all annotators agree on
         new Set(
-            sortedPointerKeys.filter(
-                (k) =>
-                    pointerAnnotators.get(k)!.size === snapshots.length &&
-                    snapshots.length > 0,
-            ),
+            hasSavedCuration
+                ? sortedPointerKeys.filter((k) => acceptedPointerKeys.has(k))
+                : sortedPointerKeys.filter(
+                      (k) =>
+                          pointerAnnotators.get(k)!.size === snapshots.length &&
+                          snapshots.length > 0,
+                  ),
         ),
     );
     let selectedRelations = $state<Set<RelationKey>>(
         new Set(
-            sortedRelationKeys.filter(
-                (k) =>
-                    relationAnnotators.get(k)!.size === snapshots.length &&
-                    snapshots.length > 0,
-            ),
+            hasSavedCuration
+                ? sortedRelationKeys.filter((k) => acceptedRelationKeys.has(k))
+                : sortedRelationKeys.filter(
+                      (k) =>
+                          relationAnnotators.get(k)!.size === snapshots.length &&
+                          snapshots.length > 0,
+                  ),
         ),
     );
 
@@ -102,6 +207,81 @@
         else next.add(k);
         selectedRelations = next;
     }
+
+    // An entity is "accepted" when every one of its pointer keys is selected.
+    function isEntityAccepted(entityId: string): boolean {
+        const keys = sortedPointerKeys.filter(
+            (k) => pointerData.get(k)!.entity_id === entityId,
+        );
+        return keys.length > 0 && keys.every((k) => selectedPointers.has(k));
+    }
+
+    function toggleEntity(entityId: string) {
+        const keys = sortedPointerKeys.filter(
+            (k) => pointerData.get(k)!.entity_id === entityId,
+        );
+        const accepted = isEntityAccepted(entityId);
+        const next = new Set(selectedPointers);
+        if (accepted) {
+            keys.forEach((k) => next.delete(k));
+        } else {
+            keys.forEach((k) => next.add(k));
+        }
+        selectedPointers = next;
+    }
+
+    // ---------------------------------------------------------------------------
+    // CURIE editing for proposed entities
+    // ---------------------------------------------------------------------------
+
+    let curieEdits = $state(new Map<string, string>());
+    let curieErrors = $state(new Map<string, string>());
+    let curieSaving = $state(new Set<string>());
+
+    function startCurieEdit(entityId: string) {
+        if (!curieEdits.has(entityId)) {
+            curieEdits = new Map(curieEdits).set(entityId, entityId);
+        }
+    }
+
+    async function applyCurieEdit(entityId: string) {
+        const newCurie = curieEdits.get(entityId)?.trim();
+        if (!newCurie || newCurie === entityId) {
+            curieEdits = new Map(curieEdits);
+            curieEdits.delete(entityId);
+            return;
+        }
+
+        curieSaving = new Set(curieSaving).add(entityId);
+        curieErrors = new Map(curieErrors);
+        curieErrors.delete(entityId);
+
+        try {
+            const res = await fetch(
+                `/api/projects/${data.projectId}/curation/entity-curie?curie=${encodeURIComponent(entityId)}`,
+                {
+                    method: "PATCH",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ new_curie: newCurie }),
+                },
+            );
+            if (!res.ok) {
+                const text = await res.text();
+                curieErrors = new Map(curieErrors).set(entityId, text || "Failed");
+            } else {
+                await invalidateAll();
+            }
+        } catch (e) {
+            curieErrors = new Map(curieErrors).set(entityId, String(e));
+        } finally {
+            curieSaving = new Set(curieSaving);
+            curieSaving.delete(entityId);
+        }
+    }
+
+    // ---------------------------------------------------------------------------
+    // Save curated annotation
+    // ---------------------------------------------------------------------------
 
     let saving = $state(false);
     let saveError = $state<string | null>(null);
@@ -129,8 +309,7 @@
                 },
             );
             if (!res.ok) {
-                const text = await res.text();
-                saveError = `Save failed: ${text}`;
+                saveError = `Save failed: ${await res.text()}`;
             } else {
                 saved = true;
             }
@@ -141,7 +320,8 @@
         }
     }
 
-    function agreementClass(count: number): string {
+    function rowClass(count: number, accepted: boolean): string {
+        if (accepted) return "accepted";
         if (snapshots.length === 0) return "";
         if (count === snapshots.length) return "agreement-full";
         if (count >= snapshots.length / 2) return "agreement-partial";
@@ -174,19 +354,107 @@
             {/each}
         </div>
 
+        <!-- ---------------------------------------------------------------- -->
+        <!-- Entities table                                                    -->
+        <!-- ---------------------------------------------------------------- -->
         <section class="curate-section">
-            <h3>Entities / Pointers</h3>
+            <h3>Entities</h3>
             <p class="section-hint">
-                Pre-selected: pointers all {snapshots.length} annotator{snapshots.length !== 1 ? "s" : ""} agree on.
-                Toggle to adjust.
+                Overview of all annotated entities. Edit the identifier of
+                proposed entities (marked <span class="proposed-badge">proposed</span>)
+                before saving.
             </p>
             <table class="table curate-table">
                 <thead>
                     <tr>
-                        <th>Include</th>
+                        <th class="th-accept"></th>
                         <th>Entity</th>
+                        <th>Identifier</th>
                         <th>Kind</th>
-                        <th>Span (offset·length)</th>
+                        <th>Agreement</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {#each sortedEntityIds as entityId (entityId)}
+                        {@const entity = entities[entityId]}
+                        {@const count = entityAnnotators.get(entityId)!.size}
+                        {@const accepted = isEntityAccepted(entityId)}
+                        <tr class={rowClass(count, acceptedEntityIds.has(entityId))}>
+                            <td class="td-accept">
+                                <button
+                                    class="accept-btn {accepted ? 'accepted' : ''}"
+                                    onclick={() => toggleEntity(entityId)}
+                                    title={accepted ? "Remove entity" : "Accept entity (all its spans)"}
+                                >
+                                    {accepted ? "✓" : ""}
+                                </button>
+                            </td>
+                            <td>
+                                <span class="entity-name">
+                                    {entity?.preferred_name ?? entityId}
+                                </span>
+                                {#if entity && !entity.confirmed}
+                                    <span class="proposed-badge">proposed</span>
+                                {/if}
+                            </td>
+                            <td class="curie-cell">
+                                {#if entity && !entity.confirmed}
+                                    <input
+                                        class="curie-input"
+                                        type="text"
+                                        value={curieEdits.get(entityId) ?? entityId}
+                                        onfocus={() => startCurieEdit(entityId)}
+                                        oninput={(e) => {
+                                            curieEdits = new Map(curieEdits).set(
+                                                entityId,
+                                                (e.target as HTMLInputElement).value,
+                                            );
+                                        }}
+                                        onblur={() => applyCurieEdit(entityId)}
+                                        onkeydown={(e) => {
+                                            if (e.key === "Enter") (e.target as HTMLElement).blur();
+                                            if (e.key === "Escape") {
+                                                curieEdits = new Map(curieEdits);
+                                                curieEdits.delete(entityId);
+                                                (e.target as HTMLElement).blur();
+                                            }
+                                        }}
+                                        disabled={curieSaving.has(entityId)}
+                                        title="Edit CURIE — press Enter to confirm, Escape to cancel"
+                                    />
+                                    {#if curieErrors.get(entityId)}
+                                        <span class="curie-error">{curieErrors.get(entityId)}</span>
+                                    {/if}
+                                {:else}
+                                    <code class="entity-curie">{entityId}</code>
+                                {/if}
+                            </td>
+                            <td>
+                                <span class="kind-badge">{entity?.kind ?? "?"}</span>
+                            </td>
+                            <td>
+                                <span class="agreement-count">{count}/{snapshots.length}</span>
+                            </td>
+                        </tr>
+                    {/each}
+                </tbody>
+            </table>
+        </section>
+
+        <!-- ---------------------------------------------------------------- -->
+        <!-- Pointers table                                                    -->
+        <!-- ---------------------------------------------------------------- -->
+        <section class="curate-section">
+            <h3>Pointers</h3>
+            <p class="section-hint">
+                Pre-selected: spans all {snapshots.length} annotator{snapshots.length !== 1 ? "s" : ""} agree on. Toggle to adjust.
+            </p>
+            <table class="table curate-table">
+                <thead>
+                    <tr>
+                        <th class="th-accept"></th>
+                        <th>Entity</th>
+                        <th>Annotated text</th>
                         <th>Agreement</th>
                         <th>Annotators</th>
                     </tr>
@@ -196,28 +464,28 @@
                         {@const p = pointerData.get(k)!}
                         {@const entity = entities[p.entity_id]}
                         {@const count = pointerAnnotators.get(k)!.size}
-                        <tr class={agreementClass(count)}>
-                            <td>
-                                <input
-                                    type="checkbox"
-                                    checked={selectedPointers.has(k)}
-                                    onchange={() => togglePointer(k)}
-                                />
+                        {@const accepted = selectedPointers.has(k)}
+                        <tr class={rowClass(count, acceptedPointerKeys.has(k))}>
+                            <td class="td-accept">
+                                <button
+                                    class="accept-btn {accepted ? 'accepted' : ''}"
+                                    onclick={() => togglePointer(k)}
+                                    title={accepted ? "Remove span" : "Accept span"}
+                                >
+                                    {accepted ? "✓" : ""}
+                                </button>
                             </td>
                             <td>
                                 <span class="entity-name">
                                     {entity?.preferred_name ?? p.entity_id}
                                 </span>
-                                <span class="entity-curie">{p.entity_id}</span>
+                                <code class="entity-curie">{p.entity_id}</code>
+                            </td>
+                            <td class="span-cell">
+                                {getAnnotatedText(p.offset, p.length) || `@${p.offset}+${p.length}`}
                             </td>
                             <td>
-                                <span class="kind-badge">{entity?.kind ?? "?"}</span>
-                            </td>
-                            <td class="span-cell">{p.offset}·{p.length}</td>
-                            <td>
-                                <span class="agreement-count"
-                                    >{count}/{snapshots.length}</span
-                                >
+                                <span class="agreement-count">{count}/{snapshots.length}</span>
                             </td>
                             <td class="annotators-cell">
                                 {[...pointerAnnotators.get(k)!].join(", ")}
@@ -228,13 +496,16 @@
             </table>
         </section>
 
+        <!-- ---------------------------------------------------------------- -->
+        <!-- Relations table                                                   -->
+        <!-- ---------------------------------------------------------------- -->
         {#if sortedRelationKeys.length > 0}
             <section class="curate-section">
                 <h3>Relations</h3>
                 <table class="table curate-table">
                     <thead>
                         <tr>
-                            <th>Include</th>
+                            <th class="th-accept"></th>
                             <th>Subject</th>
                             <th>Predicate</th>
                             <th>Object</th>
@@ -245,31 +516,32 @@
                         {#each sortedRelationKeys as k (k)}
                             {@const r = relationData.get(k)!}
                             {@const count = relationAnnotators.get(k)!.size}
-                            <tr class={agreementClass(count)}>
-                                <td>
-                                    <input
-                                        type="checkbox"
-                                        checked={selectedRelations.has(k)}
-                                        onchange={() => toggleRelation(k)}
-                                    />
+                            {@const accepted = selectedRelations.has(k)}
+                            <tr class={rowClass(count, acceptedRelationKeys.has(k))}>
+                                <td class="td-accept">
+                                    <button
+                                        class="accept-btn {accepted ? 'accepted' : ''}"
+                                        onclick={() => toggleRelation(k)}
+                                        title={accepted ? "Remove relation" : "Accept relation"}
+                                    >
+                                        {accepted ? "✓" : ""}
+                                    </button>
                                 </td>
                                 <td>
                                     <span class="entity-name">
                                         {entities[r.subject]?.preferred_name ?? r.subject}
                                     </span>
-                                    <span class="entity-curie">{r.subject}</span>
+                                    <code class="entity-curie">{r.subject}</code>
                                 </td>
                                 <td><code>{r.predicate}</code></td>
                                 <td>
                                     <span class="entity-name">
                                         {entities[r.object]?.preferred_name ?? r.object}
                                     </span>
-                                    <span class="entity-curie">{r.object}</span>
+                                    <code class="entity-curie">{r.object}</code>
                                 </td>
                                 <td>
-                                    <span class="agreement-count"
-                                        >{count}/{snapshots.length}</span
-                                    >
+                                    <span class="agreement-count">{count}/{snapshots.length}</span>
                                 </td>
                             </tr>
                         {/each}
@@ -285,11 +557,7 @@
             {#if saved}
                 <p class="success-msg">Curated annotation saved.</p>
             {/if}
-            <button
-                class="btn primary"
-                onclick={saveCuration}
-                disabled={saving}
-            >
+            <button class="btn primary" onclick={saveCuration} disabled={saving}>
                 {saving ? "Saving…" : "Save curated annotation"}
             </button>
         </div>
@@ -325,7 +593,6 @@
         display: flex;
         flex-wrap: wrap;
         gap: 0.5rem;
-        font-size: 0.8rem;
     }
 
     .annotator-badge {
@@ -334,7 +601,6 @@
         font-size: 0.75rem;
     }
 
-    /* Cycle through some muted background colours */
     .annotator-0 { background: #dbeafe; color: #1e40af; }
     .annotator-1 { background: #dcfce7; color: #166534; }
     .annotator-2 { background: #fef9c3; color: #854d0e; }
@@ -372,7 +638,6 @@
         display: block;
         font-size: 0.75rem;
         color: var(--text-muted, #888);
-        font-family: monospace;
     }
 
     .kind-badge {
@@ -382,10 +647,46 @@
         border-radius: 3px;
     }
 
+    .proposed-badge {
+        display: inline-block;
+        font-size: 0.7rem;
+        padding: 0.1rem 0.35rem;
+        background: #fef9c3;
+        color: #854d0e;
+        border-radius: 3px;
+        margin-left: 0.35rem;
+        vertical-align: middle;
+    }
+
+    .curie-cell {
+        min-width: 14rem;
+    }
+
+    .curie-input {
+        width: 100%;
+        font-family: monospace;
+        font-size: 0.8rem;
+        padding: 0.2rem 0.4rem;
+        border: 1px solid #ccc;
+        border-radius: 3px;
+        box-sizing: border-box;
+    }
+
+    .curie-input:focus {
+        outline: none;
+        border-color: var(--primary-color, #4a90e2);
+    }
+
+    .curie-error {
+        display: block;
+        font-size: 0.7rem;
+        color: var(--danger, #dc2626);
+        margin-top: 0.15rem;
+    }
+
     .span-cell {
         font-family: monospace;
         font-size: 0.8rem;
-        white-space: nowrap;
     }
 
     .agreement-count {
@@ -398,17 +699,52 @@
         color: var(--text-muted, #666);
     }
 
-    /* Row colouring by agreement level */
-    tr.agreement-full {
-        background: #f0fdf4;
+    tr.agreement-full    { background: #f0fdf4; }
+    tr.agreement-partial { background: #fefce8; }
+    tr.agreement-low     { background: #fff7ed; }
+    tr.accepted          { background: #dcfce7; color: #166534; }
+
+    .th-accept {
+        width: 2.5rem;
+        padding-right: 0;
     }
 
-    tr.agreement-partial {
-        background: #fefce8;
+    .td-accept {
+        padding-right: 0;
+        vertical-align: middle;
     }
 
-    tr.agreement-low {
-        background: #fff7ed;
+    .accept-btn {
+        width: 1.75rem;
+        height: 1.75rem;
+        border-radius: 50%;
+        border: 2px solid #d1d5db;
+        background: white;
+        cursor: pointer;
+        font-size: 0.85rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0;
+        transition: border-color 0.12s, background 0.12s, color 0.12s;
+        color: transparent;
+    }
+
+    .accept-btn:hover {
+        border-color: #16a34a;
+        color: #16a34a;
+    }
+
+    .accept-btn.accepted {
+        border-color: #16a34a;
+        background: #16a34a;
+        color: white;
+    }
+
+    .accept-btn.accepted:hover {
+        border-color: #dc2626;
+        background: #dc2626;
+        color: white;
     }
 
     .curate-actions {

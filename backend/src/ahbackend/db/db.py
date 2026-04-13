@@ -10,6 +10,9 @@ from d3textdb.schema import (
     AnnotationSnapshot,
     AnnotationState,
     AnnotatorSnapshot,
+    CuratedAnnotation,
+    CuratedAnnotationPointer,
+    CuratedAnnotationRelation,
     EntityAnnotation,
     Ontology,
     Pointer,
@@ -303,6 +306,24 @@ def save_curated_annotation(
     pointers: list[Pointer],
     relations: list[Relation],
 ) -> int:
+    # Drop any pointers that don't exist in the pointer table; this guards
+    # against FK violations if the caller sends stale or example data.
+    if pointers:
+        with Session(annodb.engine) as session:
+            valid: list[Pointer] = []
+            for p in pointers:
+                exists = session.scalar(
+                    select(Pointer.reference_id).where(
+                        (Pointer.reference_id == p.reference_id)
+                        & (Pointer.entity_id == p.entity_id)
+                        & (Pointer.offset == p.offset)
+                        & (Pointer.length == p.length)
+                    )
+                )
+                if exists is not None:
+                    valid.append(p)
+            pointers = valid
+
     return annodb.save_curated_annotation(
         project_id, reference_id, curator_id, pointers, relations
     )
@@ -508,3 +529,42 @@ def mark_annotation_incomplete(
             )
         )
         session.commit()
+
+
+def get_curated_annotation(
+    project_id: int, reference_id: int, curator_id: uuid.UUID
+) -> tuple[list[CuratedAnnotationPointer], list[Relation]]:
+    """Return the accepted pointers and relations from this curator's saved
+    curated annotation for (project, reference), or empty lists if none."""
+    with Session(annodb.engine) as session:
+        curated = session.scalar(
+            select(CuratedAnnotation)
+            .where(CuratedAnnotation.project_id == project_id)
+            .where(CuratedAnnotation.reference_id == reference_id)
+            .where(CuratedAnnotation.curator_id == curator_id)
+        )
+        if curated is None:
+            return [], []
+
+        pointers = list(
+            session.scalars(
+                select(CuratedAnnotationPointer).where(
+                    CuratedAnnotationPointer.curated_id == curated.curated_id
+                )
+            ).all()
+        )
+
+        relations = list(
+            session.scalars(
+                select(Relation)
+                .join(
+                    CuratedAnnotationRelation,
+                    CuratedAnnotationRelation.relation_id == Relation.relation_id,
+                )
+                .where(
+                    CuratedAnnotationRelation.curated_id == curated.curated_id
+                )
+            ).all()
+        )
+
+        return pointers, relations
