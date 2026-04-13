@@ -105,6 +105,10 @@ export class AnnotationState {
         const body = this.reference.body;
         const synonyms = new globalThis.Set<string>();
 
+        // Always include the preferred name itself as a synonym.
+        const trimmedName = preferredName.trim();
+        if (trimmedName) synonyms.add(trimmedName);
+
         if (body) {
             const tempDiv = globalThis.document?.createElement("div");
             if (tempDiv) {
@@ -249,7 +253,11 @@ export class AnnotationState {
         const before = this.#snapshot();
         const entity = this.entities.get(entity_id);
         if (entity) {
-            this.entities = this.entities.set(entity_id, { ...entity, preferred_name });
+            const trimmed = preferred_name.trim();
+            const synonyms = trimmed && !entity.synonyms.has(trimmed)
+                ? entity.synonyms.add(trimmed)
+                : entity.synonyms;
+            this.entities = this.entities.set(entity_id, { ...entity, preferred_name, synonyms });
             this.#commit(before);
         }
     }
@@ -303,11 +311,12 @@ export class AnnotationState {
         const before = this.#snapshot();
 
         if (!this.entities.has(entityId)) {
+            const trimmedName = preferredName.trim();
             this.entities = this.entities.set(entityId, {
                 entity_id: entityId,
                 kind,
                 preferred_name: preferredName,
-                synonyms: Set(),
+                synonyms: trimmedName ? Set([trimmedName]) : Set(),
                 confirmed,
             });
         }
