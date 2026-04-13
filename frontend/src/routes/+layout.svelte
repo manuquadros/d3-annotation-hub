@@ -140,6 +140,20 @@
 
                     <nav>
                         <p class="title">Management</p>
+                        {#if data.isAdmin && data.currentProjectId !== null}
+                            <a class="with-icon" href="/projects/{data.currentProjectId}/documents">
+                                <i class="ph ph-file-text"></i>
+                                Documents
+                            </a>
+                            <a class="with-icon" href="/projects/{data.currentProjectId}/ontologies">
+                                <i class="ph ph-tree-structure"></i>
+                                Ontologies
+                            </a>
+                            <a class="with-icon" href="/projects/{data.currentProjectId}/users">
+                                <i class="ph ph-users"></i>
+                                Users
+                            </a>
+                        {/if}
                         {#if data.isSuperuser}
                             <a class="with-icon" href="/admin">
                                 <i class="ph ph-gear"></i>
