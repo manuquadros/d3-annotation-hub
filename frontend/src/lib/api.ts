@@ -26,10 +26,15 @@ export async function fetchReference(
     return new AnnotationState(data);
 }
 
+export interface QueueItem {
+    ref: string;
+    completed: boolean;
+}
+
 export async function fetchQueue(
     projectId: number,
     customFetch: typeof fetch = fetch,
-): Promise<string[]> {
+): Promise<QueueItem[]> {
     const response = await customFetch(`/api/projects/${projectId}/queue`);
 
     if (!response.ok) {
@@ -37,6 +42,32 @@ export async function fetchQueue(
     }
 
     return response.json();
+}
+
+export async function markQueueItemComplete(
+    projectId: number,
+    ref: string,
+): Promise<void> {
+    const response = await fetch(
+        `/api/projects/${projectId}/queue?ref=${encodeURIComponent(ref)}`,
+        { method: "POST" },
+    );
+    if (!response.ok) {
+        throw new Error(`Failed to mark complete: ${response.statusText}`);
+    }
+}
+
+export async function markQueueItemIncomplete(
+    projectId: number,
+    ref: string,
+): Promise<void> {
+    const response = await fetch(
+        `/api/projects/${projectId}/queue?ref=${encodeURIComponent(ref)}`,
+        { method: "DELETE" },
+    );
+    if (!response.ok) {
+        throw new Error(`Failed to mark incomplete: ${response.statusText}`);
+    }
 }
 
 export async function setLastProject(projectId: number): Promise<void> {

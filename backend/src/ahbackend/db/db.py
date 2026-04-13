@@ -1,20 +1,27 @@
 import pathlib
 import uuid
 from collections.abc import Iterable, Iterator
+from datetime import datetime, timezone
 from importlib import resources
 from typing import Any, Optional
 
 from d3textdb import D3TextDB, ParsedOntology
 from d3textdb.schema import (
     AnnotationSnapshot,
+    AnnotationState,
     AnnotatorSnapshot,
     EntityAnnotation,
     Ontology,
     Pointer,
     Project,
+    ProjectReference,
     Reference,
     ReferenceAnnotation,
     Relation,
+    SnapshotPointer,
+    SnapshotRelation,
+    StatePointer,
+    StateRelation,
     User,
     UserAuth,
 )
@@ -23,7 +30,7 @@ from pydantic import EmailStr
 from rich import print
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.sql.functions import random
-from sqlmodel import Session, col, create_engine, select
+from sqlmodel import Session, col, create_engine, delete, select
 from tokenizers.normalizers import BertNormalizer
 from xmlparser import transform_article
 
@@ -358,3 +365,146 @@ def _(predicate: str, subject: str, object: str) -> str:
 #         metadata=item.article.meta,
 #         body=content,
 #     )
+
+
+def get_project_queue_with_status(
+    project_id: int, user_id: uuid.UUID
+) -> list[tuple[str, bool]]:
+    """Return all project references with completion status for the user.
+
+    Returns a list of (identifier, completed) tuples where identifier is the
+    pubmed_id string when available, otherwise the doi.
+    """
+    with Session(annodb.engine) as session:
+        completed_ref_ids = set(
+            session.scalars(
+                select(AnnotationSnapshot.reference_id).where(
+                    (AnnotationSnapshot.project_id == project_id)
+                    & (AnnotationSnapshot.user_id == user_id)
+                )
+            ).all()
+        )
+        rows = session.execute(
+            select(Reference.pubmed_id, Reference.doi, Reference.reference_id)
+            .join(
+                ProjectReference,
+                ProjectReference.reference_id == Reference.reference_id,
+            )
+            .where(ProjectReference.project_id == project_id)
+        ).all()
+        return [
+            (
+                str(pubmed_id) if pubmed_id is not None else doi,
+                ref_id in completed_ref_ids,
+            )
+            for pubmed_id, doi, ref_id in rows
+        ]
+
+
+def mark_annotation_complete(
+    project_id: int, user_id: uuid.UUID, ref_identifier: str
+) -> None:
+    """Create an AnnotationSnapshot for the user's current state on this reference.
+
+    Mirrors the logic in D3TextDB.store_annotation for the snapshot portion,
+    without re-saving entity/pointer data.  Idempotent: does nothing if a
+    snapshot already exists for the (project, user, reference) triple.
+    """
+    if ref_identifier.startswith("10."):
+        ref = annodb.get_reference_by_doi(ref_identifier)
+    else:
+        try:
+            ref = annodb.get_article_by_pubmed_id(int(ref_identifier))
+        except (ValueError, TypeError):
+            return
+    if ref is None:
+        return
+
+    reference_id = ref.reference_id
+
+    with Session(annodb.engine) as session:
+        existing = session.scalar(
+            select(AnnotationSnapshot).where(
+                (AnnotationSnapshot.project_id == project_id)
+                & (AnnotationSnapshot.user_id == user_id)
+                & (AnnotationSnapshot.reference_id == reference_id)
+            )
+        )
+        if existing is not None:
+            return
+
+        latest_state = session.scalar(
+            select(AnnotationState)
+            .where(AnnotationState.project_id == project_id)
+            .where(AnnotationState.user_id == user_id)
+            .where(AnnotationState.reference_id == reference_id)
+            .order_by(AnnotationState.state_id.desc())
+            .limit(1)
+        )
+
+        content_hash = latest_state.content_hash if latest_state else ""
+        snapshot = AnnotationSnapshot(
+            project_id=project_id,
+            user_id=user_id,
+            reference_id=reference_id,
+            content_hash=content_hash,
+            created_at=datetime.now(timezone.utc),
+        )
+        session.add(snapshot)
+        session.flush()
+
+        if latest_state is not None:
+            state_pointers = session.scalars(
+                select(StatePointer).where(
+                    StatePointer.state_id == latest_state.state_id
+                )
+            ).all()
+            for sp in state_pointers:
+                session.add(
+                    SnapshotPointer(
+                        snapshot_id=snapshot.snapshot_id,
+                        reference_id=sp.reference_id,
+                        entity_id=sp.entity_id,
+                        offset=sp.offset,
+                        length=sp.length,
+                    )
+                )
+            state_relations = session.scalars(
+                select(StateRelation).where(
+                    StateRelation.state_id == latest_state.state_id
+                )
+            ).all()
+            for sr in state_relations:
+                session.add(
+                    SnapshotRelation(
+                        snapshot_id=snapshot.snapshot_id,
+                        relation_id=sr.relation_id,
+                    )
+                )
+
+        session.commit()
+
+
+def mark_annotation_incomplete(
+    project_id: int, user_id: uuid.UUID, ref_identifier: str
+) -> None:
+    """Delete all AnnotationSnapshot rows for the (project, user, reference) triple."""
+    if ref_identifier.startswith("10."):
+        ref = annodb.get_reference_by_doi(ref_identifier)
+    else:
+        try:
+            ref = annodb.get_article_by_pubmed_id(int(ref_identifier))
+        except (ValueError, TypeError):
+            return
+    if ref is None:
+        return
+
+    with Session(annodb.engine) as session:
+        session.execute(
+            delete(AnnotationSnapshot).where(
+                (AnnotationSnapshot.project_id == project_id)
+                & (AnnotationSnapshot.user_id == user_id)
+                & (AnnotationSnapshot.reference_id == ref.reference_id)
+            )
+        )
+        session.commit()

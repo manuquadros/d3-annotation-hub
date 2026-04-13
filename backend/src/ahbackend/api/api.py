@@ -23,6 +23,9 @@ from ahbackend.db import (
     get_project,
     get_project_annotation_queue,
     get_project_ontologies,
+    get_project_queue_with_status,
+    mark_annotation_complete,
+    mark_annotation_incomplete,
     get_project_reference_ids,
     get_reference_by_doi,
     list_project_references,
@@ -725,17 +728,51 @@ def remove_reference(
 # ---------------------------------------------------------------------------
 
 
+class QueueItem(BaseModel):
+    ref: str
+    completed: bool
+
+
 @app.get("/projects/{project_id}/queue")
 def project_annotation_queue(
     project_id: int,
     current_user: Annotated[User, Depends(users.get_current_active_user)],
-) -> list[str]:
+) -> list[QueueItem]:
     """Return the annotation queue for the current user within a project."""
     roles = get_user_project_roles(current_user.user_id, project_id)
     user_auth = db.get_user_auth(current_user.user_id)
     if not roles and not (user_auth and user_auth.role == "superuser"):
         raise HTTPException(status_code=403, detail="Access denied")
-    return get_project_annotation_queue(project_id, current_user.user_id)
+    items = get_project_queue_with_status(project_id, current_user.user_id)
+    return [QueueItem(ref=ref, completed=completed) for ref, completed in items]
+
+
+@app.post("/projects/{project_id}/queue/complete", status_code=204)
+def complete_queue_item(
+    project_id: int,
+    ref: str,
+    current_user: Annotated[User, Depends(users.get_current_active_user)],
+) -> None:
+    """Mark a reference as complete for the current user within a project."""
+    roles = get_user_project_roles(current_user.user_id, project_id)
+    user_auth = db.get_user_auth(current_user.user_id)
+    if not roles and not (user_auth and user_auth.role == "superuser"):
+        raise HTTPException(status_code=403, detail="Access denied")
+    mark_annotation_complete(project_id, current_user.user_id, ref)
+
+
+@app.delete("/projects/{project_id}/queue/complete", status_code=204)
+def uncomplete_queue_item(
+    project_id: int,
+    ref: str,
+    current_user: Annotated[User, Depends(users.get_current_active_user)],
+) -> None:
+    """Mark a reference as incomplete for the current user within a project."""
+    roles = get_user_project_roles(current_user.user_id, project_id)
+    user_auth = db.get_user_auth(current_user.user_id)
+    if not roles and not (user_auth and user_auth.role == "superuser"):
+        raise HTTPException(status_code=403, detail="Access denied")
+    mark_annotation_incomplete(project_id, current_user.user_id, ref)
 
 
 # ---------------------------------------------------------------------------
