@@ -100,6 +100,15 @@
         editorState = { mode: "closed" };
     }
 
+    function swapEntities() {
+        if (editorState.mode !== "create-relation") return;
+        editorState = {
+            ...editorState,
+            subjectEntityId: editorState.objectEntityId,
+            objectEntityId: editorState.subjectEntityId,
+        };
+    }
+
     function confirm() {
         if (editorState.mode !== "create-relation" || !selectedCurie) return;
         annotationState.addRelation(
@@ -159,8 +168,7 @@
         });
 
         selectedCurie = curie;
-        view = "select";
-        query = "";
+        confirm();
     }
 
     // ── Helpers ──────────────────────────────────────────────────────────────
@@ -198,6 +206,9 @@
                 <span class="entity-name">{objectEntity.preferred_name}</span>
                 <span class="entity-kind">{kindLabel(objectEntity.kind)}</span>
             </div>
+            <button class="swap-btn" onclick={swapEntities} aria-label="Swap subject and object">
+                <i class="ph ph-arrows-left-right"></i>
+            </button>
         </div>
 
         {#if view === "select"}
@@ -431,6 +442,28 @@
         font-size: 1.25rem;
         color: #666;
         flex-shrink: 0;
+    }
+
+    .swap-btn {
+        background: none;
+        border: 1px solid #ddd;
+        border-radius: 50%;
+        width: 2rem;
+        height: 2rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        color: #888;
+        font-size: 1rem;
+        flex-shrink: 0;
+        padding: 0;
+    }
+
+    .swap-btn:hover {
+        border-color: #aaa;
+        color: #333;
+        background: #f5f5f5;
     }
 
     /* ── Search ── */
