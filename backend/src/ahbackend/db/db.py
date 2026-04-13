@@ -96,9 +96,16 @@ def list_ontologies() -> list[Ontology]:
 
 
 def get_ontology_entities(
-    ontology_id: int, limit: int = 50, offset: int = 0
+    ontology_id: int,
+    limit: int = 50,
+    offset: int = 0,
+    curie_filter: str = "",
+    name_filter: str = "",
+    type_filter: str = "",
 ) -> tuple[list[EntityAnnotation], int]:
-    return annodb.get_ontology_entities(ontology_id, limit, offset)
+    return annodb.get_ontology_entities(
+        ontology_id, limit, offset, curie_filter, name_filter, type_filter
+    )
 
 
 def delete_ontology(ontology_id: int) -> None:
@@ -159,10 +166,17 @@ def get_project_properties(project_id: int) -> list[OntologyProperty]:
 
 
 def get_ontology_triples(
-    ontology_id: int, limit: int = 50, offset: int = 0
+    ontology_id: int,
+    limit: int = 50,
+    offset: int = 0,
+    subject_filter: str = "",
+    predicate_filter: str = "",
+    object_filter: str = "",
 ) -> tuple[list[dict], int]:
     """Return a page of triples for an ontology and the total count."""
-    return annodb.get_ontology_triples(ontology_id, limit, offset)
+    return annodb.get_ontology_triples(
+        ontology_id, limit, offset, subject_filter, predicate_filter, object_filter
+    )
 
 
 def get_ontology_properties_by_id(ontology_id: int) -> list[OntologyProperty]:

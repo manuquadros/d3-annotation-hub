@@ -7,8 +7,12 @@ export const GET: RequestHandler = async ({ params, url, cookies }) => {
 
     const limit = url.searchParams.get("limit") ?? "50";
     const offset = url.searchParams.get("offset") ?? "0";
+    const curieFilter = url.searchParams.get("curie_filter") ?? "";
+    const nameFilter = url.searchParams.get("name_filter") ?? "";
+    const typeFilter = url.searchParams.get("type_filter") ?? "";
+    const qs = new URLSearchParams({ limit, offset, curie_filter: curieFilter, name_filter: nameFilter, type_filter: typeFilter });
     return fetch(
-        `${API_BASE_URL}/admin/ontologies/${params.id}/entities?limit=${limit}&offset=${offset}`,
+        `${API_BASE_URL}/admin/ontologies/${params.id}/entities?${qs}`,
         { headers: { Authorization: `Bearer ${token}` } },
     );
 };

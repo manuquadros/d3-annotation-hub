@@ -256,9 +256,14 @@ def list_ontology_entities(
     current_user: Annotated[User, Depends(users.get_current_admin)],
     limit: int = 50,
     offset: int = 0,
+    curie_filter: str = "",
+    name_filter: str = "",
+    type_filter: str = "",
 ) -> dict:
     """Return a page of entities for an ontology plus the total count."""
-    entities, total = get_ontology_entities(ontology_id, limit, offset)
+    entities, total = get_ontology_entities(
+        ontology_id, limit, offset, curie_filter, name_filter, type_filter
+    )
     return {"entities": entities, "total": total}
 
 
@@ -277,9 +282,14 @@ def list_ontology_triples(
     current_user: Annotated[User, Depends(users.get_current_admin)],
     limit: int = 50,
     offset: int = 0,
+    subject_filter: str = "",
+    predicate_filter: str = "",
+    object_filter: str = "",
 ) -> dict:
     """Return a page of triples for an ontology plus the total count."""
-    rows, total = get_ontology_triples(ontology_id, limit, offset)
+    rows, total = get_ontology_triples(
+        ontology_id, limit, offset, subject_filter, predicate_filter, object_filter
+    )
     return {"triples": [OntologyTripleOut(**r) for r in rows], "total": total}
 
 

@@ -44,19 +44,43 @@
 
     let loadingEntities = $state(false);
 
+    let entityCurieFilter = $state("");
+    let entityNameFilter = $state("");
+    let entityTypeFilter = $state("");
+
+    let entityFilterTimer: ReturnType<typeof setTimeout>;
+
     async function loadEntitiesPage(offset: number) {
         loadingEntities = true;
         try {
-            const res = await fetch(
-                `/api/admin/ontology/${ontology.ontology_id}?limit=${PAGE_SIZE}&offset=${offset}`,
-            );
+            const qs = new URLSearchParams({
+                limit: String(PAGE_SIZE),
+                offset: String(offset),
+                curie_filter: entityCurieFilter,
+                name_filter: entityNameFilter,
+                type_filter: entityTypeFilter,
+            });
+            const res = await fetch(`/api/admin/ontology/${ontology.ontology_id}?${qs}`);
             if (!res.ok) return;
             const d = await res.json();
             entities = d.entities ?? [];
+            entitiesTotal = d.total ?? 0;
             entitiesOffset = offset;
         } finally {
             loadingEntities = false;
         }
+    }
+
+    {
+        let initialEntityRun = true;
+        $effect(() => {
+            const _c = entityCurieFilter;
+            const _n = entityNameFilter;
+            const _t = entityTypeFilter;
+            if (initialEntityRun) { initialEntityRun = false; return; }
+            clearTimeout(entityFilterTimer);
+            entityFilterTimer = setTimeout(() => loadEntitiesPage(0), 300);
+        });
     }
 
     // ── Triples ──────────────────────────────────────────────────────────────
@@ -66,23 +90,72 @@
 
     let loadingTriples = $state(false);
 
+    let tripleSubjectFilter = $state("");
+    let triplePredicateFilter = $state("");
+    let tripleObjectFilter = $state("");
+
+    let tripleFilterTimer: ReturnType<typeof setTimeout>;
+
     async function loadTriplesPage(offset: number) {
         loadingTriples = true;
         try {
+            const qs = new URLSearchParams({
+                limit: String(PAGE_SIZE),
+                offset: String(offset),
+                subject_filter: tripleSubjectFilter,
+                predicate_filter: triplePredicateFilter,
+                object_filter: tripleObjectFilter,
+            });
             const res = await fetch(
-                `/api/admin/ontology/${ontology.ontology_id}/triples?limit=${PAGE_SIZE}&offset=${offset}`,
+                `/api/admin/ontology/${ontology.ontology_id}/triples?${qs}`,
             );
             if (!res.ok) return;
             const d = await res.json();
             triples = d.triples ?? [];
+            triplesTotal = d.total ?? 0;
             triplesOffset = offset;
         } finally {
             loadingTriples = false;
         }
     }
 
+    {
+        let initialTripleRun = true;
+        $effect(() => {
+            const _s = tripleSubjectFilter;
+            const _p = triplePredicateFilter;
+            const _o = tripleObjectFilter;
+            if (initialTripleRun) { initialTripleRun = false; return; }
+            clearTimeout(tripleFilterTimer);
+            tripleFilterTimer = setTimeout(() => loadTriplesPage(0), 300);
+        });
+    }
+
     // ── Properties ───────────────────────────────────────────────────────────
     const properties: Property[] = untrack(() => data.properties);
+
+    let propCurieFilter = $state("");
+    let propLabelFilter = $state("");
+    let propDomainFilter = $state("");
+    let propRangeFilter = $state("");
+
+    let filteredProperties = $derived(
+        properties.filter(
+            (p) =>
+                (!propCurieFilter ||
+                    p.curie.toLowerCase().includes(propCurieFilter.toLowerCase())) &&
+                (!propLabelFilter ||
+                    p.label.toLowerCase().includes(propLabelFilter.toLowerCase())) &&
+                (!propDomainFilter ||
+                    (p.domain_curie ?? "")
+                        .toLowerCase()
+                        .includes(propDomainFilter.toLowerCase())) &&
+                (!propRangeFilter ||
+                    (p.range_curie ?? "")
+                        .toLowerCase()
+                        .includes(propRangeFilter.toLowerCase())),
+        ),
+    );
 </script>
 
 <div class="page">
@@ -106,7 +179,7 @@
             <h2>Classes</h2>
             <span class="count">{entitiesTotal.toLocaleString()}</span>
         </div>
-        {#if entities.length === 0}
+        {#if entities.length === 0 && !entityCurieFilter && !entityNameFilter && !entityTypeFilter}
             <p class="empty">No classes found.</p>
         {:else}
             <table>
@@ -116,15 +189,47 @@
                         <th>Name</th>
                         <th>Type</th>
                     </tr>
+                    <tr class="filter-row">
+                        <th>
+                            <input
+                                type="search"
+                                class="filter-input"
+                                placeholder="Filter…"
+                                bind:value={entityCurieFilter}
+                            />
+                        </th>
+                        <th>
+                            <input
+                                type="search"
+                                class="filter-input"
+                                placeholder="Filter…"
+                                bind:value={entityNameFilter}
+                            />
+                        </th>
+                        <th>
+                            <input
+                                type="search"
+                                class="filter-input"
+                                placeholder="Filter…"
+                                bind:value={entityTypeFilter}
+                            />
+                        </th>
+                    </tr>
                 </thead>
                 <tbody>
-                    {#each entities as e (e.entity_id)}
+                    {#if entities.length === 0}
                         <tr>
-                            <td><code>{e.entity_id}</code></td>
-                            <td>{e.preferred_name}</td>
-                            <td><span class="type-badge">{e.kind}</span></td>
+                            <td colspan="3" class="empty">No matching classes.</td>
                         </tr>
-                    {/each}
+                    {:else}
+                        {#each entities as e (e.entity_id)}
+                            <tr>
+                                <td><code>{e.entity_id}</code></td>
+                                <td>{e.preferred_name}</td>
+                                <td><span class="type-badge">{e.kind}</span></td>
+                            </tr>
+                        {/each}
+                    {/if}
                 </tbody>
             </table>
             {#if entitiesTotal > PAGE_SIZE}
@@ -163,7 +268,7 @@
         <section class="card">
             <div class="section-header">
                 <h2>Object Properties</h2>
-                <span class="count">{properties.length}</span>
+                <span class="count">{filteredProperties.length}</span>
             </div>
             <table>
                 <thead>
@@ -173,16 +278,56 @@
                         <th>Domain</th>
                         <th>Range</th>
                     </tr>
+                    <tr class="filter-row">
+                        <th>
+                            <input
+                                type="search"
+                                class="filter-input"
+                                placeholder="Filter…"
+                                bind:value={propCurieFilter}
+                            />
+                        </th>
+                        <th>
+                            <input
+                                type="search"
+                                class="filter-input"
+                                placeholder="Filter…"
+                                bind:value={propLabelFilter}
+                            />
+                        </th>
+                        <th>
+                            <input
+                                type="search"
+                                class="filter-input"
+                                placeholder="Filter…"
+                                bind:value={propDomainFilter}
+                            />
+                        </th>
+                        <th>
+                            <input
+                                type="search"
+                                class="filter-input"
+                                placeholder="Filter…"
+                                bind:value={propRangeFilter}
+                            />
+                        </th>
+                    </tr>
                 </thead>
                 <tbody>
-                    {#each properties as p (p.curie)}
+                    {#if filteredProperties.length === 0}
                         <tr>
-                            <td><code>{p.curie}</code></td>
-                            <td>{p.label}</td>
-                            <td>{p.domain_curie ?? "—"}</td>
-                            <td>{p.range_curie ?? "—"}</td>
+                            <td colspan="4" class="empty">No matching properties.</td>
                         </tr>
-                    {/each}
+                    {:else}
+                        {#each filteredProperties as p (p.curie)}
+                            <tr>
+                                <td><code>{p.curie}</code></td>
+                                <td>{p.label}</td>
+                                <td>{p.domain_curie ?? "—"}</td>
+                                <td>{p.range_curie ?? "—"}</td>
+                            </tr>
+                        {/each}
+                    {/if}
                 </tbody>
             </table>
         </section>
@@ -194,7 +339,7 @@
             <h2>Triples</h2>
             <span class="count">{triplesTotal.toLocaleString()}</span>
         </div>
-        {#if triples.length === 0}
+        {#if triples.length === 0 && !tripleSubjectFilter && !triplePredicateFilter && !tripleObjectFilter}
             <p class="empty">No triples found.</p>
         {:else}
             <table>
@@ -204,40 +349,74 @@
                         <th>Predicate</th>
                         <th>Object</th>
                     </tr>
+                    <tr class="filter-row">
+                        <th>
+                            <input
+                                type="search"
+                                class="filter-input"
+                                placeholder="Filter…"
+                                bind:value={tripleSubjectFilter}
+                            />
+                        </th>
+                        <th>
+                            <input
+                                type="search"
+                                class="filter-input"
+                                placeholder="Filter…"
+                                bind:value={triplePredicateFilter}
+                            />
+                        </th>
+                        <th>
+                            <input
+                                type="search"
+                                class="filter-input"
+                                placeholder="Filter…"
+                                bind:value={tripleObjectFilter}
+                            />
+                        </th>
+                    </tr>
                 </thead>
                 <tbody>
-                    {#each triples as t, i (i)}
+                    {#if triples.length === 0}
                         <tr>
-                            <td>
-                                <span class="entity-cell">
-                                    <code>{t.subject_curie}</code>
-                                    {#if t.subject_name}
-                                        <span class="entity-name"
-                                            >{t.subject_name}</span
-                                        >
-                                    {/if}
-                                </span>
-                            </td>
-                            <td><code class="predicate">{t.predicate}</code></td
-                            >
-                            <td>
-                                {#if t.object_literal}
-                                    <span class="literal"
-                                        >"{t.object_literal}"</span
-                                    >
-                                {:else}
+                            <td colspan="3" class="empty">No matching triples.</td>
+                        </tr>
+                    {:else}
+                        {#each triples as t, i (i)}
+                            <tr>
+                                <td>
                                     <span class="entity-cell">
-                                        <code>{t.object_curie ?? "—"}</code>
-                                        {#if t.object_name}
+                                        <code>{t.subject_curie}</code>
+                                        {#if t.subject_name}
                                             <span class="entity-name"
-                                                >{t.object_name}</span
+                                                >{t.subject_name}</span
                                             >
                                         {/if}
                                     </span>
-                                {/if}
-                            </td>
-                        </tr>
-                    {/each}
+                                </td>
+                                <td
+                                    ><code class="predicate">{t.predicate}</code
+                                    ></td
+                                >
+                                <td>
+                                    {#if t.object_literal}
+                                        <span class="literal"
+                                            >"{t.object_literal}"</span
+                                        >
+                                    {:else}
+                                        <span class="entity-cell">
+                                            <code>{t.object_curie ?? "—"}</code>
+                                            {#if t.object_name}
+                                                <span class="entity-name"
+                                                    >{t.object_name}</span
+                                                >
+                                            {/if}
+                                        </span>
+                                    {/if}
+                                </td>
+                            </tr>
+                        {/each}
+                    {/if}
                 </tbody>
             </table>
             {#if triplesTotal > PAGE_SIZE}
@@ -370,5 +549,26 @@
     .page-info {
         font-size: 0.85rem;
         color: #666;
+    }
+
+    .filter-row th {
+        padding: 0.3rem 0.5rem;
+        background: #fafafa;
+        border-bottom: 1px solid #e8e8e8;
+    }
+
+    .filter-input {
+        width: 100%;
+        box-sizing: border-box;
+        padding: 0.25rem 0.4rem;
+        font-size: 0.82rem;
+        border: 1px solid #ddd;
+        border-radius: 3px;
+        background: #fff;
+        outline: none;
+    }
+
+    .filter-input:focus {
+        border-color: #aaa;
     }
 </style>
