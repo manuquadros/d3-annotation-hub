@@ -255,6 +255,12 @@ export class AnnotationState {
         this.#commit(before);
     }
 
+    removeRelation(relation: Relation): void {
+        const before = this.#snapshot();
+        this.relations = this.relations.delete(relation);
+        this.#commit(before);
+    }
+
     updateEntityKind(entity_id: string, kind: string): void {
         const before = this.#snapshot();
         const entity = this.entities.get(entity_id);

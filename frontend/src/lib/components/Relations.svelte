@@ -51,6 +51,11 @@
                                 <span class="entity">{getEntityName(subject, rel.subject)}</span>
                                 <span class="arrow">→</span>
                                 <span class="entity">{getEntityName(object, rel.object)}</span>
+                                <button
+                                    class="delete-btn"
+                                    onclick={() => annotationState.removeRelation(rel)}
+                                    aria-label="Delete relation"
+                                >×</button>
                             </li>
                         {/if}
                     {/each}
@@ -89,11 +94,29 @@
     .entity {
         font-weight: 600;
         font-size: 0.9rem;
+        overflow-wrap: break-word;
+        min-width: 0;
     }
 
     .arrow {
         color: #999;
         font-size: 0.85rem;
         flex-shrink: 0;
+    }
+
+    .delete-btn {
+        margin-left: auto;
+        background: none;
+        border: none;
+        padding: 0 0.1rem;
+        color: #bbb;
+        font-size: 1rem;
+        line-height: 1;
+        cursor: pointer;
+        flex-shrink: 0;
+    }
+
+    .delete-btn:hover {
+        color: #e55;
     }
 </style>
