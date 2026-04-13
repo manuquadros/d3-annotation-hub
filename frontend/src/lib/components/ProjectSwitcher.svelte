@@ -69,6 +69,7 @@
 <style>
     .switcher {
         position: relative;
+        margin: 0 2.5rem;
     }
 
     .trigger {

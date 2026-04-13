@@ -112,12 +112,12 @@
                         </div>
 
                         {#if !data.isAdmin}
-                        <nav class="queue-wrapper">
-                            <p class="title">Annotation Queue</p>
-                            <AnnotationQueue
-                                projectId={data.currentProjectId}
-                            />
-                        </nav>
+                            <nav class="queue-wrapper">
+                                <p class="title">Annotation Queue</p>
+                                <AnnotationQueue
+                                    projectId={data.currentProjectId}
+                                />
+                            </nav>
                         {/if}
 
                         {#if data.isCurator}
@@ -140,12 +140,6 @@
 
                     <nav>
                         <p class="title">Management</p>
-                        {#if data.isAdmin}
-                            <a class="with-icon" href="/projects/new">
-                                <i class="ph ph-plus"></i>
-                                New Project
-                            </a>
-                        {/if}
                         {#if data.isSuperuser}
                             <a class="with-icon" href="/admin">
                                 <i class="ph ph-gear"></i>
