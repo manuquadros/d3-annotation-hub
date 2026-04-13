@@ -2,7 +2,7 @@
     import { getContext, onMount } from "svelte";
     import { AnnotationState } from "$lib/annotation.svelte";
     import type { EditorState } from "$lib/types.ts";
-    import { fetchProjectProperties, fetchEntityTypes } from "$lib/api.ts";
+    import { fetchProjectProperties, fetchEntityTypes, submitProposedProperty } from "$lib/api.ts";
     import type { PropertyOption, KindOption } from "$lib/api.ts";
     import { getLabelColor, getContrastColor } from "$lib/utils.ts";
 
@@ -149,6 +149,14 @@
         if (!allProperties.some((p) => p.curie === curie)) {
             allProperties = [...allProperties, newProp];
         }
+
+        // Persist to backend (fire-and-forget; doesn't block the annotator)
+        submitProposedProperty(annotationState.project_id, {
+            label,
+            curie,
+            domain_curie: proposedDomain || undefined,
+            range_curie: proposedRange || undefined,
+        });
 
         selectedCurie = curie;
         view = "select";

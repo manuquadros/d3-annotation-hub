@@ -6,26 +6,6 @@
     const annotationState = getContext<AnnotationState>("annotationState");
 
     /**
-     * Groups entities by their kind and returns a Map of kind -> entities array.
-     */
-    const entitiesByKind = $derived.by(() => {
-        const grouped = new Map<
-            string,
-            Array<{ id: string; entity: Entity }>
-        >();
-
-        for (const [id, entity] of annotationState.entities.entries()) {
-            const kind = entity.kind;
-            if (!grouped.has(kind)) {
-                grouped.set(kind, []);
-            }
-            grouped.get(kind)!.push({ id, entity });
-        }
-
-        return grouped;
-    });
-
-    /**
      * Reactively computes relations for each entity.
      * Maps entity ID -> array of relations where that entity is the subject.
      */
@@ -54,60 +34,49 @@
      * Returns a human-readable predicate string.
      */
     function displayPredicate(predicate: string): string {
-        switch (predicate) {
-            case "d3o:hasSpecies":
-                return "is a strain of";
-            case "d3o:hasEnzyme":
-                return "has enzyme";
-            default:
-                // Remove namespace prefix and convert camelCase to readable text
-                const withoutPrefix = predicate.replace("d3o:", "");
-                // Insert spaces before capital letters and lowercase the result
-                return withoutPrefix
-                    .replace(/([A-Z])/g, " $1")
-                    .toLowerCase()
-                    .trim();
-        }
+        // Strip any namespace prefix and convert camelCase/kebab-case to words
+        const local = predicate.includes(":")
+            ? predicate.slice(predicate.lastIndexOf(":") + 1)
+            : predicate;
+        return local
+            .replace(/([A-Z])/g, " $1")
+            .replace(/[-_]/g, " ")
+            .toLowerCase()
+            .trim();
     }
 
-    // Order of entity kinds to display
-    const kindOrder = ["d3o:Strain", "d3o:Bacteria", "d3o:Enzyme"];
+    /** All entity IDs that appear as subjects in at least one relation, preserving
+     *  insertion order so the list is stable. */
+    const subjectIds = $derived(
+        [...relationsMap.keys()],
+    );
 </script>
 
 {#if annotationState.relations.size > 0}
     <h2>Relations</h2>
 
     <div class="relations-summary">
-        {#each kindOrder as kind}
-            {#each entitiesByKind.get(kind) || [] as { id: entityId, entity }}
-                {@const relations = relationsMap.get(entityId) || []}
-                {#if relations.length > 0}
-                    <div class="relation-row">
-                        <div class="subject">
-                            {getEntityName(entity, entityId)}
-                        </div>
-
-                        <div class="relations">
-                            {#each relations as relation}
-                                {@const objectEntity = annotationState.entity(
-                                    relation.object,
-                                )}
-                                {#if objectEntity}
-                                    <div class="predicate">
-                                        {displayPredicate(relation.predicate)}
-                                        <span class="object">
-                                            {getEntityName(
-                                                objectEntity,
-                                                relation.object,
-                                            )}
-                                        </span>
-                                    </div>
-                                {/if}
-                            {/each}
-                        </div>
+        {#each subjectIds as entityId (entityId)}
+            {@const entity = annotationState.entity(entityId)}
+            {@const relations = relationsMap.get(entityId) ?? []}
+            {#if entity}
+                <div class="relation-row">
+                    <div class="subject">{getEntityName(entity, entityId)}</div>
+                    <div class="relations">
+                        {#each relations as relation (relation.subject + relation.predicate + relation.object)}
+                            {@const objectEntity = annotationState.entity(relation.object)}
+                            {#if objectEntity}
+                                <div class="predicate">
+                                    {displayPredicate(relation.predicate)}
+                                    <span class="object">
+                                        {getEntityName(objectEntity, relation.object)}
+                                    </span>
+                                </div>
+                            {/if}
+                        {/each}
                     </div>
-                {/if}
-            {/each}
+                </div>
+            {/if}
         {/each}
     </div>
 {/if}

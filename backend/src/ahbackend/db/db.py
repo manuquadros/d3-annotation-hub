@@ -8,6 +8,8 @@ from typing import Any, Optional
 from d3textdb import D3TextDB, ParsedOntology
 from d3textdb.schema import (
     OntologyProperty,
+    ProposedEntity,
+    ProposedProperty,
     AnnotationSnapshot,
     AnnotationState,
     AnnotatorSnapshot,
@@ -166,6 +168,41 @@ def get_ontology_triples(
 def get_ontology_properties_by_id(ontology_id: int) -> list[OntologyProperty]:
     """Return all object properties defined in a specific ontology."""
     return annodb.get_ontology_properties_by_id(ontology_id)
+
+
+def list_proposed_entities(
+    project_id: int, limit: int = 50, offset: int = 0
+) -> tuple[list[dict], int]:
+    return annodb.list_proposed_entities(project_id, limit, offset)
+
+
+def store_proposed_entity(
+    project_id: int,
+    label: str,
+    curie: str,
+    kind: str,
+    proposed_by: str | None = None,
+) -> dict:
+    return annodb.store_proposed_entity(project_id, label, curie, kind, proposed_by)
+
+
+def list_proposed_properties(
+    project_id: int, limit: int = 50, offset: int = 0
+) -> tuple[list[dict], int]:
+    return annodb.list_proposed_properties(project_id, limit, offset)
+
+
+def store_proposed_property(
+    project_id: int,
+    label: str,
+    curie: str | None = None,
+    domain_curie: str | None = None,
+    range_curie: str | None = None,
+    proposed_by: str | None = None,
+) -> dict:
+    return annodb.store_proposed_property(
+        project_id, label, curie, domain_curie, range_curie, proposed_by
+    )
 
 
 def upsert_annotation(annotation: ReferenceAnnotation) -> None:

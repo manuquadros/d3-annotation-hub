@@ -91,8 +91,10 @@ export async function fetchEntityTypes(): Promise<KindOption[]> {
 export async function searchEntities(
     q: string,
     limit = 20,
+    projectId?: number,
 ): Promise<EntitySearchResult[]> {
     const params = new URLSearchParams({ q, limit: String(limit) });
+    if (projectId !== undefined) params.set("project_id", String(projectId));
     const response = await fetch(`/api/entity?${params}`);
     if (!response.ok) {
         throw new Error(`Entity search failed: ${response.statusText}`);
@@ -105,6 +107,28 @@ export interface PropertyOption {
     label: string;
     domain_curie: string | null;
     range_curie: string | null;
+}
+
+export async function submitProposedProperty(
+    projectId: number,
+    proposal: { label: string; curie?: string; domain_curie?: string; range_curie?: string },
+): Promise<void> {
+    await fetch(`/api/projects/${projectId}/proposed-properties`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(proposal),
+    });
+}
+
+export async function submitProposedEntity(
+    projectId: number,
+    proposal: { label: string; curie: string; kind: string },
+): Promise<void> {
+    await fetch(`/api/projects/${projectId}/proposed-entities`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(proposal),
+    });
 }
 
 export async function fetchProjectProperties(

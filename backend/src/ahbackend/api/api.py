@@ -9,6 +9,10 @@ from ahbackend.db import (
     get_project_properties,
     get_ontology_triples,
     get_ontology_properties_by_id,
+    list_proposed_entities,
+    store_proposed_entity,
+    list_proposed_properties,
+    store_proposed_property,
     add_project_member,
     add_reference_to_project,
     assign_ontology_to_project,
@@ -301,13 +305,14 @@ def list_ontology_properties(
 
 
 @app.get("/admin/entities/proposed")
-def get_proposed_entities(
-    current_user: Annotated[User, Depends(users.get_current_superuser)],
+def get_proposed_entities_admin(
+    project_id: int,
+    current_user: Annotated[User, Depends(users.get_current_admin)],
     limit: int = 50,
     offset: int = 0,
 ) -> dict:
-    """Return unconfirmed (user-coined) entities pending curator review."""
-    entities, total = list_proposed_entities(limit, offset)
+    """Return proposed entities for a project (admin/curator view)."""
+    entities, total = list_proposed_entities(project_id, limit, offset)
     return {"entities": entities, "total": total}
 
 
@@ -671,6 +676,81 @@ def list_project_properties(
 ) -> list[PropertyResponse]:
     """Return OWL object properties from all ontologies assigned to the project."""
     return [PropertyResponse.model_validate(p) for p in get_project_properties(project_id)]
+
+
+# ---------------------------------------------------------------------------
+# Project-scoped proposals (entities and properties)
+# ---------------------------------------------------------------------------
+
+
+class ProposedEntityRequest(BaseModel):
+    label: str
+    curie: str
+    kind: str
+
+
+class ProposedPropertyRequest(BaseModel):
+    label: str
+    curie: str | None = None
+    domain_curie: str | None = None
+    range_curie: str | None = None
+
+
+@app.get("/projects/{project_id}/proposed-entities")
+def get_project_proposed_entities(
+    project_id: int,
+    current_user: Annotated[User, Depends(users.get_current_admin)],
+    limit: int = 50,
+    offset: int = 0,
+) -> dict:
+    """Return proposed entities for a project (curator/manager view)."""
+    entities, total = list_proposed_entities(project_id, limit, offset)
+    return {"entities": entities, "total": total}
+
+
+@app.post("/projects/{project_id}/proposed-entities", status_code=201)
+def create_project_proposed_entity(
+    project_id: int,
+    body: ProposedEntityRequest,
+    current_user: Annotated[User, Depends(users.get_current_active_user)],
+) -> dict:
+    """Record an annotator-proposed entity for the project."""
+    return store_proposed_entity(
+        project_id,
+        label=body.label,
+        curie=body.curie,
+        kind=body.kind,
+        proposed_by=current_user.email,
+    )
+
+
+@app.get("/projects/{project_id}/proposed-properties")
+def get_project_proposed_properties(
+    project_id: int,
+    current_user: Annotated[User, Depends(users.get_current_admin)],
+    limit: int = 50,
+    offset: int = 0,
+) -> dict:
+    """Return proposed properties for a project (curator/manager view)."""
+    properties, total = list_proposed_properties(project_id, limit, offset)
+    return {"properties": properties, "total": total}
+
+
+@app.post("/projects/{project_id}/proposed-properties", status_code=201)
+def create_project_proposed_property(
+    project_id: int,
+    body: ProposedPropertyRequest,
+    current_user: Annotated[User, Depends(users.get_current_active_user)],
+) -> dict:
+    """Record an annotator-proposed property for the project."""
+    return store_proposed_property(
+        project_id,
+        label=body.label,
+        curie=body.curie,
+        domain_curie=body.domain_curie,
+        range_curie=body.range_curie,
+        proposed_by=current_user.email,
+    )
 
 
 @app.delete("/projects/{project_id}/ontologies/{ontology_id}", status_code=204)
