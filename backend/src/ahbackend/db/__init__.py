@@ -55,6 +55,7 @@ from .db import (
     get_project_properties,
     get_ontology_triples,
     get_ontology_properties_by_id,
+    rebuild_fts,
     run_ontology_import,
     list_proposed_entities,
     store_proposed_entity,

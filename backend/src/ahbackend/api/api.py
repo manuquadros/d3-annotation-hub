@@ -8,6 +8,7 @@ from ahbackend import db, users
 from ahbackend.db import (
     get_project_properties,
     get_ontology_triples,
+    rebuild_fts,
     get_ontology_properties_by_id,
     list_proposed_entities,
     store_proposed_entity,
@@ -291,6 +292,15 @@ def list_ontology_triples(
         ontology_id, limit, offset, subject_filter, predicate_filter, object_filter
     )
     return {"triples": [OntologyTripleOut(**r) for r in rows], "total": total}
+
+
+@app.post("/admin/fts/rebuild")
+def rebuild_fts_index(
+    current_user: Annotated[User, Depends(users.get_current_admin)],
+) -> dict:
+    """Rebuild the FTS5 name search index from the current Name table contents."""
+    rebuild_fts()
+    return {"status": "ok"}
 
 
 class PropertyResponse(BaseModel):

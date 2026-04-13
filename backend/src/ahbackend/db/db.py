@@ -179,6 +179,11 @@ def get_ontology_triples(
     )
 
 
+def rebuild_fts() -> None:
+    """Rebuild the FTS5 name index from the current Name table contents."""
+    annodb.rebuild_fts()
+
+
 def get_ontology_properties_by_id(ontology_id: int) -> list[OntologyProperty]:
     """Return all object properties defined in a specific ontology."""
     return annodb.get_ontology_properties_by_id(ontology_id)

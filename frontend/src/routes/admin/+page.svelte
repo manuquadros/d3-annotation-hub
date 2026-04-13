@@ -333,6 +333,23 @@
         }
     }
 
+    // ── FTS rebuild ───────────────────────────────────────────────────────────
+    let ftsRebuilding = $state(false);
+    let ftsRebuildStatus = $state<'idle' | 'ok' | 'error'>('idle');
+
+    async function handleRebuildFts() {
+        ftsRebuilding = true;
+        ftsRebuildStatus = 'idle';
+        try {
+            const res = await fetch('/api/admin/fts-rebuild', { method: 'POST' });
+            ftsRebuildStatus = res.ok ? 'ok' : 'error';
+        } catch {
+            ftsRebuildStatus = 'error';
+        } finally {
+            ftsRebuilding = false;
+        }
+    }
+
     // ── Delete ontology state ──────────────────────────────────────────────────
     let confirmDeleteId = $state<number | null>(null);
     let deleting = $state(false);
@@ -886,6 +903,28 @@
                 {/if}
             {/if}
         </section>
+
+        <section class="card">
+            <h2>Search Index</h2>
+            <p class="hint">
+                Rebuild the full-text search index if entities are missing from
+                annotation search results.
+            </p>
+            <div class="fts-row">
+                <button
+                    class="btn-secondary"
+                    disabled={ftsRebuilding}
+                    onclick={handleRebuildFts}
+                >
+                    {ftsRebuilding ? 'Rebuilding…' : 'Rebuild FTS index'}
+                </button>
+                {#if ftsRebuildStatus === 'ok'}
+                    <span class="fts-ok">Index rebuilt successfully.</span>
+                {:else if ftsRebuildStatus === 'error'}
+                    <span class="fts-error">Rebuild failed.</span>
+                {/if}
+            </div>
+        </section>
     {/if}
 </div>
 
@@ -905,6 +944,28 @@
         font-size: 1rem;
         font-weight: 600;
         margin: 0;
+    }
+
+    .hint {
+        font-size: 0.85rem;
+        color: #666;
+        margin: 0.4rem 0 0.8rem;
+    }
+
+    .fts-row {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+
+    .fts-ok {
+        font-size: 0.85rem;
+        color: #2a7a2a;
+    }
+
+    .fts-error {
+        font-size: 0.85rem;
+        color: #c00;
     }
 
     .section-header {
