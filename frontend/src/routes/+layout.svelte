@@ -34,7 +34,7 @@
         <div class="navbar navbar-top">
             <a href="index.php" class="navbar-brand ml-20">
                 <!-- here goes your database logo -->
-                <img src="digidive/img/Logo D3_1.png" alt="Annotation Hub" />
+                <img src="/digidive/img/Logo D3_1.png" alt="Annotation Hub" />
             </a>
 
             <a href="//www.dsmz.de/" class="navbar-brand ml-auto">
@@ -141,15 +141,24 @@
                     <nav>
                         <p class="title">Management</p>
                         {#if data.isAdmin && data.currentProjectId !== null}
-                            <a class="with-icon" href="/projects/{data.currentProjectId}/documents">
+                            <a
+                                class="with-icon"
+                                href="/projects/{data.currentProjectId}/documents"
+                            >
                                 <i class="ph ph-file-text"></i>
                                 Documents
                             </a>
-                            <a class="with-icon" href="/projects/{data.currentProjectId}/ontologies">
+                            <a
+                                class="with-icon"
+                                href="/projects/{data.currentProjectId}/ontologies"
+                            >
                                 <i class="ph ph-tree-structure"></i>
                                 Ontologies
                             </a>
-                            <a class="with-icon" href="/projects/{data.currentProjectId}/users">
+                            <a
+                                class="with-icon"
+                                href="/projects/{data.currentProjectId}/users"
+                            >
                                 <i class="ph ph-users"></i>
                                 Users
                             </a>
