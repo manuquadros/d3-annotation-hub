@@ -111,12 +111,14 @@
                             />
                         </div>
 
+                        {#if !data.isAdmin}
                         <nav class="queue-wrapper">
                             <p class="title">Annotation Queue</p>
                             <AnnotationQueue
                                 projectId={data.currentProjectId}
                             />
                         </nav>
+                        {/if}
 
                         {#if data.isCurator}
                             <nav>
