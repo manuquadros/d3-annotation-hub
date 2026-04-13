@@ -178,7 +178,7 @@ def get_me(
         user_id=str(current_user.user_id),
         email=str(current_user.email),
         role=role,
-        is_project_manager=role == "project_manager",
+        is_project_manager=role in ("project_manager", "super_user"),
     )
 
 
@@ -511,7 +511,7 @@ def list_all_projects(
 ) -> list[ProjectResponse]:
     """List projects. Superusers see all; other users see only their own."""
     user_auth = db.get_user_auth(current_user.user_id)
-    if user_auth and user_auth.role == "superuser":
+    if user_auth and user_auth.role == "super_user":
         projects = list_projects()
     else:
         projects = list_user_projects(current_user.user_id)
@@ -528,7 +528,7 @@ def get_one_project(
     if project is None:
         raise HTTPException(status_code=404, detail="Project not found")
     user_auth = db.get_user_auth(current_user.user_id)
-    if not (user_auth and user_auth.role == "superuser"):
+    if not (user_auth and user_auth.role == "super_user"):
         roles = get_user_project_roles(current_user.user_id, project_id)
         if not roles:
             raise HTTPException(status_code=403, detail="Access denied")
@@ -887,7 +887,7 @@ def project_annotation_queue(
     """Return the annotation queue for the current user within a project."""
     roles = get_user_project_roles(current_user.user_id, project_id)
     user_auth = db.get_user_auth(current_user.user_id)
-    if not roles and not (user_auth and user_auth.role == "superuser"):
+    if not roles and not (user_auth and user_auth.role == "super_user"):
         raise HTTPException(status_code=403, detail="Access denied")
     items = get_project_queue_with_status(project_id, current_user.user_id)
     return [QueueItem(ref=ref, completed=completed) for ref, completed in items]
@@ -902,7 +902,7 @@ def complete_queue_item(
     """Mark a reference as complete for the current user within a project."""
     roles = get_user_project_roles(current_user.user_id, project_id)
     user_auth = db.get_user_auth(current_user.user_id)
-    if not roles and not (user_auth and user_auth.role == "superuser"):
+    if not roles and not (user_auth and user_auth.role == "super_user"):
         raise HTTPException(status_code=403, detail="Access denied")
     mark_annotation_complete(project_id, current_user.user_id, ref)
 
@@ -916,7 +916,7 @@ def uncomplete_queue_item(
     """Mark a reference as incomplete for the current user within a project."""
     roles = get_user_project_roles(current_user.user_id, project_id)
     user_auth = db.get_user_auth(current_user.user_id)
-    if not roles and not (user_auth and user_auth.role == "superuser"):
+    if not roles and not (user_auth and user_auth.role == "super_user"):
         raise HTTPException(status_code=403, detail="Access denied")
     mark_annotation_incomplete(project_id, current_user.user_id, ref)
 
@@ -955,7 +955,7 @@ def curation_queue(
     user_auth = db.get_user_auth(current_user.user_id)
     roles = get_user_project_roles(current_user.user_id, project_id)
     if "curator" not in roles and not (
-        user_auth and user_auth.role == "superuser"
+        user_auth and user_auth.role == "super_user"
     ):
         raise HTTPException(status_code=403, detail="Curator access required")
     refs = get_curation_queue(project_id)
@@ -1028,7 +1028,7 @@ def _curator_or_superuser(
     project_id: int, current_user: User
 ) -> None:
     user_auth = db.get_user_auth(current_user.user_id)
-    if user_auth and user_auth.role == "superuser":
+    if user_auth and user_auth.role == "super_user":
         return
     roles = get_user_project_roles(current_user.user_id, project_id)
     if "curator" not in roles:

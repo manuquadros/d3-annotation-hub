@@ -42,7 +42,7 @@ export const load: LayoutServerLoad = async ({ cookies, url }) => {
             ? Number(urlProject)
             : (lastProject?.project_id ?? projects[0]?.project_id ?? null);
 
-    const isSuperuser = me?.role === "superuser";
+    const isSuperuser = me?.role === "super_user";
     const isAdmin = isSuperuser || me?.is_project_manager === true;
 
     // Determine curator status for the current project.

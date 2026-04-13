@@ -12,7 +12,7 @@ export const load: PageServerLoad = async ({ cookies }) => {
     if (!meRes.ok) redirect(302, "/login");
 
     const me = await meRes.json();
-    const isSuperuser = me.role === "superuser";
+    const isSuperuser = me.role === "super_user";
     const isProjectManager = me.is_project_manager === true;
 
     if (!isSuperuser) {
