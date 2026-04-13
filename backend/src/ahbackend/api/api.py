@@ -479,6 +479,13 @@ def get_one_project(
 class AddMemberRequest(BaseModel):
     email: EmailStr
     role: str  # "project_manager" | "annotator" | "curator"
+    password: str | None = None  # if set, used when creating a new user
+
+
+class UserLookupResponse(BaseModel):
+    exists: bool
+    user_id: str | None = None
+    email: str | None = None
 
 
 class MemberInfo(BaseModel):
@@ -501,6 +508,23 @@ def list_project_members(
     ]
 
 
+@app.get("/projects/{project_id}/members/lookup")
+def lookup_user_for_project(
+    project_id: int,
+    email: str,
+    _: Annotated[User, Depends(users.require_project_manager)],
+) -> UserLookupResponse:
+    """Check whether a user with the given email exists in the database."""
+    user = get_user(email)
+    if user is None:
+        return UserLookupResponse(exists=False)
+    return UserLookupResponse(
+        exists=True,
+        user_id=str(user.user_id),
+        email=str(user.email),
+    )
+
+
 @app.post("/projects/{project_id}/members", status_code=201)
 def add_member_to_project(
     project_id: int,
@@ -509,8 +533,9 @@ def add_member_to_project(
 ) -> MemberInfo:
     """Add a user to a project.
 
-    If the user does not exist, they are created with a randomly generated
-    password that is returned in the response (shown only once).
+    If the user does not exist they are created. If ``body.password`` is
+    provided it is used as the initial password; otherwise one is generated and
+    returned in ``generated_password`` (shown only once).
     """
     if get_project(project_id) is None:
         raise HTTPException(status_code=404, detail="Project not found")
@@ -525,12 +550,12 @@ def add_member_to_project(
     generated_password: str | None = None
     user = get_user(body.email)
     if user is None:
-        generated_password = _generate_password()
+        password = body.password if body.password else _generate_password()
+        if not body.password:
+            generated_password = password
         from d3textdb.schema import User as DbUser
 
-        create_user(
-            DbUser(email=body.email), generated_password, role="user"
-        )
+        create_user(DbUser(email=body.email), password, role="user")
         user = get_user(body.email)
         if user is None:
             raise HTTPException(
