@@ -17,6 +17,11 @@ export const load: PageLoad = async ({ fetch, url, parent }) => {
         redirect(302, `/curate?project=${currentProjectId}`);
     }
 
+    // Project managers (non-curator admins) land on the management hub.
+    if (isAdmin && !isCurator && !url.searchParams.get("ref")) {
+        redirect(302, `/projects/${currentProjectId}`);
+    }
+
     const ref = url.searchParams.get("ref");
 
     if (!ref) {

@@ -40,6 +40,7 @@
         if (path.includes("/documents")) return [{ label: "Documents" }];
         if (path.includes("/ontologies")) return [{ label: "Ontologies" }];
         if (path.includes("/users")) return [{ label: "Users" }];
+        if (/^\/projects\/\d+$/.test(path)) return [{ label: "Management" }];
         if (path === "/admin") return [{ label: "Admin" }];
         if (path === "/projects/new") return [{ label: "New Project" }];
         return [];
