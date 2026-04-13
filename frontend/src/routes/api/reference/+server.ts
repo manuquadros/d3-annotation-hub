@@ -10,8 +10,17 @@ export const GET: RequestHandler = async ({ cookies, url }) => {
         return new Response("Missing ref_identifier", { status: 400 });
     }
 
-    return fetch(
-        `${API_BASE_URL}/reference/?ref_identifier=${encodeURIComponent(refIdentifier)}`,
-        { headers: { Authorization: `Bearer ${token}` } },
-    );
+    const projectId = url.searchParams.get("project_id");
+    if (!projectId) {
+        return new Response("Missing project_id", { status: 400 });
+    }
+
+    const params = new URLSearchParams({
+        ref_identifier: refIdentifier,
+        project_id: projectId,
+    });
+
+    return fetch(`${API_BASE_URL}/reference/?${params}`, {
+        headers: { Authorization: `Bearer ${token}` },
+    });
 };

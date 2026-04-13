@@ -8,6 +8,7 @@
     import { page } from "$app/stores";
     import { auth } from "$lib/auth.svelte";
     import AnnotationQueue from "$lib/components/AnnotationQueue.svelte";
+    import ProjectSwitcher from "$lib/components/ProjectSwitcher.svelte";
     import "../styles.css";
     let { children, data } = $props();
 
@@ -101,10 +102,36 @@
             <!-- Sidebar start -->
             <div class="sidebar">
                 <div class="sidebar-menu">
-                    <nav class="queue-wrapper">
-                        <p class="title">Annotation Queue</p>
-                        <AnnotationQueue />
-                    </nav>
+                    {#if data.projects.length > 0 && data.currentProjectId !== null}
+                        <div class="sidebar-section">
+                            <p class="title">Project</p>
+                            <ProjectSwitcher
+                                projects={data.projects}
+                                currentProjectId={data.currentProjectId}
+                            />
+                        </div>
+
+                        <nav class="queue-wrapper">
+                            <p class="title">Annotation Queue</p>
+                            <AnnotationQueue
+                                projectId={data.currentProjectId}
+                            />
+                        </nav>
+
+                        {#if data.isCurator}
+                            <nav>
+                                <p class="title">Curation</p>
+                                <a class="with-icon" href="/curate?project={data.currentProjectId}">
+                                    <i class="ph ph-check-square"></i>
+                                    Curation Queue
+                                </a>
+                            </nav>
+                        {/if}
+                    {:else}
+                        <div class="sidebar-section">
+                            <p class="title">No projects assigned</p>
+                        </div>
+                    {/if}
 
                     <nav>
                         <p class="title">Management</p>

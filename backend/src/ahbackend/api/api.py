@@ -2,7 +2,7 @@ import base64
 import json
 import secrets
 import string
-from typing import Annotated, Optional
+from typing import Annotated, Optional, Self
 
 from ahbackend import db, users
 from ahbackend.db import (
@@ -16,6 +16,8 @@ from ahbackend.db import (
     delete_ontology,
     get_annotator_snapshots,
     get_annotation_queue,
+    get_entities_by_curies,
+    is_project_manager,
     get_curation_queue,
     get_entity_types,
     get_ontology_entities,
@@ -23,6 +25,7 @@ from ahbackend.db import (
     get_project_annotation_queue,
     get_project_members,
     get_reference_annotation,
+    get_reference_by_id,
     get_reference_by_pubmed_id,
     get_user,
     get_user_last_project,
@@ -39,6 +42,8 @@ from ahbackend.db import (
     save_curated_annotation,
     search_entities,
     set_user_last_project,
+    set_user_role,
+    list_users,
     update_entity_curie,
     upsert_annotation,
 )
@@ -54,7 +59,7 @@ from d3textdb.schema import (
 )
 from fastapi import Body, Depends, FastAPI, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, ConfigDict
 from xmlparser import (
     XMLSyntaxError,
     replace_annotation,
@@ -145,6 +150,7 @@ class UserInfo(BaseModel):
     user_id: str
     email: str
     role: str
+    is_project_manager: bool
 
 
 @app.get("/me")
@@ -157,6 +163,7 @@ def get_me(
         user_id=str(current_user.user_id),
         email=str(current_user.email),
         role=user_auth.role if user_auth else "user",
+        is_project_manager=is_project_manager(current_user.user_id),
     )
 
 
@@ -183,6 +190,20 @@ def set_last_project(
     if get_project(project_id) is None:
         raise HTTPException(status_code=404, detail="Project not found")
     set_user_last_project(current_user.user_id, project_id)
+
+
+class ProjectRolesResponse(BaseModel):
+    roles: list[str]
+
+
+@app.get("/me/project-roles")
+def get_project_roles(
+    project_id: int,
+    current_user: Annotated[User, Depends(users.get_current_active_user)],
+) -> ProjectRolesResponse:
+    """Return the current user's roles in a specific project."""
+    roles = get_user_project_roles(current_user.user_id, project_id)
+    return ProjectRolesResponse(roles=roles)
 
 
 @app.get("/admin/ontologies")
@@ -282,6 +303,47 @@ def remove_ontology(
     return {"ok": True}
 
 
+_VALID_SYSTEM_ROLES = {"user", "project_manager", "superuser"}
+
+
+class SetRoleRequest(BaseModel):
+    role: str
+
+
+@app.put("/admin/users/{username}/role", status_code=204)
+def update_user_role(
+    username: str,
+    body: SetRoleRequest,
+    _: Annotated[User, Depends(users.get_current_superuser)],
+) -> None:
+    """Set the system-level role for a user (superuser only)."""
+    if body.role not in _VALID_SYSTEM_ROLES:
+        raise HTTPException(
+            status_code=422,
+            detail=f"role must be one of {sorted(_VALID_SYSTEM_ROLES)}",
+        )
+    user = get_user(username)
+    if user is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    set_user_role(user.user_id, body.role)
+
+
+@app.get("/admin/users")
+def get_all_users(
+    _: Annotated[User, Depends(users.get_current_superuser)],
+) -> list[UserInfo]:
+    """List all users with their system roles."""
+    return [
+        UserInfo(
+            user_id=str(u.user_id),
+            email=str(u.email),
+            role=a.role,
+            is_project_manager=a.role == "project_manager",
+        )
+        for u, a in list_users()
+    ]
+
+
 @app.get("/entity/types")
 def list_entity_types(
     current_user: Annotated[User, Depends(users.get_current_active_user)],
@@ -353,19 +415,12 @@ class CreateProjectRequest(BaseModel):
 
 
 class ProjectResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    
     project_id: int
     name: str
     description: str | None
     required_annotators: int
-
-    @classmethod
-    def from_orm(cls, p: Project) -> "ProjectResponse":
-        return cls(
-            project_id=p.project_id,
-            name=p.name,
-            description=p.description,
-            required_annotators=p.required_annotators,
-        )
 
 
 @app.post("/projects", status_code=201)
@@ -378,7 +433,7 @@ def create_new_project(
         body.name, body.description, body.required_annotators
     )
     project = get_project(project_id)
-    return ProjectResponse.from_orm(project)
+    return ProjectResponse.model_validate(project)
 
 
 @app.get("/projects")
@@ -648,6 +703,13 @@ class RelationOut(BaseModel):
     object: str
 
 
+class EntityOut(BaseModel):
+    entity_id: str
+    preferred_name: str
+    kind: str
+    confirmed: bool
+
+
 class AnnotatorSnapshotResponse(BaseModel):
     user_id: str
     email: str
@@ -655,6 +717,19 @@ class AnnotatorSnapshotResponse(BaseModel):
     pointers: list[PointerOut]
     relations: list[RelationOut]
     created_at: str
+
+
+class SnapshotsResponse(BaseModel):
+    """Snapshot collection enriched with entity metadata.
+
+    ``entities`` maps each CURIE that appears in any pointer to its display
+    name and kind, so the frontend doesn't need a separate lookup.
+    ``reference`` carries the reference title and metadata for display.
+    """
+
+    reference: ReferenceInfo
+    entities: dict[str, EntityOut]
+    snapshots: list[AnnotatorSnapshotResponse]
 
 
 def _curator_or_superuser(
@@ -677,14 +752,31 @@ def annotator_snapshots(
     project_id: int,
     reference_id: int,
     current_user: Annotated[User, Depends(users.get_current_active_user)],
-) -> list[AnnotatorSnapshotResponse]:
+) -> SnapshotsResponse:
     """Return each annotator's completed snapshot for a reference.
 
-    Used by the curation view to compare annotations side-by-side.
+    Also includes entity metadata (name, kind) for every CURIE referenced in
+    any pointer, so the frontend can display meaningful labels.
     """
     _curator_or_superuser(project_id, current_user)
+    ref = get_reference_by_id(reference_id)
+    if ref is None:
+        raise HTTPException(status_code=404, detail="Reference not found")
     snapshots = get_annotator_snapshots(project_id, reference_id)
-    return [
+
+    all_curies = {p.entity_id for s in snapshots for p in s.pointers}
+    entity_list = get_entities_by_curies(list(all_curies))
+    entities = {
+        e.entity_id: EntityOut(
+            entity_id=e.entity_id,
+            preferred_name=e.preferred_name,
+            kind=e.kind,
+            confirmed=e.confirmed,
+        )
+        for e in entity_list
+    }
+
+    snapshot_responses = [
         AnnotatorSnapshotResponse(
             user_id=str(s.user.user_id),
             email=str(s.user.email),
@@ -711,6 +803,17 @@ def annotator_snapshots(
         )
         for s in snapshots
     ]
+    return SnapshotsResponse(
+        reference=ReferenceInfo(
+            reference_id=ref.reference_id,
+            pubmed_id=ref.pubmed_id,
+            title=ref.title,
+            authors=ref.authors,
+            year=ref.year,
+        ),
+        entities=entities,
+        snapshots=snapshot_responses,
+    )
 
 
 class SaveCuratedRequest(BaseModel):

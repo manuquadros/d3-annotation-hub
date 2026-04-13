@@ -7,13 +7,65 @@ export const load: LayoutServerLoad = async ({ cookies, url }) => {
     if (!token && url.pathname !== "/login") {
         redirect(302, "/login");
     }
-    if (!token) return { authenticated: false, isAdmin: false };
+    if (!token)
+        return {
+            authenticated: false,
+            isSuperuser: false,
+            isAdmin: false,
+            isCurator: false,
+            projects: [],
+            currentProjectId: null,
+        };
 
-    const meRes = await fetch(`${API_BASE_URL}/me`, {
-        headers: { Authorization: `Bearer ${token}` },
-    });
+    const headers = { Authorization: `Bearer ${token}` };
+
+    const [meRes, projectsRes, lastProjectRes] = await Promise.all([
+        fetch(`${API_BASE_URL}/me`, { headers }),
+        fetch(`${API_BASE_URL}/projects`, { headers }),
+        fetch(`${API_BASE_URL}/me/last-project`, { headers }),
+    ]);
+
+    if (meRes.status === 401) {
+        redirect(302, "/login");
+    }
+
     const me = meRes.ok ? await meRes.json() : null;
-    const isAdmin = me?.role === "admin";
+    const projects: Array<{ project_id: number; name: string }> = projectsRes.ok
+        ? await projectsRes.json()
+        : [];
+    const lastProject = lastProjectRes.ok ? await lastProjectRes.json() : null;
 
-    return { authenticated: true, isAdmin };
+    // URL param takes precedence over stored last project.
+    const urlProject = url.searchParams.get("project");
+    const currentProjectId: number | null =
+        urlProject !== null
+            ? Number(urlProject)
+            : (lastProject?.project_id ?? projects[0]?.project_id ?? null);
+
+    const isSuperuser = me?.role === "superuser";
+    const isAdmin = isSuperuser || me?.is_project_manager === true;
+
+    // Determine curator status for the current project.
+    let isCurator = isSuperuser;
+    if (!isCurator && currentProjectId !== null) {
+        const rolesRes = await fetch(
+            `${API_BASE_URL}/me/project-roles?project_id=${currentProjectId}`,
+            { headers },
+        );
+        if (rolesRes.ok) {
+            const rolesData = await rolesRes.json();
+            isCurator = (rolesData.roles as string[]).includes("curator");
+        }
+    }
+
+    console.debug(me);
+
+    return {
+        authenticated: true,
+        isSuperuser,
+        isAdmin,
+        isCurator,
+        projects,
+        currentProjectId,
+    };
 };

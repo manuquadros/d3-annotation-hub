@@ -4,6 +4,8 @@
     import { page } from "$app/stores";
     import { fetchQueue } from "$lib/api";
 
+    let { projectId }: { projectId: number } = $props();
+
     let queue = $state<string[]>([]);
     let error = $state<string | null>(null);
     let loading = $state(true);
@@ -12,7 +14,7 @@
 
     onMount(async () => {
         try {
-            queue = await fetchQueue();
+            queue = await fetchQueue(projectId);
         } catch (e) {
             error = e instanceof Error ? e.message : "Failed to load queue";
         } finally {
@@ -30,11 +32,11 @@
 {:else}
     {#each queue as identifier}
         <a
-            href="/?ref={identifier}"
+            href="/?ref={identifier}&project={projectId}"
             class:active={currentRef === identifier}
             onclick={(e) => {
                 e.preventDefault();
-                goto(`/?ref=${identifier}`);
+                goto(`/?ref=${identifier}&project=${projectId}`);
             }}
         >
             {identifier}

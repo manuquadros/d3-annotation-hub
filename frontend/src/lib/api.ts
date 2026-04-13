@@ -4,10 +4,14 @@ import type { EntitySearchResult } from "$lib/types.ts";
 
 export async function fetchReference(
     refIdentifier: string,
+    projectId: number,
     customFetch: typeof fetch = fetch,
 ): Promise<AnnotationState> {
-    const url = `/api/reference?ref_identifier=${encodeURIComponent(refIdentifier)}`;
-    const response = await customFetch(url);
+    const params = new URLSearchParams({
+        ref_identifier: refIdentifier,
+        project_id: String(projectId),
+    });
+    const response = await customFetch(`/api/reference?${params}`);
 
     if (response.status === 401) {
         goto("/login");
@@ -23,15 +27,22 @@ export async function fetchReference(
 }
 
 export async function fetchQueue(
+    projectId: number,
     customFetch: typeof fetch = fetch,
 ): Promise<string[]> {
-    const response = await customFetch("/api/queue");
+    const response = await customFetch(`/api/projects/${projectId}/queue`);
 
     if (!response.ok) {
         throw new Error(`Failed to fetch queue: ${response.statusText}`);
     }
 
     return response.json();
+}
+
+export async function setLastProject(projectId: number): Promise<void> {
+    await fetch(`/api/me/last-project?project_id=${projectId}`, {
+        method: "PUT",
+    });
 }
 
 export interface KindOption {

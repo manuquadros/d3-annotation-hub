@@ -19,10 +19,176 @@
         triples: number;
     }
 
+    interface ProjectMember {
+        user_id: string;
+        email: string;
+        roles: string[];
+    }
+
+    interface Project {
+        project_id: number;
+        name: string;
+        description: string | null;
+        required_annotators: number;
+    }
+
     const PAGE_SIZE = 50;
+
+    interface UserRecord {
+        user_id: string;
+        email: string;
+        role: string;
+        is_project_manager: boolean;
+    }
 
     let { data } = $props();
     let ontologies = $state<Ontology[]>(data.ontologies);
+    let allUsers = $state<UserRecord[]>(data.allUsers ?? []);
+
+    // ── Project state ──────────────────────────────────────────────────────────
+    let projects = $state<Project[]>(data.projects);
+
+    // Create project form
+    let newProjectName = $state("");
+    let newProjectDescription = $state("");
+    let newProjectAnnotators = $state(2);
+    let creatingProject = $state(false);
+    let createProjectError = $state<string | null>(null);
+
+    async function handleCreateProject(e: SubmitEvent) {
+        e.preventDefault();
+        creatingProject = true;
+        createProjectError = null;
+        try {
+            const res = await fetch("/api/projects", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    name: newProjectName,
+                    description: newProjectDescription || null,
+                    required_annotators: newProjectAnnotators,
+                }),
+            });
+            if (!res.ok) {
+                const d = await res.json().catch(() => ({ detail: res.statusText }));
+                createProjectError = d.detail ?? res.statusText;
+            } else {
+                const created = await res.json();
+                projects = [...projects, created];
+                newProjectName = "";
+                newProjectDescription = "";
+                newProjectAnnotators = 2;
+            }
+        } catch (err) {
+            createProjectError = String(err);
+        } finally {
+            creatingProject = false;
+        }
+    }
+
+    // Per-project expanded panel
+    let expandedProjectId = $state<number | null>(null);
+    let projectMembers = $state<Record<number, ProjectMember[]>>({});
+    let membersLoading = $state(false);
+
+    async function toggleProject(projectId: number) {
+        if (expandedProjectId === projectId) {
+            expandedProjectId = null;
+            return;
+        }
+        expandedProjectId = projectId;
+        if (!projectMembers[projectId]) {
+            membersLoading = true;
+            try {
+                const res = await fetch(`/api/projects/${projectId}/members`);
+                if (res.ok) projectMembers[projectId] = await res.json();
+            } finally {
+                membersLoading = false;
+            }
+        }
+    }
+
+    // Add member form (per project)
+    let addMemberEmail = $state("");
+    let addMemberRole = $state("annotator");
+    let addMemberPending = $state(false);
+    let addMemberError = $state<string | null>(null);
+    let generatedPassword = $state<string | null>(null);
+
+    async function handleAddMember(projectId: number) {
+        addMemberPending = true;
+        addMemberError = null;
+        generatedPassword = null;
+        try {
+            const res = await fetch(`/api/projects/${projectId}/members`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ email: addMemberEmail, role: addMemberRole }),
+            });
+            if (!res.ok) {
+                const d = await res.json().catch(() => ({ detail: res.statusText }));
+                addMemberError = d.detail ?? res.statusText;
+            } else {
+                const member = await res.json();
+                if (member.generated_password) generatedPassword = member.generated_password;
+                // Merge into existing member list
+                const existing = projectMembers[projectId] ?? [];
+                const idx = existing.findIndex((m) => m.user_id === member.user_id);
+                if (idx >= 0) {
+                    projectMembers[projectId] = existing.map((m, i) =>
+                        i === idx ? { ...m, roles: member.roles } : m,
+                    );
+                } else {
+                    projectMembers[projectId] = [
+                        ...existing,
+                        { user_id: member.user_id, email: member.email, roles: member.roles },
+                    ];
+                }
+                addMemberEmail = "";
+            }
+        } finally {
+            addMemberPending = false;
+        }
+    }
+
+    async function handleRemoveMember(projectId: number, userId: string, role: string) {
+        const res = await fetch(
+            `/api/projects/${projectId}/members/${userId}/${role}`,
+            { method: "DELETE" },
+        );
+        if (res.ok) {
+            projectMembers[projectId] = (projectMembers[projectId] ?? [])
+                .map((m) =>
+                    m.user_id === userId
+                        ? { ...m, roles: m.roles.filter((r) => r !== role) }
+                        : m,
+                )
+                .filter((m) => m.roles.length > 0);
+        }
+    }
+
+    // Ontology assignment (per project)
+    let assignOntologyId = $state<Record<number, number | null>>({});
+    let assignOntologyPending = $state<number | null>(null);
+
+    async function handleAssignOntology(projectId: number) {
+        const ontologyId = assignOntologyId[projectId];
+        if (!ontologyId) return;
+        assignOntologyPending = projectId;
+        try {
+            await fetch(`/api/projects/${projectId}/ontologies/${ontologyId}`, {
+                method: "POST",
+            });
+        } finally {
+            assignOntologyPending = null;
+        }
+    }
+
+    async function handleUnassignOntology(projectId: number, ontologyId: number) {
+        await fetch(`/api/projects/${projectId}/ontologies/${ontologyId}`, {
+            method: "DELETE",
+        });
+    }
 
     // ── Import form state ──────────────────────────────────────────────────────
     let file = $state<File | null>(null);
@@ -143,7 +309,7 @@
     let confirmRejectId = $state<string | null>(null);
     let editCurieId = $state<string | null>(null);
     let editCurieValue = $state("");
-    let actionPending = $state<string | null>(null); // curie of entity being acted upon
+    let actionPending = $state<string | null>(null);
 
     async function handleAccept(curie: string) {
         actionPending = curie;
@@ -203,7 +369,7 @@
         }
     }
 
-    // ── Delete state ───────────────────────────────────────────────────────────
+    // ── Delete ontology state ──────────────────────────────────────────────────
     let confirmDeleteId = $state<number | null>(null);
     let deleting = $state(false);
 
@@ -228,167 +394,210 @@
 </script>
 
 <div class="admin-page">
-    <h1>Ontology Management</h1>
+    <h1>Administration</h1>
 
+    <!-- ── Projects ─────────────────────────────────────────────────────────── -->
     <section class="card">
-        <h2>Import OWL Ontology</h2>
-        <form onsubmit={handleSubmit}>
-            <div class="field">
-                <label for="owl-file">OWL file</label>
-                <input
-                    id="owl-file"
-                    type="file"
-                    accept=".owl,.rdf,.ttl,.nt,.n3,.jsonld"
-                    onchange={(e) => {
-                        file = (e.currentTarget as HTMLInputElement).files?.[0] ?? null;
-                        if (file && !name) name = file.name.replace(/\.[^.]+$/, "");
-                    }}
-                    required
-                />
-            </div>
+        <h2>Projects</h2>
 
-            <div class="field-row">
-                <div class="field">
-                    <label for="onto-name">Name</label>
-                    <input id="onto-name" type="text" bind:value={name} placeholder="NCBI Taxonomy" required />
+        {#if data.isSuperuser}
+            <form class="create-form" onsubmit={handleCreateProject}>
+                <div class="field-row">
+                    <div class="field">
+                        <label for="proj-name">Name</label>
+                        <input
+                            id="proj-name"
+                            type="text"
+                            bind:value={newProjectName}
+                            placeholder="My Annotation Project"
+                            required
+                        />
+                    </div>
+                    <div class="field">
+                        <label for="proj-annotators">Required annotators</label>
+                        <input
+                            id="proj-annotators"
+                            type="number"
+                            min="1"
+                            bind:value={newProjectAnnotators}
+                        />
+                    </div>
                 </div>
                 <div class="field">
-                    <label for="onto-prefix">Prefix</label>
-                    <input id="onto-prefix" type="text" bind:value={prefix} placeholder="NCBITaxon" required />
+                    <label for="proj-desc">
+                        Description <span class="optional">(optional)</span>
+                    </label>
+                    <input
+                        id="proj-desc"
+                        type="text"
+                        bind:value={newProjectDescription}
+                        placeholder="Short description"
+                    />
                 </div>
-            </div>
+                {#if createProjectError}
+                    <p class="error">{createProjectError}</p>
+                {/if}
+                <div class="actions">
+                    <button type="submit" class="btn-primary" disabled={creatingProject}>
+                        {creatingProject ? "Creating…" : "Create project"}
+                    </button>
+                </div>
+            </form>
+            <hr class="divider" />
+        {/if}
 
-            <div class="field">
-                <label for="onto-version">Version <span class="optional">(optional)</span></label>
-                <input id="onto-version" type="text" bind:value={version} placeholder="2024-01-01" />
-            </div>
-
-            <div class="field">
-                <label for="base-iri">
-                    Base IRI <span class="optional">(leave empty for OBO Foundry ontologies)</span>
-                </label>
-                <input
-                    id="base-iri"
-                    type="text"
-                    bind:value={baseIri}
-                    placeholder="https://example.org/ontology/"
-                />
-            </div>
-
-            {#if errorMessage}
-                <p class="error">{errorMessage}</p>
-            {/if}
-
-            {#if result}
-                <p class="success">
-                    Imported {result.entities.toLocaleString()} entities and
-                    {result.triples.toLocaleString()} triples
-                    (ontology #{result.ontology_id}).
-                </p>
-            {/if}
-
-            <div class="actions">
-                <button type="submit" class="btn-primary" disabled={submitting || !file}>
-                    {submitting ? "Importing…" : "Import"}
-                </button>
-            </div>
-        </form>
-    </section>
-
-    <section class="card">
-        <h2>Loaded Ontologies</h2>
-        {#if ontologies.length === 0}
-            <p class="empty">No ontologies loaded yet.</p>
+        {#if projects.length === 0}
+            <p class="empty">No projects yet.</p>
         {:else}
             <table>
                 <thead>
                     <tr>
-                        <th>Prefix</th>
                         <th>Name</th>
-                        <th>URI</th>
-                        <th>Version</th>
+                        <th>Description</th>
+                        <th>Annotators needed</th>
                         <th></th>
                     </tr>
                 </thead>
                 <tbody>
-                    {#each ontologies as onto (onto.ontology_id)}
-                        <tr class:expanded={viewingId === onto.ontology_id}>
-                            <td><code>{onto.prefix}</code></td>
-                            <td>{onto.name}</td>
-                            <td class="uri">{onto.uri}</td>
-                            <td>{onto.version ?? "—"}</td>
+                    {#each projects as project (project.project_id)}
+                        <tr class:expanded={expandedProjectId === project.project_id}>
+                            <td><strong>{project.name}</strong></td>
+                            <td class="muted">{project.description ?? "—"}</td>
+                            <td>{project.required_annotators}</td>
                             <td class="actions-cell">
-                                {#if confirmDeleteId === onto.ontology_id}
-                                    <span class="confirm-prompt">Remove?</span>
-                                    <button
-                                        class="btn-danger-sm"
-                                        disabled={deleting}
-                                        onclick={() => handleDelete(onto.ontology_id)}
-                                    >
-                                        {deleting ? "…" : "Yes"}
-                                    </button>
-                                    <button
-                                        class="btn-ghost-sm"
-                                        onclick={() => (confirmDeleteId = null)}
-                                    >Cancel</button>
-                                {:else}
-                                    <button
-                                        class="btn-ghost-sm"
-                                        onclick={() => toggleView(onto.ontology_id)}
-                                    >
-                                        {viewingId === onto.ontology_id ? "Hide" : "View"}
-                                    </button>
-                                    <button
-                                        class="btn-ghost-sm danger"
-                                        onclick={() => (confirmDeleteId = onto.ontology_id)}
-                                    >Remove</button>
-                                {/if}
+                                <button
+                                    class="btn-ghost-sm"
+                                    onclick={() => toggleProject(project.project_id)}
+                                >
+                                    {expandedProjectId === project.project_id ? "Hide" : "Manage"}
+                                </button>
                             </td>
                         </tr>
 
-                        {#if viewingId === onto.ontology_id}
-                            <tr class="entity-panel-row">
-                                <td colspan="5">
-                                    <div class="entity-panel">
-                                        <p class="entity-panel-header">
-                                            {onto.name} —
-                                            {entityLoading && entities.length === 0
-                                                ? "loading…"
-                                                : `${entityTotal.toLocaleString()} entities`}
-                                        </p>
-                                        {#if entities.length > 0}
-                                            <table class="entity-table">
-                                                <thead>
-                                                    <tr>
-                                                        <th>CURIE</th>
-                                                        <th>Name</th>
-                                                        <th>Type</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                    {#each entities as e}
+                        {#if expandedProjectId === project.project_id}
+                            <tr class="project-panel-row">
+                                <td colspan="4">
+                                    <div class="project-panel">
+
+                                        <!-- Members -->
+                                        <div class="panel-section">
+                                            <p class="panel-title">Members</p>
+                                            {#if membersLoading}
+                                                <p class="muted">Loading…</p>
+                                            {:else if (projectMembers[project.project_id] ?? []).length === 0}
+                                                <p class="empty">No members yet.</p>
+                                            {:else}
+                                                <table class="inner-table">
+                                                    <thead>
                                                         <tr>
-                                                            <td><code>{e.entity_id}</code></td>
-                                                            <td>{e.preferred_name}</td>
-                                                            <td class="kind">{e.kind || "—"}</td>
+                                                            <th>Email</th>
+                                                            <th>Roles</th>
+                                                            <th></th>
                                                         </tr>
-                                                    {/each}
-                                                </tbody>
-                                            </table>
-                                            {#if entityOffset < entityTotal}
-                                                <button
-                                                    class="btn-ghost-sm load-more"
-                                                    disabled={entityLoading}
-                                                    onclick={() =>
-                                                        loadEntities(onto.ontology_id, entityOffset)}
-                                                >
-                                                    {entityLoading
-                                                        ? "Loading…"
-                                                        : `Load more (${entityTotal - entityOffset} remaining)`}
-                                                </button>
+                                                    </thead>
+                                                    <tbody>
+                                                        {#each projectMembers[project.project_id] as member}
+                                                            <tr>
+                                                                <td>{member.email}</td>
+                                                                <td>
+                                                                    {#each member.roles as role}
+                                                                        <span class="role-badge">{role}</span>
+                                                                    {/each}
+                                                                </td>
+                                                                <td class="actions-cell">
+                                                                    {#each member.roles as role}
+                                                                        <button
+                                                                            class="btn-ghost-sm danger"
+                                                                            onclick={() =>
+                                                                                handleRemoveMember(
+                                                                                    project.project_id,
+                                                                                    member.user_id,
+                                                                                    role,
+                                                                                )}
+                                                                        >
+                                                                            Remove {role}
+                                                                        </button>
+                                                                    {/each}
+                                                                </td>
+                                                            </tr>
+                                                        {/each}
+                                                    </tbody>
+                                                </table>
                                             {/if}
-                                        {:else if !entityLoading}
-                                            <p class="empty">No entities found.</p>
+
+                                            <form
+                                                class="inline-form"
+                                                onsubmit={(e) => {
+                                                    e.preventDefault();
+                                                    handleAddMember(project.project_id);
+                                                }}
+                                            >
+                                                <input
+                                                    type="email"
+                                                    bind:value={addMemberEmail}
+                                                    placeholder="user@example.com"
+                                                    required
+                                                />
+                                                <select bind:value={addMemberRole}>
+                                                    <option value="annotator">Annotator</option>
+                                                    <option value="curator">Curator</option>
+                                                    <option value="project_manager"
+                                                        >Project manager</option
+                                                    >
+                                                </select>
+                                                <button
+                                                    type="submit"
+                                                    class="btn-ghost-sm"
+                                                    disabled={addMemberPending}
+                                                >
+                                                    {addMemberPending ? "…" : "Add"}
+                                                </button>
+                                            </form>
+                                            {#if addMemberError}
+                                                <p class="error">{addMemberError}</p>
+                                            {/if}
+                                            {#if generatedPassword}
+                                                <div class="password-notice">
+                                                    <strong>New user created.</strong> Share this
+                                                    one-time password with them:
+                                                    <code class="password">{generatedPassword}</code>
+                                                </div>
+                                            {/if}
+                                        </div>
+
+                                        <!-- Ontology assignment (superuser only) -->
+                                        {#if data.isSuperuser && ontologies.length > 0}
+                                            <div class="panel-section">
+                                                <p class="panel-title">Assign ontology</p>
+                                                <div class="inline-form">
+                                                    <select
+                                                        bind:value={assignOntologyId[
+                                                            project.project_id
+                                                        ]}
+                                                    >
+                                                        <option value={null}>Select…</option>
+                                                        {#each ontologies as onto}
+                                                            <option value={onto.ontology_id}>
+                                                                {onto.prefix} — {onto.name}
+                                                            </option>
+                                                        {/each}
+                                                    </select>
+                                                    <button
+                                                        class="btn-ghost-sm"
+                                                        disabled={!assignOntologyId[
+                                                            project.project_id
+                                                        ] ||
+                                                            assignOntologyPending ===
+                                                                project.project_id}
+                                                        onclick={() =>
+                                                            handleAssignOntology(project.project_id)}
+                                                    >
+                                                        {assignOntologyPending === project.project_id
+                                                            ? "…"
+                                                            : "Assign"}
+                                                    </button>
+                                                </div>
+                                            </div>
                                         {/if}
                                     </div>
                                 </td>
@@ -400,102 +609,363 @@
         {/if}
     </section>
 
-    <section class="card">
-        <h2>Proposed Entities <span class="proposed-count">({proposedTotal})</span></h2>
-        {#if proposedEntities.length === 0}
-            <p class="empty">No proposed entities.</p>
-        {:else}
-            <table class="entity-table">
-                <thead>
-                    <tr>
-                        <th>Name</th>
-                        <th>Kind</th>
-                        <th>CURIE</th>
-                        <th></th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {#each proposedEntities as e}
+    <!-- ── Superuser-only sections ───────────────────────────────────────────── -->
+    {#if data.isSuperuser}
+        <section class="card">
+            <h2>User Management</h2>
+            {#if allUsers.length === 0}
+                <p class="empty">No users found.</p>
+            {:else}
+                <table>
+                    <thead>
                         <tr>
-                            <td>{e.preferred_name}</td>
-                            <td class="kind">{e.kind || "—"}</td>
-                            <td>
-                                {#if editCurieId === e.entity_id}
-                                    <input
-                                        class="curie-input"
-                                        type="text"
-                                        bind:value={editCurieValue}
-                                        onkeydown={(ev) => {
-                                            if (ev.key === "Enter") handleEditCurie(e.entity_id);
-                                            if (ev.key === "Escape") editCurieId = null;
-                                        }}
-                                    />
-                                {:else}
-                                    <code>{e.entity_id}</code>
-                                {/if}
-                            </td>
-                            <td class="actions-cell">
-                                {#if confirmRejectId === e.entity_id}
-                                    <span class="confirm-prompt">Reject?</span>
-                                    <button
-                                        class="btn-danger-sm"
-                                        disabled={actionPending === e.entity_id}
-                                        onclick={() => handleReject(e.entity_id)}
-                                    >
-                                        {actionPending === e.entity_id ? "…" : "Yes"}
-                                    </button>
-                                    <button
-                                        class="btn-ghost-sm"
-                                        onclick={() => (confirmRejectId = null)}
-                                    >Cancel</button>
-                                {:else if editCurieId === e.entity_id}
-                                    <button
-                                        class="btn-ghost-sm"
-                                        disabled={actionPending === e.entity_id}
-                                        onclick={() => handleEditCurie(e.entity_id)}
-                                    >
-                                        {actionPending === e.entity_id ? "…" : "Save"}
-                                    </button>
-                                    <button
-                                        class="btn-ghost-sm"
-                                        onclick={() => (editCurieId = null)}
-                                    >Cancel</button>
-                                {:else}
-                                    <button
-                                        class="btn-ghost-sm accept"
-                                        disabled={actionPending === e.entity_id}
-                                        onclick={() => handleAccept(e.entity_id)}
-                                    >Accept</button>
-                                    <button
-                                        class="btn-ghost-sm"
-                                        onclick={() => {
-                                            editCurieId = e.entity_id;
-                                            editCurieValue = e.entity_id;
-                                        }}
-                                    >Edit CURIE</button>
-                                    <button
-                                        class="btn-ghost-sm danger"
-                                        onclick={() => (confirmRejectId = e.entity_id)}
-                                    >Reject</button>
-                                {/if}
-                            </td>
+                            <th>Email</th>
+                            <th>System role</th>
+                            <th></th>
                         </tr>
-                    {/each}
-                </tbody>
-            </table>
-            {#if proposedOffset < proposedTotal}
-                <button
-                    class="btn-ghost-sm load-more"
-                    disabled={proposedLoading}
-                    onclick={loadMoreProposed}
-                >
-                    {proposedLoading
-                        ? "Loading…"
-                        : `Load more (${proposedTotal - proposedOffset} remaining)`}
-                </button>
+                    </thead>
+                    <tbody>
+                        {#each allUsers as u (u.user_id)}
+                            <tr>
+                                <td>{u.email}</td>
+                                <td><span class="role-badge">{u.role}</span></td>
+                                <td class="actions-cell">
+                                    {#each (["user", "project_manager", "superuser"] as const).filter(
+                                        (r) => r !== u.role,
+                                    ) as newRole}
+                                        <button
+                                            class="btn-ghost-sm"
+                                            onclick={async () => {
+                                                const res = await fetch(
+                                                    `/api/admin/users/${encodeURIComponent(u.email)}/role`,
+                                                    {
+                                                        method: "PUT",
+                                                        headers: {
+                                                            "Content-Type": "application/json",
+                                                        },
+                                                        body: JSON.stringify({ role: newRole }),
+                                                    },
+                                                );
+                                                if (res.ok) {
+                                                    allUsers = allUsers.map((x) =>
+                                                        x.user_id === u.user_id
+                                                            ? { ...x, role: newRole }
+                                                            : x,
+                                                    );
+                                                }
+                                            }}
+                                        >
+                                            Make {newRole.replace("_", " ")}
+                                        </button>
+                                    {/each}
+                                </td>
+                            </tr>
+                        {/each}
+                    </tbody>
+                </table>
             {/if}
-        {/if}
-    </section>
+        </section>
+
+        <!-- Ontology import -->
+        <section class="card">
+            <h2>Import OWL Ontology</h2>
+            <form onsubmit={handleSubmit}>
+                <div class="field">
+                    <label for="owl-file">OWL file</label>
+                    <input
+                        id="owl-file"
+                        type="file"
+                        accept=".owl,.rdf,.ttl,.nt,.n3,.jsonld"
+                        onchange={(e) => {
+                            file = (e.currentTarget as HTMLInputElement).files?.[0] ?? null;
+                            if (file && !name) name = file.name.replace(/\.[^.]+$/, "");
+                        }}
+                        required
+                    />
+                </div>
+
+                <div class="field-row">
+                    <div class="field">
+                        <label for="onto-name">Name</label>
+                        <input
+                            id="onto-name"
+                            type="text"
+                            bind:value={name}
+                            placeholder="NCBI Taxonomy"
+                            required
+                        />
+                    </div>
+                    <div class="field">
+                        <label for="onto-prefix">Prefix</label>
+                        <input
+                            id="onto-prefix"
+                            type="text"
+                            bind:value={prefix}
+                            placeholder="NCBITaxon"
+                            required
+                        />
+                    </div>
+                </div>
+
+                <div class="field">
+                    <label for="onto-version"
+                        >Version <span class="optional">(optional)</span></label
+                    >
+                    <input
+                        id="onto-version"
+                        type="text"
+                        bind:value={version}
+                        placeholder="2024-01-01"
+                    />
+                </div>
+
+                <div class="field">
+                    <label for="base-iri">
+                        Base IRI <span class="optional"
+                            >(leave empty for OBO Foundry ontologies)</span
+                        >
+                    </label>
+                    <input
+                        id="base-iri"
+                        type="text"
+                        bind:value={baseIri}
+                        placeholder="https://example.org/ontology/"
+                    />
+                </div>
+
+                {#if errorMessage}
+                    <p class="error">{errorMessage}</p>
+                {/if}
+
+                {#if result}
+                    <p class="success">
+                        Imported {result.entities.toLocaleString()} entities and
+                        {result.triples.toLocaleString()} triples
+                        (ontology #{result.ontology_id}).
+                    </p>
+                {/if}
+
+                <div class="actions">
+                    <button type="submit" class="btn-primary" disabled={submitting || !file}>
+                        {submitting ? "Importing…" : "Import"}
+                    </button>
+                </div>
+            </form>
+        </section>
+
+        <section class="card">
+            <h2>Loaded Ontologies</h2>
+            {#if ontologies.length === 0}
+                <p class="empty">No ontologies loaded yet.</p>
+            {:else}
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Prefix</th>
+                            <th>Name</th>
+                            <th>URI</th>
+                            <th>Version</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {#each ontologies as onto (onto.ontology_id)}
+                            <tr class:expanded={viewingId === onto.ontology_id}>
+                                <td><code>{onto.prefix}</code></td>
+                                <td>{onto.name}</td>
+                                <td class="uri">{onto.uri}</td>
+                                <td>{onto.version ?? "—"}</td>
+                                <td class="actions-cell">
+                                    {#if confirmDeleteId === onto.ontology_id}
+                                        <span class="confirm-prompt">Remove?</span>
+                                        <button
+                                            class="btn-danger-sm"
+                                            disabled={deleting}
+                                            onclick={() => handleDelete(onto.ontology_id)}
+                                        >
+                                            {deleting ? "…" : "Yes"}
+                                        </button>
+                                        <button
+                                            class="btn-ghost-sm"
+                                            onclick={() => (confirmDeleteId = null)}
+                                            >Cancel</button
+                                        >
+                                    {:else}
+                                        <button
+                                            class="btn-ghost-sm"
+                                            onclick={() => toggleView(onto.ontology_id)}
+                                        >
+                                            {viewingId === onto.ontology_id ? "Hide" : "View"}
+                                        </button>
+                                        <button
+                                            class="btn-ghost-sm danger"
+                                            onclick={() => (confirmDeleteId = onto.ontology_id)}
+                                            >Remove</button
+                                        >
+                                    {/if}
+                                </td>
+                            </tr>
+
+                            {#if viewingId === onto.ontology_id}
+                                <tr class="entity-panel-row">
+                                    <td colspan="5">
+                                        <div class="entity-panel">
+                                            <p class="entity-panel-header">
+                                                {onto.name} —
+                                                {entityLoading && entities.length === 0
+                                                    ? "loading…"
+                                                    : `${entityTotal.toLocaleString()} entities`}
+                                            </p>
+                                            {#if entities.length > 0}
+                                                <table class="entity-table">
+                                                    <thead>
+                                                        <tr>
+                                                            <th>CURIE</th>
+                                                            <th>Name</th>
+                                                            <th>Type</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        {#each entities as e}
+                                                            <tr>
+                                                                <td><code>{e.entity_id}</code></td>
+                                                                <td>{e.preferred_name}</td>
+                                                                <td class="kind"
+                                                                    >{e.kind || "—"}</td
+                                                                >
+                                                            </tr>
+                                                        {/each}
+                                                    </tbody>
+                                                </table>
+                                                {#if entityOffset < entityTotal}
+                                                    <button
+                                                        class="btn-ghost-sm load-more"
+                                                        disabled={entityLoading}
+                                                        onclick={() =>
+                                                            loadEntities(
+                                                                onto.ontology_id,
+                                                                entityOffset,
+                                                            )}
+                                                    >
+                                                        {entityLoading
+                                                            ? "Loading…"
+                                                            : `Load more (${entityTotal - entityOffset} remaining)`}
+                                                    </button>
+                                                {/if}
+                                            {:else if !entityLoading}
+                                                <p class="empty">No entities found.</p>
+                                            {/if}
+                                        </div>
+                                    </td>
+                                </tr>
+                            {/if}
+                        {/each}
+                    </tbody>
+                </table>
+            {/if}
+        </section>
+
+        <section class="card">
+            <h2>Proposed Entities <span class="proposed-count">({proposedTotal})</span></h2>
+            {#if proposedEntities.length === 0}
+                <p class="empty">No proposed entities.</p>
+            {:else}
+                <table class="entity-table">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Kind</th>
+                            <th>CURIE</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {#each proposedEntities as e}
+                            <tr>
+                                <td>{e.preferred_name}</td>
+                                <td class="kind">{e.kind || "—"}</td>
+                                <td>
+                                    {#if editCurieId === e.entity_id}
+                                        <input
+                                            class="curie-input"
+                                            type="text"
+                                            bind:value={editCurieValue}
+                                            onkeydown={(ev) => {
+                                                if (ev.key === "Enter")
+                                                    handleEditCurie(e.entity_id);
+                                                if (ev.key === "Escape") editCurieId = null;
+                                            }}
+                                        />
+                                    {:else}
+                                        <code>{e.entity_id}</code>
+                                    {/if}
+                                </td>
+                                <td class="actions-cell">
+                                    {#if confirmRejectId === e.entity_id}
+                                        <span class="confirm-prompt">Reject?</span>
+                                        <button
+                                            class="btn-danger-sm"
+                                            disabled={actionPending === e.entity_id}
+                                            onclick={() => handleReject(e.entity_id)}
+                                        >
+                                            {actionPending === e.entity_id ? "…" : "Yes"}
+                                        </button>
+                                        <button
+                                            class="btn-ghost-sm"
+                                            onclick={() => (confirmRejectId = null)}
+                                            >Cancel</button
+                                        >
+                                    {:else if editCurieId === e.entity_id}
+                                        <button
+                                            class="btn-ghost-sm"
+                                            disabled={actionPending === e.entity_id}
+                                            onclick={() => handleEditCurie(e.entity_id)}
+                                        >
+                                            {actionPending === e.entity_id ? "…" : "Save"}
+                                        </button>
+                                        <button
+                                            class="btn-ghost-sm"
+                                            onclick={() => (editCurieId = null)}>Cancel</button
+                                        >
+                                    {:else}
+                                        <button
+                                            class="btn-ghost-sm accept"
+                                            disabled={actionPending === e.entity_id}
+                                            onclick={() => handleAccept(e.entity_id)}
+                                            >Accept</button
+                                        >
+                                        <button
+                                            class="btn-ghost-sm"
+                                            onclick={() => {
+                                                editCurieId = e.entity_id;
+                                                editCurieValue = e.entity_id;
+                                            }}>Edit CURIE</button
+                                        >
+                                        <button
+                                            class="btn-ghost-sm danger"
+                                            onclick={() => (confirmRejectId = e.entity_id)}
+                                            >Reject</button
+                                        >
+                                    {/if}
+                                </td>
+                            </tr>
+                        {/each}
+                    </tbody>
+                </table>
+                {#if proposedOffset < proposedTotal}
+                    <button
+                        class="btn-ghost-sm load-more"
+                        disabled={proposedLoading}
+                        onclick={loadMoreProposed}
+                    >
+                        {proposedLoading
+                            ? "Loading…"
+                            : `Load more (${proposedTotal - proposedOffset} remaining)`}
+                    </button>
+                {/if}
+            {/if}
+        </section>
+    {/if}
 </div>
 
 <style>
@@ -522,6 +992,16 @@
         border-radius: 8px;
         padding: 1.5rem;
         margin-bottom: 1.5rem;
+    }
+
+    .create-form {
+        margin-bottom: 0;
+    }
+
+    .divider {
+        border: none;
+        border-top: 1px solid #eee;
+        margin: 1.5rem 0;
     }
 
     .field {
@@ -552,7 +1032,10 @@
     }
 
     input[type="text"],
-    input[type="file"] {
+    input[type="email"],
+    input[type="number"],
+    input[type="file"],
+    select {
         width: 100%;
         padding: 0.4rem 0.6rem;
         border: 1px solid #ccc;
@@ -616,6 +1099,15 @@
         background: #fff0f0;
     }
 
+    .btn-ghost-sm.accept {
+        color: #060;
+        border-color: #a0c8a0;
+    }
+
+    .btn-ghost-sm.accept:hover {
+        background: #f0fff0;
+    }
+
     .btn-danger-sm {
         padding: 0.2rem 0.6rem;
         background: #b00;
@@ -641,6 +1133,11 @@
         color: #080;
         font-size: 0.875rem;
         margin: 0.5rem 0 0;
+    }
+
+    .muted {
+        color: #888;
+        font-size: 0.875rem;
     }
 
     .empty {
@@ -701,7 +1198,95 @@
         font-size: 0.85em;
     }
 
-    /* Entity panel */
+    /* Project panel */
+    .project-panel-row > td {
+        padding: 0;
+        border-bottom: 2px solid #eee;
+    }
+
+    .project-panel {
+        background: #fafafa;
+        border-top: 1px solid #eee;
+        padding: 1rem 1.5rem;
+        display: flex;
+        flex-direction: column;
+        gap: 1.2rem;
+    }
+
+    .panel-section {
+        display: flex;
+        flex-direction: column;
+        gap: 0.6rem;
+    }
+
+    .panel-title {
+        font-size: 0.75rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: #555;
+        margin: 0;
+    }
+
+    .inline-form {
+        display: flex;
+        gap: 0.5rem;
+        align-items: center;
+    }
+
+    .inline-form input,
+    .inline-form select {
+        flex: 1;
+        min-width: 0;
+        padding: 0.25rem 0.5rem;
+        font-size: 0.8rem;
+    }
+
+    .inner-table {
+        font-size: 0.8rem;
+    }
+
+    .inner-table th {
+        font-size: 0.7rem;
+        padding: 0.3rem 0.5rem;
+        border-bottom-width: 1px;
+    }
+
+    .inner-table td {
+        padding: 0.3rem 0.5rem;
+    }
+
+    .role-badge {
+        display: inline-block;
+        padding: 0.1em 0.5em;
+        background: #e8edf5;
+        border-radius: 3px;
+        font-size: 0.75rem;
+        margin-right: 0.3rem;
+        color: #334;
+    }
+
+    .password-notice {
+        background: #fffbe6;
+        border: 1px solid #f0d060;
+        border-radius: 4px;
+        padding: 0.6rem 0.8rem;
+        font-size: 0.8rem;
+    }
+
+    .password {
+        display: block;
+        margin-top: 0.3rem;
+        font-size: 1rem;
+        letter-spacing: 0.05em;
+        background: #fff;
+        border: 1px solid #ddd;
+        padding: 0.3em 0.6em;
+        border-radius: 3px;
+        user-select: all;
+    }
+
+    /* Entity panel (existing) */
     .entity-panel-row > td {
         padding: 0;
         border-bottom: 2px solid #eee;
@@ -748,15 +1333,6 @@
         font-weight: 400;
         color: #888;
         font-size: 0.9em;
-    }
-
-    .btn-ghost-sm.accept {
-        color: #060;
-        border-color: #a0c8a0;
-    }
-
-    .btn-ghost-sm.accept:hover {
-        background: #f0fff0;
     }
 
     .curie-input {

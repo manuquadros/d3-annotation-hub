@@ -47,10 +47,19 @@ def get_reference_by_pubmed_id(pubmed_id: int) -> Reference | None:
     return annodb.get_article_by_pubmed_id(pubmed_id)
 
 
+def get_reference_by_id(reference_id: int) -> Reference | None:
+    with Session(annodb.engine) as session:
+        return session.get(Reference, reference_id)
+
+
 def search_entities(
     query: str, limit: int = 20, project_id: int | None = None
 ) -> list[EntityAnnotation]:
     return annodb.search_entities(query, limit, project_id)
+
+
+def get_entities_by_curies(curies: list[str]) -> list[EntityAnnotation]:
+    return annodb.get_entities_by_curies(curies)
 
 
 def get_entity_types(query: str = "") -> list[EntityAnnotation]:
@@ -177,6 +186,29 @@ def list_projects() -> list[Project]:
 
 def list_user_projects(user_id: uuid.UUID) -> list[Project]:
     return annodb.list_user_projects(user_id)
+
+
+def is_project_manager(user_id: uuid.UUID) -> bool:
+    return annodb.is_project_manager(user_id)
+
+
+def set_user_role(user_id: uuid.UUID, role: str) -> None:
+    with Session(annodb.engine) as session:
+        auth = session.get(UserAuth, user_id)
+        if auth is None:
+            raise ValueError(f"No auth record for user_id {user_id}")
+        auth.role = role
+        session.add(auth)
+        session.commit()
+
+
+def list_users() -> list[tuple[User, UserAuth]]:
+    """Return all users with their auth records."""
+    with Session(annodb.engine) as session:
+        rows = session.execute(
+            select(User, UserAuth).join(UserAuth, UserAuth.user_id == User.user_id)
+        ).all()
+        return [(u, a) for u, a in rows]
 
 
 def add_project_member(
