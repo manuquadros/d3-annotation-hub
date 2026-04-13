@@ -8,6 +8,14 @@ declare global {
         // interface PageState {}
         // interface Platform {}
     }
+
+    interface Window {
+        digidive?: {
+            toggleSidebar(el?: Element): void;
+        };
+    }
+
+    const digidive: NonNullable<Window["digidive"]>;
 }
 
 export {};
