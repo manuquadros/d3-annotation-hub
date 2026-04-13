@@ -78,9 +78,9 @@ def get_reference_by_id(reference_id: int) -> Reference | None:
 
 
 def search_entities(
-    query: str, limit: int = 20, project_id: int | None = None
+    query: str, limit: int = 20, project_id: int | None = None, is_class: bool = False
 ) -> list[EntityAnnotation]:
-    return annodb.search_entities(query, limit, project_id)
+    return annodb.search_entities(query, limit, project_id, is_class)
 
 
 def get_entities_by_curies(curies: list[str]) -> list[EntityAnnotation]:

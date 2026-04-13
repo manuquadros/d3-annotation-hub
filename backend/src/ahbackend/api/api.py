@@ -437,9 +437,10 @@ def entity_search(
     current_user: Annotated[User, Depends(users.get_current_active_user)],
     limit: int = 20,
     project_id: int | None = None,
+    is_class: bool = False,
 ) -> list[EntityAnnotation]:
     """Search entities by name or synonym prefix."""
-    return search_entities(q, limit, project_id)
+    return search_entities(q, limit, project_id, is_class)
 
 
 @app.get("/queue/")
