@@ -1,5 +1,5 @@
 import type { Relation, Pointer, User, Reference, Entity } from "$lib/types.ts";
-import { AnnotationStateSchema } from "$lib/types.ts";
+import { AnnotationStateSchema, createRelation } from "$lib/types.ts";
 import { nextPointerKey, initPointerCounter } from "$lib/pointers.ts";
 import { mount } from "svelte";
 import { Map, Set } from "immutable";
@@ -28,6 +28,8 @@ export class AnnotationState {
     pointers: ImmutableMap<string, Pointer> = $state(Map());
     relations: ImmutableSet<Relation> = $state(Set());
     completed: boolean = $state(false);
+    /** Predicates used in this session, most recent first (not persisted). */
+    recentPredicates: string[] = $state([]);
 
     #past: Snapshot[] = $state([]);
     #future: Snapshot[] = $state([]);
@@ -237,6 +239,19 @@ export class AnnotationState {
         this.relations = Set(filteredRelations);
 
         this.entities = this.entities.delete(entityId);
+        this.#commit(before);
+    }
+
+    addRelation(subjectId: string, predicate: string, objectId: string): void {
+        const before = this.#snapshot();
+        this.relations = this.relations.add(
+            createRelation({ predicate, subject: subjectId, object: objectId }),
+        );
+        // Track recently used predicates (most recent first, no duplicates)
+        this.recentPredicates = [
+            predicate,
+            ...this.recentPredicates.filter((p) => p !== predicate),
+        ].slice(0, 10);
         this.#commit(before);
     }
 

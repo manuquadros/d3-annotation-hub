@@ -119,7 +119,8 @@ export type EditorState =
     | { mode: "closed" }
     | { mode: "create"; offset: number; length: number; sentenceStart: number }
     | { mode: "edit-pointer"; pointerId: string; sentenceStart: number }
-    | { mode: "edit-entity"; entityId: string };
+    | { mode: "edit-entity"; entityId: string }
+    | { mode: "create-relation"; subjectEntityId: string; objectEntityId: string };
 
 export const AnnotationStateSchema = z.object({
     user: UserSchema,

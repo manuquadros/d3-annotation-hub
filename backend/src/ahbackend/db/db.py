@@ -7,6 +7,7 @@ from typing import Any, Optional
 
 from d3textdb import D3TextDB, ParsedOntology
 from d3textdb.schema import (
+    OntologyProperty,
     AnnotationSnapshot,
     AnnotationState,
     AnnotatorSnapshot,
@@ -131,20 +132,28 @@ def run_ontology_import(
     base_iri: str,
     version: str | None,
 ) -> dict[str, int]:
-    """Store ontology metadata, bulk-load entities and triples.
+    """Store ontology metadata, bulk-load entities, triples, and properties.
 
-    Returns a summary dict with ``ontology_id``, ``entities``, ``triples``.
+    Returns a summary dict with ``ontology_id``, ``entities``, ``triples``,
+    and ``properties``.
     """
     ontology_id = annodb.store_ontology(
         name=name, prefix=prefix, uri=base_iri, version=version
     )
     entity_count = annodb.load_ontology_entities(ontology_id, parsed.entities)
     triple_count = annodb.load_ontology_triples(parsed.triples)
+    property_count = annodb.load_ontology_properties(ontology_id, parsed.properties)
     return {
         "ontology_id": ontology_id,
         "entities": entity_count,
         "triples": triple_count,
+        "properties": property_count,
     }
+
+
+def get_project_properties(project_id: int) -> list[OntologyProperty]:
+    """Return all object properties from ontologies assigned to the project."""
+    return annodb.get_project_properties(project_id)
 
 
 def upsert_annotation(annotation: ReferenceAnnotation) -> None:

@@ -1,6 +1,7 @@
 from .db import (
     AnnotatorSnapshot,
     EntityAnnotation,
+    OntologyProperty,
     Pointer,
     Project,
     Reference,
@@ -49,6 +50,7 @@ from .db import (
     remove_ontology_from_project,
     remove_project_member,
     remove_reference_from_project,
+    get_project_properties,
     run_ontology_import,
     save_curated_annotation,
     search_entities,

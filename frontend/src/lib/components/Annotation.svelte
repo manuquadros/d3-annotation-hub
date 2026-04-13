@@ -10,6 +10,7 @@
     import type { SaveStatus } from "./SaveIndicator.svelte";
     import { createDebouncedSave, saveAnnotationState } from "$lib/utils/autosave.ts";
     import AnnotationEditor from "./AnnotationEditor.svelte";
+    import RelationEditor from "./RelationEditor.svelte";
     import type { EditorState } from "$lib/types.ts";
 
     interface Props {
@@ -93,5 +94,6 @@
 </div>
 
 <AnnotationEditor bind:editorState />
+<RelationEditor bind:editorState />
 
 <SaveIndicator status={saveStatus} onRetry={handleRetry} />

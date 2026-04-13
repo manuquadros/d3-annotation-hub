@@ -57,7 +57,15 @@
         const sourceKind = sourceEntity.kind;
         const targetKind = targetEntity.kind;
 
-        if (sourceEntity.kind !== targetEntity.kind) return; // cross-kind: no-op
+        if (sourceEntity.kind !== targetEntity.kind) {
+            // Cross-kind drop: open relation creation modal
+            editorStateCtx.value = {
+                mode: "create-relation",
+                subjectEntityId: sourceEntityId,
+                objectEntityId: entityId,
+            };
+            return;
+        }
 
         // Same-kind merge: union synonyms, re-point all pointers, remove source
         const mergedSynonyms = (sourceEntity.synonyms || Set<string>()).union(

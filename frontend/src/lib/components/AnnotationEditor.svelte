@@ -114,9 +114,15 @@
 
     // ── Dialog open/close ────────────────────────────────────────────────────
 
+    const isMyMode = $derived(
+        editorState.mode === 'create' ||
+        editorState.mode === 'edit-pointer' ||
+        editorState.mode === 'edit-entity',
+    );
+
     $effect(() => {
         if (!dialog) return;
-        if (editorState.mode === 'closed') {
+        if (!isMyMode) {
             dialog.close();
         } else {
             resetForm();

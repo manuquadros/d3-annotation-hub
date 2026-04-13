@@ -100,6 +100,21 @@ export async function searchEntities(
     return response.json();
 }
 
+export interface PropertyOption {
+    curie: string;
+    label: string;
+    domain_curie: string | null;
+    range_curie: string | null;
+}
+
+export async function fetchProjectProperties(
+    projectId: number,
+): Promise<PropertyOption[]> {
+    const response = await fetch(`/api/projects/${projectId}/properties`);
+    if (!response.ok) return [];
+    return response.json();
+}
+
 export async function saveAnnotation(jsonData: string): Promise<void> {
     const response = await fetch("/api/save", {
         method: "POST",
