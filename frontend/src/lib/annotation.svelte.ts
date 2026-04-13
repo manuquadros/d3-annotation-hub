@@ -354,16 +354,36 @@ export function extractSentence(
     plainText: string,
     offset: number,
 ): { text: string; start: number } {
-    const sentenceEnders = /[.!?]/;
+    // A sentence-ending punctuation only acts as a boundary when:
+    //   1. It is followed by whitespace or end-of-string, AND
+    //   2. It is NOT preceded by a single isolated uppercase letter.
+    // Rule 1 handles "E.coli" (no space → not a boundary).
+    // Rule 2 handles "E. coli" (single uppercase + period + space → abbreviation,
+    //   not a boundary). "RyhB. Next" still IS a boundary because "B" is preceded
+    //   by another word character, so it is not isolated.
+    function isSentenceBoundary(pos: number): boolean {
+        if (!/[.!?]/.test(plainText[pos])) return false;
+        const next = plainText[pos + 1];
+        if (next !== undefined && !/\s/.test(next)) return false;
+        // Single isolated uppercase letter before the dot → abbreviation
+        const prev = plainText[pos - 1];
+        if (prev && /[A-Z]/.test(prev)) {
+            const prevPrev = plainText[pos - 2];
+            if (!prevPrev || /\W/.test(prevPrev)) return false;
+        }
+        return true;
+    }
+
     let start = offset;
-    while (start > 0 && !sentenceEnders.test(plainText[start - 1])) {
+    while (start > 0 && !isSentenceBoundary(start - 1)) {
         start--;
     }
+
     let end = offset;
-    while (end < plainText.length && !sentenceEnders.test(plainText[end])) {
+    while (end < plainText.length && !isSentenceBoundary(end)) {
         end++;
     }
-    if (end < plainText.length) end++; // include the punctuation
+    if (end < plainText.length) end++; // include the sentence-ending punctuation
 
     const raw = plainText.slice(start, end);
     const leadingSpaces = raw.length - raw.trimStart().length;
