@@ -1,4 +1,5 @@
 <script lang="ts">
+    import "$lib/management.css";
     interface Ontology {
         ontology_id: number;
         name: string;
@@ -250,65 +251,13 @@
 </div>
 
 <style>
-    .page {
-        max-width: 860px;
-        margin: 2rem auto;
-        padding: 0 1rem;
-        display: flex;
-        flex-direction: column;
-        gap: 2rem;
+    .field {
+        flex: 1;
     }
 
-    h1 {
-        font-size: 1.4rem;
-        margin: 0;
-    }
-
-    .card {
-        background: #fff;
-        border: 1px solid #e0e0e0;
-        border-radius: 8px;
-        padding: 1.5rem;
+    .fields-row {
         display: flex;
-        flex-direction: column;
         gap: 1rem;
-    }
-
-    h2 {
-        font-size: 1rem;
-        font-weight: 600;
-        margin: 0;
-    }
-
-    table {
-        width: 100%;
-        border-collapse: collapse;
-        font-size: 0.875rem;
-    }
-
-    th {
-        text-align: left;
-        font-size: 0.75rem;
-        text-transform: uppercase;
-        letter-spacing: 0.04em;
-        color: #666;
-        padding: 0.4rem 0.5rem;
-        border-bottom: 1px solid #eee;
-    }
-
-    td {
-        padding: 0.5rem;
-        border-bottom: 1px solid #f5f5f5;
-        vertical-align: middle;
-    }
-
-    td.uri {
-        font-size: 0.8rem;
-        color: #666;
-        max-width: 260px;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
     }
 
     .assign-row {
@@ -324,27 +273,17 @@
         padding: 0.35rem 0.5rem;
         border: 1px solid #ccc;
         border-radius: 4px;
-        font-size: 0.875rem;
+        font-size: 0.9rem;
     }
 
-    .field {
-        display: flex;
-        flex-direction: column;
-        gap: 0.3rem;
-        flex: 1;
-    }
-
-    .fields-row {
-        display: flex;
-        gap: 1rem;
-    }
-
-    label {
-        font-size: 0.75rem;
-        font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 0.03em;
-        color: #444;
+    input[type="text"],
+    input[type="file"] {
+        padding: 0.4rem 0.5rem;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        font-size: 0.9rem;
+        width: 100%;
+        box-sizing: border-box;
     }
 
     .optional {
@@ -354,86 +293,12 @@
         color: #888;
     }
 
-    input[type="text"],
-    input[type="file"] {
-        padding: 0.4rem 0.5rem;
-        border: 1px solid #ccc;
-        border-radius: 4px;
-        font-size: 0.875rem;
-        width: 100%;
-        box-sizing: border-box;
-    }
-
-    .empty {
-        font-size: 0.875rem;
-        color: #888;
-        margin: 0;
-    }
-
-    .error {
-        color: #c00;
-        font-size: 0.875rem;
-        margin: 0;
-    }
-
-    .success {
-        color: #2a7a2a;
-        font-size: 0.875rem;
-        margin: 0;
-    }
-
-    .btn-primary {
-        padding: 0.5rem 1.2rem;
-        background: #333;
-        color: #fff;
-        border: none;
-        border-radius: 4px;
-        cursor: pointer;
-        font-size: 0.875rem;
-        align-self: flex-start;
-    }
-
-    .btn-primary:disabled {
-        opacity: 0.5;
-        cursor: not-allowed;
-    }
-
-    .btn-primary:not(:disabled):hover {
-        background: #111;
-    }
-
-    .btn-primary-sm {
-        padding: 0.35rem 0.8rem;
-        background: #333;
-        color: #fff;
-        border: none;
-        border-radius: 4px;
-        cursor: pointer;
-        font-size: 0.8rem;
+    td.uri {
+        font-size: 0.85rem;
+        color: #666;
+        max-width: 260px;
+        overflow: hidden;
+        text-overflow: ellipsis;
         white-space: nowrap;
-    }
-
-    .btn-primary-sm:disabled {
-        opacity: 0.5;
-        cursor: not-allowed;
-    }
-
-    .btn-danger-sm {
-        padding: 0.25rem 0.6rem;
-        background: none;
-        color: #c00;
-        border: 1px solid #c00;
-        border-radius: 4px;
-        cursor: pointer;
-        font-size: 0.8rem;
-    }
-
-    .btn-danger-sm:disabled {
-        opacity: 0.5;
-        cursor: not-allowed;
-    }
-
-    .btn-danger-sm:not(:disabled):hover {
-        background: #fee;
     }
 </style>

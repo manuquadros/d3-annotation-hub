@@ -1,4 +1,5 @@
 <script lang="ts">
+    import "$lib/management.css";
     interface Reference {
         reference_id: number;
         pubmed_id: number | null;
@@ -154,48 +155,12 @@
 </div>
 
 <style>
-    .page {
-        max-width: 900px;
-        margin: 2rem auto;
-        padding: 0 1rem;
-        display: flex;
-        flex-direction: column;
-        gap: 2rem;
-    }
-
-    h1 {
-        font-size: 1.4rem;
-        margin: 0;
-    }
-
-    .card {
-        background: #fff;
-        border: 1px solid #e0e0e0;
-        border-radius: 8px;
-        padding: 1.5rem;
-        display: flex;
-        flex-direction: column;
-        gap: 1rem;
-    }
-
-    h2 {
-        font-size: 1rem;
-        font-weight: 600;
-        margin: 0;
-    }
-
-    .hint {
-        font-size: 0.875rem;
-        color: #555;
-        margin: 0;
-    }
-
     textarea {
         width: 100%;
         padding: 0.5rem;
         border: 1px solid #ccc;
         border-radius: 4px;
-        font-size: 0.875rem;
+        font-size: 0.9rem;
         font-family: monospace;
         resize: vertical;
         box-sizing: border-box;
@@ -210,7 +175,7 @@
         border: 1px solid #c3dfc3;
         border-radius: 4px;
         padding: 0.75rem 1rem;
-        font-size: 0.875rem;
+        font-size: 0.9rem;
     }
 
     .feedback p {
@@ -225,40 +190,12 @@
         color: #7a5500;
     }
 
-    .error {
-        color: #c00;
-        font-size: 0.875rem;
-        margin: 0;
-    }
-
     .monospace {
         font-family: monospace;
     }
 
-    table {
-        width: 100%;
-        border-collapse: collapse;
-        font-size: 0.875rem;
-    }
-
-    th {
-        text-align: left;
-        font-size: 0.75rem;
-        text-transform: uppercase;
-        letter-spacing: 0.04em;
-        color: #666;
-        padding: 0.4rem 0.5rem;
-        border-bottom: 1px solid #eee;
-    }
-
-    td {
-        padding: 0.5rem;
-        border-bottom: 1px solid #f5f5f5;
-        vertical-align: top;
-    }
-
     td.doi {
-        font-size: 0.8rem;
+        font-size: 0.85rem;
         color: #555;
         white-space: nowrap;
     }
@@ -269,31 +206,11 @@
 
     td.authors {
         color: #555;
-        font-size: 0.8rem;
+        font-size: 0.85rem;
     }
 
     td.year {
         white-space: nowrap;
         color: #555;
-    }
-
-    .btn-primary {
-        padding: 0.5rem 1.2rem;
-        background: #333;
-        color: #fff;
-        border: none;
-        border-radius: 4px;
-        cursor: pointer;
-        font-size: 0.875rem;
-        align-self: flex-start;
-    }
-
-    .btn-primary:disabled {
-        opacity: 0.5;
-        cursor: not-allowed;
-    }
-
-    .btn-primary:not(:disabled):hover {
-        background: #111;
     }
 </style>

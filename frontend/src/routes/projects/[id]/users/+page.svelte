@@ -1,4 +1,5 @@
 <script lang="ts">
+    import "$lib/management.css";
     interface Member {
         user_id: string;
         email: string;
@@ -246,50 +247,8 @@
 </div>
 
 <style>
-    .page {
-        max-width: 900px;
-        margin: 2rem auto;
-        padding: 0 1rem;
-        display: flex;
-        flex-direction: column;
-        gap: 2rem;
-    }
-
-    h1 {
-        font-size: 1.4rem;
-        margin: 0;
-    }
-
-    .card {
-        background: #fff;
-        border: 1px solid #e0e0e0;
-        border-radius: 8px;
-        padding: 1.5rem;
-        display: flex;
-        flex-direction: column;
-        gap: 1rem;
-    }
-
-    h2 {
-        font-size: 1rem;
-        font-weight: 600;
-        margin: 0;
-    }
-
-    .hint {
-        font-size: 0.875rem;
-        color: #555;
-        margin: 0;
-    }
-
-    .error {
-        color: #c00;
-        font-size: 0.875rem;
-        margin: 0;
-    }
-
     .warn {
-        font-size: 0.875rem;
+        font-size: 0.9rem;
         color: #7a5500;
         background: #fffbea;
         border: 1px solid #f5d67a;
@@ -309,7 +268,7 @@
         padding: 0.45rem 0.6rem;
         border: 1px solid #ccc;
         border-radius: 4px;
-        font-size: 0.875rem;
+        font-size: 0.9rem;
     }
 
     .add-form {
@@ -320,24 +279,12 @@
         padding-top: 0.75rem;
     }
 
-    .field {
-        display: flex;
-        flex-direction: column;
-        gap: 0.25rem;
-    }
-
-    .field label {
-        font-size: 0.8rem;
-        font-weight: 500;
-        color: #444;
-    }
-
     .field select,
     .field input {
         padding: 0.45rem 0.6rem;
         border: 1px solid #ccc;
         border-radius: 4px;
-        font-size: 0.875rem;
+        font-size: 0.9rem;
         max-width: 320px;
     }
 
@@ -346,7 +293,7 @@
         border: 1px solid #c3dfc3;
         border-radius: 4px;
         padding: 0.75rem 1rem;
-        font-size: 0.875rem;
+        font-size: 0.9rem;
     }
 
     .generated-password p {
@@ -359,28 +306,6 @@
         background: #e8f5e8;
         padding: 0.2rem 0.4rem;
         border-radius: 3px;
-    }
-
-    table {
-        width: 100%;
-        border-collapse: collapse;
-        font-size: 0.875rem;
-    }
-
-    th {
-        text-align: left;
-        font-size: 0.75rem;
-        text-transform: uppercase;
-        letter-spacing: 0.04em;
-        color: #666;
-        padding: 0.4rem 0.5rem;
-        border-bottom: 1px solid #eee;
-    }
-
-    td {
-        padding: 0.5rem;
-        border-bottom: 1px solid #f5f5f5;
-        vertical-align: middle;
     }
 
     td.email {
@@ -401,62 +326,8 @@
     .role-badge {
         background: #eef2ff;
         color: #3730a3;
-        font-size: 0.75rem;
+        font-size: 0.8rem;
         padding: 0.15rem 0.5rem;
         border-radius: 999px;
-    }
-
-    .btn-primary {
-        padding: 0.5rem 1.2rem;
-        background: #333;
-        color: #fff;
-        border: none;
-        border-radius: 4px;
-        cursor: pointer;
-        font-size: 0.875rem;
-        align-self: flex-start;
-    }
-
-    .btn-primary:disabled {
-        opacity: 0.5;
-        cursor: not-allowed;
-    }
-
-    .btn-primary:not(:disabled):hover {
-        background: #111;
-    }
-
-    .btn-secondary {
-        padding: 0.45rem 1rem;
-        background: #fff;
-        color: #333;
-        border: 1px solid #ccc;
-        border-radius: 4px;
-        cursor: pointer;
-        font-size: 0.875rem;
-        white-space: nowrap;
-    }
-
-    .btn-secondary:disabled {
-        opacity: 0.5;
-        cursor: not-allowed;
-    }
-
-    .btn-secondary:not(:disabled):hover {
-        background: #f5f5f5;
-    }
-
-    .btn-danger-sm {
-        padding: 0.25rem 0.6rem;
-        background: #fff;
-        color: #c00;
-        border: 1px solid #f5c6c6;
-        border-radius: 4px;
-        cursor: pointer;
-        font-size: 0.75rem;
-    }
-
-    .btn-danger-sm:hover {
-        background: #fff5f5;
     }
 </style>
