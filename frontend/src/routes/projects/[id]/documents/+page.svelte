@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { untrack } from "svelte";
     import "$lib/management.css";
     interface Reference {
         reference_id: number;
@@ -17,7 +18,7 @@
 
     let { data } = $props();
 
-    let references = $state<Reference[]>(data.references);
+    let references = $state<Reference[]>(untrack(() => data.references));
     let input = $state("");
     let submitting = $state(false);
     let result = $state<Result | null>(null);

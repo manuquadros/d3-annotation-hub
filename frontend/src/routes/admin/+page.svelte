@@ -1,4 +1,6 @@
 <script lang="ts">
+    import { untrack } from "svelte";
+
     interface Ontology {
         ontology_id: number;
         name: string;
@@ -42,11 +44,11 @@
     }
 
     let { data } = $props();
-    let ontologies = $state<Ontology[]>(data.ontologies);
-    let allUsers = $state<UserRecord[]>(data.allUsers ?? []);
+    let ontologies = $state<Ontology[]>(untrack(() => data.ontologies));
+    let allUsers = $state<UserRecord[]>(untrack(() => data.allUsers ?? []));
 
     // ── Project state ──────────────────────────────────────────────────────────
-    let projects = $state<Project[]>(data.projects);
+    let projects = $state<Project[]>(untrack(() => data.projects));
 
     // Per-project expanded panel
     let expandedProjectId = $state<number | null>(null);
@@ -247,9 +249,9 @@
         kind: string;
     }
 
-    let proposedEntities = $state<ProposedEntity[]>(data.proposedEntities ?? []);
-    let proposedTotal = $state<number>(data.proposedTotal ?? 0);
-    let proposedOffset = $state((data.proposedEntities ?? []).length);
+    let proposedEntities = $state<ProposedEntity[]>(untrack(() => data.proposedEntities ?? []));
+    let proposedTotal = $state<number>(untrack(() => data.proposedTotal ?? 0));
+    let proposedOffset = $state(untrack(() => (data.proposedEntities ?? []).length));
     let proposedLoading = $state(false);
 
     async function loadMoreProposed() {

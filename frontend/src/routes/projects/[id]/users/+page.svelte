@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { untrack } from "svelte";
     import "$lib/management.css";
     interface Member {
         user_id: string;
@@ -15,7 +16,7 @@
 
     let { data } = $props();
 
-    let members = $state<Member[]>(data.members);
+    let members = $state<Member[]>(untrack(() => data.members));
 
     // Search form
     let searchEmail = $state("");

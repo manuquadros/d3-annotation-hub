@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { setContext } from "svelte";
+    import { setContext, untrack } from "svelte";
     import { beforeNavigate } from "$app/navigation";
     import { Set } from "immutable";
     import Summary from "$lib/components/Summary.svelte";
@@ -57,18 +57,19 @@
         });
     }
 
-    const body: string | undefined = initialState.reference.body;
+    const body: string | undefined = untrack(() => initialState.reference.body);
 
-    const validEntityIds = new globalThis.Set(initialState.entities.keys());
-    const relationsArray = initialState.relations.toArray();
-    const validRelations = relationsArray.filter(
-        (relation) => validEntityIds.has(relation.subject) && validEntityIds.has(relation.object)
-    );
-    if (validRelations.length < relationsArray.length) {
-        initialState.relations = Set(validRelations);
-    }
-
-    setContext("annotationState", initialState);
+    untrack(() => {
+        const validEntityIds = new globalThis.Set(initialState.entities.keys());
+        const relationsArray = initialState.relations.toArray();
+        const validRelations = relationsArray.filter(
+            (relation) => validEntityIds.has(relation.subject) && validEntityIds.has(relation.object)
+        );
+        if (validRelations.length < relationsArray.length) {
+            initialState.relations = Set(validRelations);
+        }
+        setContext("annotationState", initialState);
+    });
     setContext("editorState", {
         get value() { return editorState; },
         set value(s: EditorState) { editorState = s; },

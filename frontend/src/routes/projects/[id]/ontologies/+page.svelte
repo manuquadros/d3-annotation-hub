@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { untrack } from "svelte";
     import "$lib/management.css";
     interface Ontology {
         ontology_id: number;
@@ -16,8 +17,8 @@
 
     let { data } = $props();
 
-    let projectOntologies = $state<Ontology[]>(data.projectOntologies);
-    const allOntologies: Ontology[] = data.allOntologies;
+    let projectOntologies = $state<Ontology[]>(untrack(() => data.projectOntologies));
+    const allOntologies: Ontology[] = untrack(() => data.allOntologies);
 
     // ── Import form ──────────────────────────────────────────────────────────
     let file = $state<File | null>(null);

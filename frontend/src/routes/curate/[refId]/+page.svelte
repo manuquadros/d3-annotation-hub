@@ -1,6 +1,7 @@
 <script lang="ts">
     import { invalidateAll } from "$app/navigation";
     import { browser } from "$app/environment";
+    import { untrack } from "svelte";
     import type { PageData } from "./$types";
     import type { PointerOut, RelationOut } from "./+page.server";
 
@@ -16,7 +17,7 @@
         snapshots,
         curated_pointers,
         curated_relations,
-    } = data.data;
+    } = untrack(() => data.data);
 
     // ---------------------------------------------------------------------------
     // Plain-text extraction from the HTML body (client-side only)
