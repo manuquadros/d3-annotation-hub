@@ -13,6 +13,37 @@
     let { children, data } = $props();
 
     let isLoginPage = $derived($page.url.pathname === "/login");
+
+    /**
+     * @typedef {{ label: string, href?: string }} Crumb
+     * @type {Crumb[]}
+     */
+    let breadcrumbs = $derived.by(() => {
+        const path = $page.url.pathname;
+        const pd = $page.data;
+
+        if (path === "/") {
+            const doi = pd.documentData?.reference?.doi;
+            return doi ? [{ label: doi }] : [];
+        }
+        if (path === "/curate") {
+            return [{ label: "Curation Queue" }];
+        }
+        if (path.startsWith("/curate/")) {
+            const doi = pd.data?.reference?.doi;
+            const projectId = pd.projectId ?? pd.currentProjectId;
+            return [
+                { label: "Curation Queue", href: `/curate?project=${projectId}` },
+                { label: doi ?? `Reference ${$page.params.refId}` },
+            ];
+        }
+        if (path.includes("/documents")) return [{ label: "Documents" }];
+        if (path.includes("/ontologies")) return [{ label: "Ontologies" }];
+        if (path.includes("/users")) return [{ label: "Users" }];
+        if (path === "/admin") return [{ label: "Admin" }];
+        if (path === "/projects/new") return [{ label: "New Project" }];
+        return [];
+    });
 </script>
 
 <div class="layout">
@@ -61,18 +92,20 @@
                         onclick={(e) => digidive.toggleSidebar(e.currentTarget)}
                     ></button>
 
-                    <ul class="breadcrumb navbar-breadcrumb">
-                        <!-- Link items are optional: -->
-                        <li>
-                            <a href="#">Home</a>
-                        </li>
-                        <li>
-                            <a href="#">References</a>
-                        </li>
-                        <li class="active" aria-current="page">
-                            <a href="#">Article</a>
-                        </li>
-                    </ul>
+                    {#if breadcrumbs.length > 0}
+                        <ul class="breadcrumb navbar-breadcrumb">
+                            {#each breadcrumbs as crumb, i}
+                                {@const isLast = i === breadcrumbs.length - 1}
+                                <li class:active={isLast} aria-current={isLast ? "page" : undefined}>
+                                    {#if crumb.href}
+                                        <a href={crumb.href}>{crumb.label}</a>
+                                    {:else}
+                                        {crumb.label}
+                                    {/if}
+                                </li>
+                            {/each}
+                        </ul>
+                    {/if}
 
                     <form
                         id="navbar-search"
