@@ -80,12 +80,14 @@
         <ArticleBody {body} />
     </div>
 
-    <div id="summary">
-        <Summary />
-    </div>
+    <div id="sidebar">
+        <div id="summary">
+            <Summary />
+        </div>
 
-    <div id="relations">
-        <Relations />
+        <div id="relations">
+            <Relations />
+        </div>
     </div>
 </div>
 
