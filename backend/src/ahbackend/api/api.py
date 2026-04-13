@@ -23,6 +23,8 @@ from ahbackend.db import (
     get_project,
     get_project_annotation_queue,
     get_project_ontologies,
+    get_project_reference_ids,
+    get_reference_by_doi,
     get_project_members,
     get_reference_annotation,
     get_reference_by_id,
@@ -603,30 +605,61 @@ def unassign_ontology(
 
 
 class AddReferencesRequest(BaseModel):
-    pubmed_ids: list[int]
+    identifiers: list[str]
 
 
-@app.post("/projects/{project_id}/references", status_code=204)
+class AddReferencesResponse(BaseModel):
+    imported: int
+    already_in_project: int
+    not_found: list[str]
+
+
+def _is_doi(identifier: str) -> bool:
+    return identifier.startswith("10.")
+
+
+@app.post("/projects/{project_id}/references")
 def add_references(
     project_id: int,
     body: AddReferencesRequest,
     _: Annotated[User, Depends(users.require_project_manager)],
-) -> None:
-    """Add references to a project by PubMed ID."""
+) -> AddReferencesResponse:
+    """Add references to a project by PubMed ID or DOI."""
     if get_project(project_id) is None:
         raise HTTPException(status_code=404, detail="Project not found")
-    not_found = []
-    for pmid in body.pubmed_ids:
-        ref = get_reference_by_pubmed_id(pmid)
+
+    existing_ids = get_project_reference_ids(project_id)
+    imported = 0
+    already_in_project = 0
+    not_found: list[str] = []
+
+    for identifier in body.identifiers:
+        identifier = identifier.strip()
+        if not identifier:
+            continue
+        if _is_doi(identifier):
+            ref = get_reference_by_doi(identifier)
+        else:
+            try:
+                ref = get_reference_by_pubmed_id(int(identifier))
+            except ValueError:
+                not_found.append(identifier)
+                continue
+
         if ref is None:
-            not_found.append(pmid)
+            not_found.append(identifier)
+        elif ref.reference_id in existing_ids:
+            already_in_project += 1
         else:
             add_reference_to_project(project_id, ref.reference_id)
-    if not_found:
-        raise HTTPException(
-            status_code=404,
-            detail=f"References not found for PubMed IDs: {not_found}",
-        )
+            existing_ids.add(ref.reference_id)
+            imported += 1
+
+    return AddReferencesResponse(
+        imported=imported,
+        already_in_project=already_in_project,
+        not_found=not_found,
+    )
 
 
 @app.delete("/projects/{project_id}/references/{reference_id}", status_code=204)

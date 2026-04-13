@@ -47,6 +47,14 @@ def get_reference_by_pubmed_id(pubmed_id: int) -> Reference | None:
     return annodb.get_article_by_pubmed_id(pubmed_id)
 
 
+def get_reference_by_doi(doi: str) -> Reference | None:
+    return annodb.get_reference_by_doi(doi)
+
+
+def get_project_reference_ids(project_id: int) -> set[int]:
+    return annodb.get_project_reference_ids(project_id)
+
+
 def get_reference_by_id(reference_id: int) -> Reference | None:
     with Session(annodb.engine) as session:
         return session.get(Reference, reference_id)
