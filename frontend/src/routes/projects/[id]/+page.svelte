@@ -64,6 +64,7 @@
 
     .card {
         display: flex;
+        flex-direction: row;
         align-items: center;
         gap: 1.5rem;
         padding: 1.5rem 1.75rem;
