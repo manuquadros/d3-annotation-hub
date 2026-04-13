@@ -920,16 +920,6 @@
         margin-bottom: 1.5rem;
     }
 
-    .create-form {
-        margin-bottom: 0;
-    }
-
-    .divider {
-        border: none;
-        border-top: 1px solid #eee;
-        margin: 1.5rem 0;
-    }
-
     .field {
         margin-bottom: 1rem;
     }
@@ -959,7 +949,6 @@
 
     input[type="text"],
     input[type="email"],
-    input[type="number"],
     input[type="file"],
     select {
         width: 100%;
