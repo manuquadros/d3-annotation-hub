@@ -797,6 +797,7 @@ def curation_queue(
         ReferenceInfo(
             reference_id=r.reference_id,
             pubmed_id=r.pubmed_id,
+            doi=r.doi,
             title=r.title,
             authors=r.authors,
             year=r.year,
@@ -928,6 +929,7 @@ def annotator_snapshots(
         reference=ReferenceInfo(
             reference_id=ref.reference_id,
             pubmed_id=ref.pubmed_id,
+            doi=ref.doi,
             title=ref.title,
             authors=ref.authors,
             year=ref.year,
