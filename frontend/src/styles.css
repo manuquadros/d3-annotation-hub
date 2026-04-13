@@ -25,7 +25,7 @@ body {
     overflow-y: auto;
     display: flex;
     flex-direction: column;
-    gap: 1rem;
+    gap: 2rem;
 }
 
 #summary,
@@ -33,11 +33,6 @@ body {
     line-height: 3;
 }
 
-/* Reduce spacing after summary headers */
-h4.summary-header {
-    margin-bottom: 0; /* Reduce bottom margin */
-    margin-top: 1em; /* Keep reasonable spacing between sections */
-}
 
 /* Adjust spacing for resource buttons */
 button.entity.entitySummary {

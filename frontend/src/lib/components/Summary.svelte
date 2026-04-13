@@ -11,7 +11,10 @@
      * The kinds are sorted alphabetically.
      */
     const entitiesByKind = $derived.by(() => {
-        const grouped = new Map<string, Array<{ id: string; entity: Entity }>>();
+        const grouped = new Map<
+            string,
+            Array<{ id: string; entity: Entity }>
+        >();
 
         for (const [id, entity] of annotationState.entities.entries()) {
             const kind = entity.kind;
@@ -22,7 +25,9 @@
         }
 
         // Sort kinds alphabetically
-        return new Map([...grouped.entries()].sort(([a], [b]) => a.localeCompare(b)));
+        return new Map(
+            [...grouped.entries()].sort(([a], [b]) => a.localeCompare(b)),
+        );
     });
 
     /**
@@ -31,7 +36,9 @@
      */
     function plural(singular: string): string {
         // Extract the label part after the colon (e.g., "d3o:Bacteria" -> "Bacteria")
-        const label = singular.includes(":") ? singular.split(":")[1] : singular;
+        const label = singular.includes(":")
+            ? singular.split(":")[1]
+            : singular;
 
         if (label === "Bacteria") {
             return label;
@@ -43,18 +50,26 @@
 {#if entitiesByKind.size > 0}
     <h2>Entities</h2>
 
-    {#each entitiesByKind.entries() as [kind, entities]}
-        <h4 class="summary-header">{plural(kind)}</h4>
-        <div class="entity-group">
-            {#each entities as { id, entity }}
-                <EntityButton entityId={id} />
-            {/each}
-        </div>
-    {/each}
+    <div class="summary-groups">
+        {#each entitiesByKind.entries() as [kind, entities]}
+            <div class="summary-group">
+                <div class="summary-label">{plural(kind)}</div>
+                <div class="entity-group">
+                    {#each entities as { id, entity }}
+                        <EntityButton entityId={id} />
+                    {/each}
+                </div>
+            </div>
+        {/each}
+    </div>
 {/if}
 
 <style>
-    h2, h4 {
+    @import "../summary.css";
+
+    h2 {
+        margin-top: 0;
+        margin-bottom: 0.5rem;
         line-height: normal;
     }
 
@@ -62,11 +77,5 @@
         display: flex;
         flex-wrap: wrap;
         gap: 0.25rem;
-        margin-bottom: 1rem;
-    }
-
-    .entity-group:last-child {
-        margin-bottom: 0;
-        line-height: normal;
     }
 </style>

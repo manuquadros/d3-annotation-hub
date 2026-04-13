@@ -1,0 +1,22 @@
+/* Shared styles for entity / relation summary panels */
+
+.summary-groups {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.summary-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    text-indent: 0.4em;
+}
+
+.summary-label {
+    font-size: 1rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    color: #444;
+    line-height: normal;
+}
