@@ -55,6 +55,10 @@ def get_project_reference_ids(project_id: int) -> set[int]:
     return annodb.get_project_reference_ids(project_id)
 
 
+def list_project_references(project_id: int) -> list[Reference]:
+    return annodb.list_project_references(project_id)
+
+
 def get_reference_by_id(reference_id: int) -> Reference | None:
     with Session(annodb.engine) as session:
         return session.get(Reference, reference_id)

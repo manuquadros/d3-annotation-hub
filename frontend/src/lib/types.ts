@@ -124,6 +124,7 @@ export type EditorState =
 export const AnnotationStateSchema = z.object({
     user: UserSchema,
     reference: ReferenceSchema,
+    project_id: z.int(),
     entities: z
         .array(EntitySchema)
         .default([])

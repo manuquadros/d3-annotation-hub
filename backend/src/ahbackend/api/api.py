@@ -25,6 +25,7 @@ from ahbackend.db import (
     get_project_ontologies,
     get_project_reference_ids,
     get_reference_by_doi,
+    list_project_references,
     get_project_members,
     get_reference_annotation,
     get_reference_by_id,
@@ -618,6 +619,28 @@ def _is_doi(identifier: str) -> bool:
     return identifier.startswith("10.")
 
 
+class ReferenceInfo(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    reference_id: int
+    pubmed_id: int | None
+    doi: str | None
+    title: str
+    authors: str
+    year: int
+
+
+@app.get("/projects/{project_id}/references")
+def get_project_references(
+    project_id: int,
+    _: Annotated[User, Depends(users.require_project_manager)],
+) -> list[ReferenceInfo]:
+    """List references associated with a project."""
+    if get_project(project_id) is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+    return [ReferenceInfo.model_validate(r) for r in list_project_references(project_id)]
+
+
 @app.post("/projects/{project_id}/references")
 def add_references(
     project_id: int,
@@ -693,14 +716,6 @@ def project_annotation_queue(
 # ---------------------------------------------------------------------------
 # Curation queue
 # ---------------------------------------------------------------------------
-
-
-class ReferenceInfo(BaseModel):
-    reference_id: int
-    pubmed_id: int | None
-    title: str
-    authors: str
-    year: int
 
 
 @app.get("/projects/{project_id}/curation/queue")

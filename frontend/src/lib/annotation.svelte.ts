@@ -23,6 +23,7 @@ interface Snapshot {
 export class AnnotationState {
     user: User;
     reference: Reference;
+    project_id!: number;
     entities: ImmutableMap<string, Entity> = $state(Map());
     pointers: ImmutableMap<string, Pointer> = $state(Map());
     relations: ImmutableSet<Relation> = $state(Set());
@@ -42,6 +43,7 @@ export class AnnotationState {
         const validated = AnnotationStateSchema.parse(parsed);
         this.user = validated.user;
         this.reference = validated.reference;
+        this.project_id = validated.project_id;
         this.entities = validated.entities;
         this.pointers = validated.pointers;
         this.relations = validated.relations;

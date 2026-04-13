@@ -16,6 +16,7 @@ export async function saveAnnotationState(
         const payload = {
             user: state.user,
             reference: state.reference,
+            project_id: state.project_id,
             entities: state.entities.valueSeq().toArray(),
             pointers: state.pointers.valueSeq().toArray(),
             relations: state.relations.toArray().map((r) => r.toObject()),

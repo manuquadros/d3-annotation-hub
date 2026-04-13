@@ -28,6 +28,7 @@ from .db import (
     get_project_ontologies,
     get_project_members,
     get_project_reference_ids,
+    list_project_references,
     get_reference_annotation,
     get_reference_by_doi,
     get_reference_by_id,

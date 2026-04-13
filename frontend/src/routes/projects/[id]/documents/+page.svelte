@@ -1,10 +1,12 @@
 <script lang="ts">
-    import { page } from "$app/stores";
-
-    const projectId = $derived(Number($page.params.id));
-
-    let input = $state("");
-    let submitting = $state(false);
+    interface Reference {
+        reference_id: number;
+        pubmed_id: number | null;
+        doi: string | null;
+        title: string;
+        authors: string;
+        year: number;
+    }
 
     interface Result {
         imported: number;
@@ -12,6 +14,11 @@
         not_found: string[];
     }
 
+    let { data } = $props();
+
+    let references = $state<Reference[]>(data.references);
+    let input = $state("");
+    let submitting = $state(false);
     let result = $state<Result | null>(null);
     let errorMessage = $state<string | null>(null);
 
@@ -32,7 +39,7 @@
         }
 
         try {
-            const res = await fetch(`/api/projects/${projectId}/references`, {
+            const res = await fetch(`/api/projects/${data.projectId}/references`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ identifiers }),
@@ -43,7 +50,12 @@
                 errorMessage = d.detail ?? res.statusText;
             } else {
                 result = await res.json();
-                if (result!.imported > 0) input = "";
+                if (result!.imported > 0) {
+                    input = "";
+                    // Refresh the reference list to show newly added entries
+                    const listRes = await fetch(`/api/projects/${data.projectId}/references`);
+                    if (listRes.ok) references = await listRes.json();
+                }
             }
         } catch (err) {
             errorMessage = String(err);
@@ -67,7 +79,7 @@
             <textarea
                 bind:value={input}
                 placeholder={"36828727\n10.1038/s41586-023-05881-4\n37001221"}
-                rows={8}
+                rows={6}
                 disabled={submitting}
             ></textarea>
 
@@ -94,7 +106,7 @@
                             {result.not_found.length === 1
                                 ? "1 identifier was not found in the database:"
                                 : `${result.not_found.length} identifiers were not found in the database:`}
-                            <span class="not-found-list">{result.not_found.join(", ")}</span>
+                            <span class="monospace">{result.not_found.join(", ")}</span>
                         </p>
                     {/if}
                 </div>
@@ -105,11 +117,45 @@
             </button>
         </form>
     </section>
+
+    {#if references.length > 0}
+        <section class="card">
+            <h2>Documents in this project ({references.length})</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>DOI</th>
+                        <th>Title</th>
+                        <th>Authors</th>
+                        <th>Year</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {#each references as ref (ref.reference_id)}
+                        <tr>
+                            <td class="monospace doi">
+                                {#if ref.doi}
+                                    {ref.doi}
+                                {:else if ref.pubmed_id}
+                                    PMID:{ref.pubmed_id}
+                                {:else}
+                                    —
+                                {/if}
+                            </td>
+                            <td class="title">{ref.title}</td>
+                            <td class="authors">{ref.authors}</td>
+                            <td class="year">{ref.year}</td>
+                        </tr>
+                    {/each}
+                </tbody>
+            </table>
+        </section>
+    {/if}
 </div>
 
 <style>
     .page {
-        max-width: 640px;
+        max-width: 900px;
         margin: 2rem auto;
         padding: 0 1rem;
         display: flex;
@@ -130,6 +176,12 @@
         display: flex;
         flex-direction: column;
         gap: 1rem;
+    }
+
+    h2 {
+        font-size: 1rem;
+        font-weight: 600;
+        margin: 0;
     }
 
     .hint {
@@ -173,14 +225,56 @@
         color: #7a5500;
     }
 
-    .not-found-list {
-        font-family: monospace;
-    }
-
     .error {
         color: #c00;
         font-size: 0.875rem;
         margin: 0;
+    }
+
+    .monospace {
+        font-family: monospace;
+    }
+
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.875rem;
+    }
+
+    th {
+        text-align: left;
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: #666;
+        padding: 0.4rem 0.5rem;
+        border-bottom: 1px solid #eee;
+    }
+
+    td {
+        padding: 0.5rem;
+        border-bottom: 1px solid #f5f5f5;
+        vertical-align: top;
+    }
+
+    td.doi {
+        font-size: 0.8rem;
+        color: #555;
+        white-space: nowrap;
+    }
+
+    td.title {
+        font-weight: 500;
+    }
+
+    td.authors {
+        color: #555;
+        font-size: 0.8rem;
+    }
+
+    td.year {
+        white-space: nowrap;
+        color: #555;
     }
 
     .btn-primary {
