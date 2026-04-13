@@ -8,10 +8,13 @@
     import ArticleBody from "./ArticleBody.svelte";
     import SaveIndicator from "./SaveIndicator.svelte";
     import type { SaveStatus } from "./SaveIndicator.svelte";
-    import { createDebouncedSave, saveAnnotationState } from "$lib/utils/autosave.ts";
+    import {
+        createDebouncedSave,
+        saveAnnotationState,
+    } from "$lib/utils/autosave.ts";
     import AnnotationEditor from "./AnnotationEditor.svelte";
     import RelationEditor from "./RelationEditor.svelte";
-    import type { EditorState } from "$lib/types.ts";
+    import type { EditorState, Reference } from "$lib/types.ts";
 
     interface Props {
         initialState: AnnotationState;
@@ -19,9 +22,9 @@
 
     let { initialState }: Props = $props();
 
-    let editorState = $state<EditorState>({ mode: 'closed' });
+    let editorState = $state<EditorState>({ mode: "closed" });
 
-    let saveStatus = $state<SaveStatus>({ type: 'idle' });
+    let saveStatus = $state<SaveStatus>({ type: "idle" });
 
     const { scheduleSave, cancelPending } = createDebouncedSave(2000);
 
@@ -31,13 +34,16 @@
         const _relations = initialState.relations;
         const _completed = initialState.completed;
 
-        saveStatus = { type: 'saving' };
+        saveStatus = { type: "saving" };
 
         scheduleSave(initialState).then((result) => {
             if (result.success) {
-                saveStatus = { type: 'saved', timestamp: new Date() };
+                saveStatus = { type: "saved", timestamp: new Date() };
             } else {
-                saveStatus = { type: 'error', message: result.error || 'Unknown error' };
+                saveStatus = {
+                    type: "error",
+                    message: result.error || "Unknown error",
+                };
             }
         });
     });
@@ -48,23 +54,31 @@
     });
 
     function handleRetry() {
-        saveStatus = { type: 'saving' };
+        saveStatus = { type: "saving" };
         scheduleSave(initialState).then((result) => {
             if (result.success) {
-                saveStatus = { type: 'saved', timestamp: new Date() };
+                saveStatus = { type: "saved", timestamp: new Date() };
             } else {
-                saveStatus = { type: 'error', message: result.error || 'Unknown error' };
+                saveStatus = {
+                    type: "error",
+                    message: result.error || "Unknown error",
+                };
             }
         });
     }
 
-    const body: string | undefined = untrack(() => initialState.reference.body);
+    const reference: Reference | undefined = untrack(
+        () => initialState.reference,
+    );
+    const body: string | undefined = reference?.body;
 
     untrack(() => {
         const validEntityIds = new globalThis.Set(initialState.entities.keys());
         const relationsArray = initialState.relations.toArray();
         const validRelations = relationsArray.filter(
-            (relation) => validEntityIds.has(relation.subject) && validEntityIds.has(relation.object)
+            (relation) =>
+                validEntityIds.has(relation.subject) &&
+                validEntityIds.has(relation.object),
         );
         if (validRelations.length < relationsArray.length) {
             initialState.relations = Set(validRelations);
@@ -72,13 +86,26 @@
         setContext("annotationState", initialState);
     });
     setContext("editorState", {
-        get value() { return editorState; },
-        set value(s: EditorState) { editorState = s; },
+        get value() {
+            return editorState;
+        },
+        set value(s: EditorState) {
+            editorState = s;
+        },
     });
 </script>
 
 <div id="container">
     <div id="chunk">
+        <div class="reference-meta">
+            <h2>{reference.title}</h2>
+            <p class="meta-line">
+                {reference.authors} · {reference.year}
+                {#if reference.pubmed_id}
+                    · PMID {reference.pubmed_id}
+                {/if}
+            </p>
+        </div>
         <ArticleBody {body} />
     </div>
 

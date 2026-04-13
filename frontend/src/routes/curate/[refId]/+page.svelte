@@ -902,17 +902,6 @@
         gap: 0.75rem;
     }
 
-    .reference-meta h2 {
-        margin: 0 0 0.25rem;
-        font-size: 1.1rem;
-    }
-
-    .meta-line {
-        margin: 0;
-        color: var(--text-muted, #666);
-        font-size: 0.875rem;
-    }
-
     .annotators-legend {
         display: flex;
         flex-wrap: wrap;
