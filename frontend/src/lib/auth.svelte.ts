@@ -1,5 +1,3 @@
-import { goto } from "$app/navigation";
-
 /** @internal */
 class AuthState {
     isAuthenticated = $state(false);
@@ -20,10 +18,10 @@ class AuthState {
         return true;
     }
 
-    logout(): void {
+    async logout(): Promise<void> {
         this.isAuthenticated = false;
-        fetch("/api/logout", { method: "POST" });
-        goto("/login");
+        await fetch("/api/logout", { method: "POST" });
+        window.location.replace("/login");
     }
 }
 

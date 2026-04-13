@@ -1,5 +1,4 @@
 <script lang="ts">
-    import { goto } from "$app/navigation";
     import { auth } from "$lib/auth.svelte";
     import "../../styles.css";
 
@@ -16,7 +15,7 @@
         const success = await auth.login(username, password);
 
         if (success) {
-            goto("/");
+            window.location.replace("/");
         } else {
             error = "Invalid username or password";
             isLoading = false;
