@@ -11,24 +11,30 @@
     min-width: 0;
 }
 
-/* Sticky sidebar containing summary + relations */
-#sidebar {
+/* Digidive sets overflow:hidden on .content-wrapper, which breaks position:sticky.
+   Override it so the viewport is the sticky scroll container. */
+.content-wrapper {
+    overflow: visible !important;
+}
+
+/* Wrapper column that stretches to chunk height, giving sticky full travel range */
+#sidebar-col {
     grid-column: 2 / 3;
     grid-row: 1 / 5;
     min-width: 0;
+}
+
+/* Sticky sidebar containing summary + relations.
+   top/max-height account for the digidive sticky bottom-navbar (6rem tall).
+   html{font-size:62.5%} makes 1rem=10px, so 7rem=70px clears the navbar. */
+#sidebar {
     position: sticky;
-    top: 1rem;
-    align-self: start;
-    max-height: calc(100vh - 2rem);
+    top: 7rem;
+    max-height: calc(100vh - 8rem);
     overflow-y: auto;
     display: flex;
     flex-direction: column;
     gap: 2rem;
-}
-
-#summary,
-#relations {
-    line-height: 3;
 }
 
 /* Adjust spacing for resource buttons */
