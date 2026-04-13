@@ -25,6 +25,7 @@ from .db import (
     get_ontology_entities,
     get_project,
     get_project_annotation_queue,
+    get_project_ontologies,
     get_project_members,
     get_reference_annotation,
     get_reference_by_id,

@@ -233,6 +233,10 @@ def get_user_project_roles(user_id: uuid.UUID, project_id: int) -> list[str]:
     return annodb.get_user_project_roles(user_id, project_id)
 
 
+def get_project_ontologies(project_id: int) -> list[Ontology]:
+    return annodb.get_project_ontologies(project_id)
+
+
 def assign_ontology_to_project(project_id: int, ontology_id: int) -> None:
     annodb.assign_ontology_to_project(project_id, ontology_id)
 

@@ -22,6 +22,7 @@ from ahbackend.db import (
     get_ontology_entities,
     get_project,
     get_project_annotation_queue,
+    get_project_ontologies,
     get_project_members,
     get_reference_annotation,
     get_reference_by_id,
@@ -208,7 +209,7 @@ def get_project_roles(
 
 @app.get("/admin/ontologies")
 def get_ontologies(
-    current_user: Annotated[User, Depends(users.get_current_superuser)],
+    current_user: Annotated[User, Depends(users.get_current_admin)],
 ) -> list[Ontology]:
     """List all ontologies loaded into the database."""
     return list_ontologies()
@@ -216,7 +217,7 @@ def get_ontologies(
 
 @app.post("/admin/ontology/import")
 async def import_ontology(
-    current_user: Annotated[User, Depends(users.get_current_superuser)],
+    current_user: Annotated[User, Depends(users.get_current_admin)],
     file: UploadFile,
     name: str = Form(...),
     prefix: str = Form(...),
@@ -563,6 +564,15 @@ def remove_member_from_project(
 # ---------------------------------------------------------------------------
 # Project ontologies
 # ---------------------------------------------------------------------------
+
+
+@app.get("/projects/{project_id}/ontologies")
+def list_project_ontologies(
+    project_id: int,
+    _: Annotated[User, Depends(users.require_project_manager)],
+) -> list[Ontology]:
+    """List ontologies assigned to a project."""
+    return get_project_ontologies(project_id)
 
 
 @app.post("/projects/{project_id}/ontologies/{ontology_id}", status_code=204)
