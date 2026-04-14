@@ -695,8 +695,22 @@ def list_project_properties(
     project_id: int,
     current_user: Annotated[User, Depends(users.get_current_active_user)],
 ) -> list[PropertyResponse]:
-    """Return OWL object properties from all ontologies assigned to the project."""
-    return [PropertyResponse.model_validate(p) for p in get_project_properties(project_id)]
+    """Return OWL object properties plus pending proposed properties for the project."""
+    owl_props = [PropertyResponse.model_validate(p) for p in get_project_properties(project_id)]
+    proposed, _ = list_proposed_properties(project_id, limit=500, offset=0)
+    proposed_props = [
+        PropertyResponse(
+            curie=p["curie"],
+            label=p["label"],
+            domain_curie=p["domain_curie"],
+            range_curie=p["range_curie"],
+        )
+        for p in proposed
+        if p["status"] == "pending" and p["curie"]
+    ]
+    # Deduplicate: OWL properties take precedence over proposed ones with the same curie.
+    seen = {p.curie for p in owl_props}
+    return owl_props + [p for p in proposed_props if p.curie not in seen]
 
 
 # ---------------------------------------------------------------------------
