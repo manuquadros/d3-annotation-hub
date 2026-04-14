@@ -1,0 +1,15 @@
+from .xmlparser import (
+    XMLSyntaxError,
+    clean_namespaces,
+    concat,
+    get_doi,
+    get_metadata,
+    get_pmid,
+    get_segments,
+    reinsert_tags,
+    remove_tags,
+    replace_annotation,
+    transform_article,
+    transform_tree,
+    tree_as_string,
+)
