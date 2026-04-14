@@ -94,9 +94,49 @@ export class AnnotationState {
         this.completed = false;
     }
 
+    #getPlainText(): string {
+        const body = this.reference.body;
+        if (!body) return "";
+        const tempDiv = globalThis.document?.createElement("div");
+        if (!tempDiv) return "";
+        tempDiv.innerHTML = DOMPurify.sanitize(body);
+        return tempDiv.textContent || "";
+    }
+
+    #allOccurrences(
+        plainText: string,
+        searchText: string,
+    ): Array<{ offset: number; length: number }> {
+        if (!searchText) return [];
+        const results: Array<{ offset: number; length: number }> = [];
+        let idx = 0;
+        while ((idx = plainText.indexOf(searchText, idx)) !== -1) {
+            results.push({ offset: idx, length: searchText.length });
+            idx += searchText.length;
+        }
+        return results;
+    }
+
+    #uncoveredOffsets(
+        candidates: Array<{ offset: number; length: number }>,
+        againstPointers: ImmutableMap<string, Pointer>,
+    ): Array<{ offset: number; length: number }> {
+        return candidates.filter(
+            ({ offset, length }) =>
+                !againstPointers
+                    .valueSeq()
+                    .some(
+                        (p) =>
+                            p.offset < offset + length &&
+                            offset < p.offset + p.length,
+                    ),
+        );
+    }
+
     /**
      * Creates a new entity with the given kind and preferred name, then creates
      * pointers at each offset. The text at each offset is added as a synonym.
+     * Propagates the annotation to all other identical uncovered occurrences.
      */
     add(
         kind: string,
@@ -104,23 +144,16 @@ export class AnnotationState {
         offsets: Array<{ offset: number; length: number }>,
     ): void {
         const before = this.#snapshot();
-        const body = this.reference.body;
+        const plainText = this.#getPlainText();
         const synonyms = new globalThis.Set<string>();
 
         // Always include the preferred name itself as a synonym.
         const trimmedName = preferredName.trim();
         if (trimmedName) synonyms.add(trimmedName);
 
-        if (body) {
-            const tempDiv = globalThis.document?.createElement("div");
-            if (tempDiv) {
-                tempDiv.innerHTML = DOMPurify.sanitize(body);
-                const plainText = tempDiv.textContent || "";
-                for (const { offset, length } of offsets) {
-                    const text = plainText.slice(offset, offset + length).trim();
-                    if (text) synonyms.add(text);
-                }
-            }
+        for (const { offset, length } of offsets) {
+            const text = plainText.slice(offset, offset + length).trim();
+            if (text) synonyms.add(text);
         }
 
         const newEntityId = this.#createEntity(kind, preferredName, synonyms);
@@ -135,14 +168,35 @@ export class AnnotationState {
                 length,
             });
         }
-
         this.pointers = updatedPointers;
+
+        // Propagate to all other identical uncovered occurrences.
+        const searchText = offsets[0]
+            ? plainText.slice(offsets[0].offset, offsets[0].offset + offsets[0].length)
+            : "";
+        if (searchText) {
+            const candidates = this.#allOccurrences(plainText, searchText);
+            const extras = this.#uncoveredOffsets(candidates, this.pointers);
+            let propagated = this.pointers;
+            for (const { offset, length } of extras) {
+                const key = nextPointerKey();
+                propagated = propagated.set(key, {
+                    entity_id: newEntityId,
+                    reference_id: this.reference.reference_id,
+                    offset,
+                    length,
+                });
+            }
+            this.pointers = propagated;
+        }
+
         this.#commit(before);
     }
 
     /**
      * Adds new pointer(s) to an existing entity and appends the highlighted
      * text as a synonym if it isn't already present.
+     * Propagates the annotation to all other identical uncovered occurrences.
      */
     addToExistingEntity(
         entityId: string,
@@ -171,8 +225,27 @@ export class AnnotationState {
                 length,
             });
         }
-
         this.pointers = updatedPointers;
+
+        // Propagate to all other identical uncovered occurrences.
+        const searchText = trimmed;
+        if (searchText) {
+            const plainText = this.#getPlainText();
+            const candidates = this.#allOccurrences(plainText, searchText);
+            const extras = this.#uncoveredOffsets(candidates, this.pointers);
+            let propagated = this.pointers;
+            for (const { offset, length } of extras) {
+                const key = nextPointerKey();
+                propagated = propagated.set(key, {
+                    entity_id: entityId,
+                    reference_id: this.reference.reference_id,
+                    offset,
+                    length,
+                });
+            }
+            this.pointers = propagated;
+        }
+
         this.#commit(before);
     }
 
@@ -321,6 +394,7 @@ export class AnnotationState {
      * CURIE). If the entity is not yet in the local state it is created with the
      * given kind and preferredName; if it already exists the pointer is simply
      * appended and the highlighted text is added as a synonym.
+     * Propagates the annotation to all other identical uncovered occurrences.
      */
     addWithId(
         entityId: string,
@@ -352,8 +426,29 @@ export class AnnotationState {
                 length,
             });
         }
-
         this.pointers = updatedPointers;
+
+        // Propagate to all other identical uncovered occurrences.
+        const plainText = this.#getPlainText();
+        const searchText = offsets[0]
+            ? plainText.slice(offsets[0].offset, offsets[0].offset + offsets[0].length)
+            : "";
+        if (searchText) {
+            const candidates = this.#allOccurrences(plainText, searchText);
+            const extras = this.#uncoveredOffsets(candidates, this.pointers);
+            let propagated = this.pointers;
+            for (const { offset, length } of extras) {
+                const key = nextPointerKey();
+                propagated = propagated.set(key, {
+                    entity_id: entityId,
+                    reference_id: this.reference.reference_id,
+                    offset,
+                    length,
+                });
+            }
+            this.pointers = propagated;
+        }
+
         this.#commit(before);
     }
 
