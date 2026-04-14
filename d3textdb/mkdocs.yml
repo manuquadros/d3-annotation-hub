@@ -1,0 +1,11 @@
+site_name: d3textdb documentation
+
+theme:
+  name: "material"
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [src]
