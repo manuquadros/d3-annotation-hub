@@ -147,6 +147,8 @@ export async function saveAnnotation(jsonData: string): Promise<void> {
     });
 
     if (!response.ok) {
-        throw new Error(`Failed to save annotation: ${response.statusText}`);
+        const err = new Error(`Failed to save annotation: ${response.statusText}`) as Error & { status: number };
+        err.status = response.status;
+        throw err;
     }
 }
