@@ -35,12 +35,18 @@ export const load: LayoutServerLoad = async ({ cookies, url }) => {
         : [];
     const lastProject = lastProjectRes.ok ? await lastProjectRes.json() : null;
 
-    // URL param takes precedence over stored last project.
+    // Determine the active project ID. Priority order:
+    //   1. ?project=X query param (explicit override, e.g. curation queue)
+    //   2. Project ID embedded in the URL path: /projects/{id}/...
+    //   3. Stored last-project for this user
+    //   4. First project in the user's project list
     const urlProject = url.searchParams.get("project");
+    const pathMatch = url.pathname.match(/^\/projects\/(\d+)/);
+    const pathProjectId = pathMatch ? Number(pathMatch[1]) : null;
     const currentProjectId: number | null =
         urlProject !== null
             ? Number(urlProject)
-            : (lastProject?.project_id ?? projects[0]?.project_id ?? null);
+            : (pathProjectId ?? lastProject?.project_id ?? projects[0]?.project_id ?? null);
 
     const isSuperuser = me?.role === "super_user";
     const isAdmin = isSuperuser || me?.is_project_manager === true;
