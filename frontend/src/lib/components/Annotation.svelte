@@ -90,6 +90,7 @@
             return editorState;
         },
         set value(s: EditorState) {
+            console.debug('[Annotation] editorState set to', s.mode);
             editorState = s;
         },
     });

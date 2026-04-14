@@ -121,11 +121,13 @@
     );
 
     $effect(() => {
+        console.debug('[AnnotationEditor] effect fired, mode =', editorState.mode, 'isMyMode =', isMyMode);
         if (!dialog) return;
         if (!isMyMode) {
             dialog.close();
         } else {
             resetForm();
+            console.debug('[AnnotationEditor] calling showModal()');
             dialog.showModal();
         }
     });

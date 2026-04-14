@@ -43,8 +43,9 @@
     }
 
     function handleTextSelection(event: MouseEvent): void {
+        console.debug('[ArticleBody] mouseup fired');
         const selection = window.getSelection();
-        if (!selection || selection.isCollapsed) return;
+        if (!selection || selection.isCollapsed) { console.debug('[ArticleBody] no selection'); return; }
 
         const anchorNode = selection.anchorNode;
         if (!anchorNode || !container?.contains(anchorNode.parentNode)) return;
@@ -63,6 +64,7 @@
 
         const { start: sentenceStart } = extractSentence(plainText, offset);
 
+        console.debug('[ArticleBody] setting editorState to create, offset =', offset);
         editorStateCtx.value = { mode: 'create', offset, length, sentenceStart };
         window.getSelection()?.removeAllRanges();
     }

@@ -8,7 +8,6 @@ from typing import Any, Optional
 from d3textdb import D3TextDB, ParsedOntology
 from d3textdb.schema import (
     OntologyProperty,
-    ProposedEntity,
     ProposedProperty,
     AnnotationSnapshot,
     AnnotationState,

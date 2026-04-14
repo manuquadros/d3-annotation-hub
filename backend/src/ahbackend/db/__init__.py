@@ -2,7 +2,6 @@ from .db import (
     AnnotatorSnapshot,
     EntityAnnotation,
     OntologyProperty,
-    ProposedEntity,
     ProposedProperty,
     Pointer,
     Project,
