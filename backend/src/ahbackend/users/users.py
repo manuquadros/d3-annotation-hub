@@ -128,14 +128,13 @@ async def require_project_manager(
     return current_user
 
 
-def create_access_token(data: dict, expires_delta: timedelta):
+def create_access_token(
+    data: dict, expires_delta: timedelta, now: datetime, private_key, algorithm: str
+):
     to_encode = data.copy()
-    expire = datetime.now(timezone.utc) + expires_delta
+    expire = now + expires_delta
     to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(
-        to_encode, config.PRIVATE_KEY, algorithm=config.ALGORITHM
-    )
-    return encoded_jwt
+    return jwt.encode(to_encode, private_key, algorithm=algorithm)
 
 
 @router.post("/token")
@@ -152,7 +151,11 @@ async def login_for_access_token(
         )
     access_token_expires = timedelta(minutes=config.ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
-        data={"sub": user.email}, expires_delta=access_token_expires
+        data={"sub": user.email},
+        expires_delta=access_token_expires,
+        now=datetime.now(timezone.utc),
+        private_key=config.PRIVATE_KEY,
+        algorithm=config.ALGORITHM,
     )
     response.set_cookie(
         key="auth_token",
