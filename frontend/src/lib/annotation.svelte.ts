@@ -1,6 +1,5 @@
 import type { Relation, Pointer, User, Reference, Entity } from "$lib/types.ts";
 import { AnnotationStateSchema, createRelation } from "$lib/types.ts";
-import { nextPointerKey, initPointerCounter } from "$lib/pointers.ts";
 import { mount } from "svelte";
 import { Map, Set } from "immutable";
 import type { Map as ImmutableMap, Set as ImmutableSet } from "immutable";
@@ -33,6 +32,7 @@ export class AnnotationState {
 
     #past: Snapshot[] = $state([]);
     #future: Snapshot[] = $state([]);
+    #pointerCounter: number = 0;
 
     canUndo = $derived(this.#past.length > 0);
     canRedo = $derived(this.#future.length > 0);
@@ -50,7 +50,14 @@ export class AnnotationState {
         this.pointers = validated.pointers;
         this.relations = validated.relations;
         this.completed = validated.completed;
-        initPointerCounter(this.pointers.size);
+        this.#pointerCounter = this.pointers.keySeq()
+            .map(k => parseInt(k.slice(4), 10))
+            .filter(n => !isNaN(n))
+            .max() ?? 0;
+    }
+
+    #nextPointerKey(): string {
+        return `ptr_${++this.#pointerCounter}`;
     }
 
     #snapshot(): Snapshot {
@@ -160,7 +167,7 @@ export class AnnotationState {
 
         let updatedPointers = this.pointers;
         for (const { offset, length } of offsets) {
-            const key = nextPointerKey();
+            const key = this.#nextPointerKey();
             updatedPointers = updatedPointers.set(key, {
                 entity_id: newEntityId,
                 reference_id: this.reference.reference_id,
@@ -179,7 +186,7 @@ export class AnnotationState {
             const extras = this.#uncoveredOffsets(candidates, this.pointers);
             let propagated = this.pointers;
             for (const { offset, length } of extras) {
-                const key = nextPointerKey();
+                const key = this.#nextPointerKey();
                 propagated = propagated.set(key, {
                     entity_id: newEntityId,
                     reference_id: this.reference.reference_id,
@@ -217,7 +224,7 @@ export class AnnotationState {
 
         let updatedPointers = this.pointers;
         for (const { offset, length } of offsets) {
-            const key = nextPointerKey();
+            const key = this.#nextPointerKey();
             updatedPointers = updatedPointers.set(key, {
                 entity_id: entityId,
                 reference_id: this.reference.reference_id,
@@ -235,7 +242,7 @@ export class AnnotationState {
             const extras = this.#uncoveredOffsets(candidates, this.pointers);
             let propagated = this.pointers;
             for (const { offset, length } of extras) {
-                const key = nextPointerKey();
+                const key = this.#nextPointerKey();
                 propagated = propagated.set(key, {
                     entity_id: entityId,
                     reference_id: this.reference.reference_id,
@@ -418,7 +425,7 @@ export class AnnotationState {
 
         let updatedPointers = this.pointers;
         for (const { offset, length } of offsets) {
-            const key = nextPointerKey();
+            const key = this.#nextPointerKey();
             updatedPointers = updatedPointers.set(key, {
                 entity_id: entityId,
                 reference_id: this.reference.reference_id,
@@ -438,7 +445,7 @@ export class AnnotationState {
             const extras = this.#uncoveredOffsets(candidates, this.pointers);
             let propagated = this.pointers;
             for (const { offset, length } of extras) {
-                const key = nextPointerKey();
+                const key = this.#nextPointerKey();
                 propagated = propagated.set(key, {
                     entity_id: entityId,
                     reference_id: this.reference.reference_id,

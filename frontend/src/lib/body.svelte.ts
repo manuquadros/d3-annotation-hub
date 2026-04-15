@@ -1,7 +1,7 @@
 import { tick } from "svelte";
 import { SvelteMap } from "svelte/reactivity";
 
-import { isValidEntitySpan, newSpan, wrapRange, entID } from "$lib/utils.ts";
+import { isValidEntitySpan, newSpan, wrapRange } from "$lib/utils.ts";
 import { nextResourceID, type Resource } from "$lib/resources.svelte.ts";
 import { RelationStore } from "$lib/relations.svelte.ts";
 import { rangeToClass } from "$lib/ranges.ts";
