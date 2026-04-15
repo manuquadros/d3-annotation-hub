@@ -41,17 +41,18 @@
         "prettier-plugin-svelte": "3.4.1",
         "svelte": "5.48.0",
         "svelte-check": "4.3.5",
+        "typedoc": "^0.28",
+        "typedoc-plugin-markdown": "^4",
         "typescript": "5.9.3",
         "typescript-eslint": "8.53.1",
         "typescript-eslint-language-service": "5.0.5",
         "vite": "7.3.1",
-        "vitest": "4.0.17",
-        "typedoc": "^0.28",
-        "typedoc-plugin-markdown": "^4"
+        "vitest": "4.0.17"
     },
     "type": "module",
     "dependencies": {
         "@smui/card": "^8.0.3",
+        "@sveltejs/adapter-node": "^5.5.4",
         "@types/jsdom": "27.0.0",
         "@types/node": "25.0.10",
         "bootstrap": "5.3.8",
