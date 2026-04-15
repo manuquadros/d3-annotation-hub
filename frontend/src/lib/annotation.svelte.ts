@@ -110,35 +110,6 @@ export class AnnotationState {
         return tempDiv.textContent || "";
     }
 
-    #allOccurrences(
-        plainText: string,
-        searchText: string,
-    ): Array<{ offset: number; length: number }> {
-        if (!searchText) return [];
-        const results: Array<{ offset: number; length: number }> = [];
-        let idx = 0;
-        while ((idx = plainText.indexOf(searchText, idx)) !== -1) {
-            results.push({ offset: idx, length: searchText.length });
-            idx += searchText.length;
-        }
-        return results;
-    }
-
-    #uncoveredOffsets(
-        candidates: Array<{ offset: number; length: number }>,
-        againstPointers: ImmutableMap<string, Pointer>,
-    ): Array<{ offset: number; length: number }> {
-        return candidates.filter(
-            ({ offset, length }) =>
-                !againstPointers
-                    .valueSeq()
-                    .some(
-                        (p) =>
-                            p.offset < offset + length &&
-                            offset < p.offset + p.length,
-                    ),
-        );
-    }
 
     /**
      * Creates a new entity with the given kind and preferred name, then creates
@@ -182,8 +153,8 @@ export class AnnotationState {
             ? plainText.slice(offsets[0].offset, offsets[0].offset + offsets[0].length)
             : "";
         if (searchText) {
-            const candidates = this.#allOccurrences(plainText, searchText);
-            const extras = this.#uncoveredOffsets(candidates, this.pointers);
+            const candidates = allOccurrences(plainText, searchText);
+            const extras = uncoveredOffsets(candidates, this.pointers);
             let propagated = this.pointers;
             for (const { offset, length } of extras) {
                 const key = this.#nextPointerKey();
@@ -238,8 +209,8 @@ export class AnnotationState {
         const searchText = trimmed;
         if (searchText) {
             const plainText = this.#getPlainText();
-            const candidates = this.#allOccurrences(plainText, searchText);
-            const extras = this.#uncoveredOffsets(candidates, this.pointers);
+            const candidates = allOccurrences(plainText, searchText);
+            const extras = uncoveredOffsets(candidates, this.pointers);
             let propagated = this.pointers;
             for (const { offset, length } of extras) {
                 const key = this.#nextPointerKey();
@@ -441,8 +412,8 @@ export class AnnotationState {
             ? plainText.slice(offsets[0].offset, offsets[0].offset + offsets[0].length)
             : "";
         if (searchText) {
-            const candidates = this.#allOccurrences(plainText, searchText);
-            const extras = this.#uncoveredOffsets(candidates, this.pointers);
+            const candidates = allOccurrences(plainText, searchText);
+            const extras = uncoveredOffsets(candidates, this.pointers);
             let propagated = this.pointers;
             for (const { offset, length } of extras) {
                 const key = this.#nextPointerKey();
@@ -467,6 +438,44 @@ export class AnnotationState {
             this.#commit(before);
         }
     }
+}
+
+/**
+ * Returns the offset and length of every non-overlapping occurrence of
+ * `searchText` within `plainText`, in order of appearance.
+ */
+export function allOccurrences(
+    plainText: string,
+    searchText: string,
+): Array<{ offset: number; length: number }> {
+    if (!searchText) return [];
+    const results: Array<{ offset: number; length: number }> = [];
+    let idx = 0;
+    while ((idx = plainText.indexOf(searchText, idx)) !== -1) {
+        results.push({ offset: idx, length: searchText.length });
+        idx += searchText.length;
+    }
+    return results;
+}
+
+/**
+ * Filters `candidates` to those not overlapping any existing pointer span.
+ * Used to avoid creating duplicate annotations when propagating.
+ */
+export function uncoveredOffsets(
+    candidates: Array<{ offset: number; length: number }>,
+    againstPointers: ImmutableMap<string, Pointer>,
+): Array<{ offset: number; length: number }> {
+    return candidates.filter(
+        ({ offset, length }) =>
+            !againstPointers
+                .valueSeq()
+                .some(
+                    (p) =>
+                        p.offset < offset + length &&
+                        offset < p.offset + p.length,
+                ),
+    );
 }
 
 /**
