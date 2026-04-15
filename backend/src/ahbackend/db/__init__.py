@@ -8,6 +8,7 @@ from .db import (
     Reference,
     Relation,
     User,
+    UserAuth,
     add_project_member,
     get_entities_by_curies,
     add_reference_to_project,

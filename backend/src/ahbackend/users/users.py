@@ -35,14 +35,18 @@ def verify_password(plain_password: str, hashed: str) -> bool:
     )
 
 
+def is_valid_credentials(password: str, user_auth: db.UserAuth | None) -> bool:
+    return (
+        user_auth is not None
+        and not user_auth.disabled
+        and verify_password(password, user_auth.hashed_password)
+    )
+
+
 def authenticate_user(username: str, password: str) -> db.User | None:
     user = db.get_user(username)
     user_auth = db.get_user_auth(user.user_id) if user else None
-    if user_auth and verify_password(password, user_auth.hashed_password):
-        if user_auth.disabled:
-            return None
-        return db.get_user(username)
-    return None
+    return user if is_valid_credentials(password, user_auth) else None
 
 
 async def get_token(

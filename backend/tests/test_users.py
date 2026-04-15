@@ -1,10 +1,12 @@
 from datetime import datetime, timedelta, timezone
+from unittest.mock import MagicMock
 
+import bcrypt
 import jwt
 import pytest
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
-from ahbackend.users.users import create_access_token
+from ahbackend.users.users import create_access_token, is_valid_credentials
 
 
 @pytest.fixture
@@ -56,3 +58,35 @@ class TestCreateAccessToken:
         )
 
         assert data == {"sub": "user@example.com"}
+
+
+_PLAIN_PASSWORD = "correct-password"
+
+
+@pytest.fixture
+def hashed_password():
+    return bcrypt.hashpw(_PLAIN_PASSWORD.encode(), bcrypt.gensalt()).decode()
+
+
+def _make_user_auth(hashed_password: str, disabled: bool = False) -> MagicMock:
+    auth = MagicMock()
+    auth.hashed_password = hashed_password
+    auth.disabled = disabled
+    return auth
+
+
+class TestIsValidCredentials:
+    def test_returns_false_when_user_auth_is_none(self):
+        assert not is_valid_credentials(_PLAIN_PASSWORD, None)
+
+    def test_returns_false_when_user_is_disabled(self, hashed_password):
+        auth = _make_user_auth(hashed_password, disabled=True)
+        assert not is_valid_credentials(_PLAIN_PASSWORD, auth)
+
+    def test_returns_false_with_wrong_password(self, hashed_password):
+        auth = _make_user_auth(hashed_password)
+        assert not is_valid_credentials("wrong-password", auth)
+
+    def test_returns_true_with_correct_password_and_active_user(self, hashed_password):
+        auth = _make_user_auth(hashed_password)
+        assert is_valid_credentials(_PLAIN_PASSWORD, auth)
