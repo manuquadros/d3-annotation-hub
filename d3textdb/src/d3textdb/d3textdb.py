@@ -891,7 +891,11 @@ class D3TextDB:
             )
 
     def create_user(
-        self, user: User, password: str, role: str = "user"
+        self,
+        user: User,
+        password: str,
+        is_super_user: bool = False,
+        can_manage: bool = False,
     ) -> UUID | None:
         with Session(self.engine) as session:
             user_id: UUID | None = session.scalar(
@@ -903,7 +907,8 @@ class D3TextDB:
             user_auth = UserAuth(
                 user_id=user_id,
                 hashed_password=hash_password(password),
-                role=role,
+                is_super_user=is_super_user,
+                can_manage=can_manage,
             )
             session.execute(
                 insert(UserAuth)
@@ -984,25 +989,21 @@ class D3TextDB:
     # Project membership
     # ------------------------------------------------------------------
 
-    def is_project_manager(self, user_id: UUID) -> bool:
-        """Return True if the user has the ``"project_manager"`` system role.
-
-        This is a system-level designation stored in :class:`UserAuth`,
-        independent of whether the user is currently assigned to any project.
+    def is_project_creator(self, user_id: UUID) -> bool:
+        """Return True if the user has the ``can_manage`` permission flag.
 
         :param user_id: User to check.
         """
         with Session(self.engine) as session:
             auth = session.get(UserAuth, user_id)
-            return auth is not None and auth.role == "project_manager"
+            return auth is not None and auth.can_manage
 
     def add_project_member(
         self, project_id: int, user_id: UUID, role: str
     ) -> None:
         """Assign ``role`` to ``user_id`` in ``project_id``.
 
-        :param role: One of ``"project_manager"``, ``"annotator"``,
-            ``"curator"``.
+        :param role: One of ``"manager"``, ``"annotator"``, ``"curator"``.
         """
         with Session(self.engine) as session:
             session.execute(

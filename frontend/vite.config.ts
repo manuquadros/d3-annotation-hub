@@ -6,9 +6,12 @@ export default defineConfig({
     plugins: [sveltekit(), svelteTesting()],
     test: {
         environment: "jsdom",
-        setupFiles: ["./vitest-setup.js"],
         globals: true,
         slowTestThreshold: 1,
         bail: 1,
+        coverage: {
+            enabled: true,
+            provider: "v8",
+        },
     },
 });

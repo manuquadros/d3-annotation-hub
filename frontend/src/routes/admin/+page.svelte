@@ -39,9 +39,22 @@
     interface UserRecord {
         user_id: string;
         email: string;
-        role: string;
-        is_project_manager: boolean;
+        is_super_user: boolean;
+        can_manage: boolean;
     }
+
+    function userRoleLabel(u: UserRecord): string {
+        if (u.is_super_user) return "Super user";
+        if (u.can_manage) return "Manager";
+        return "User";
+    }
+
+    type PermissionPreset = { label: string; is_super_user: boolean; can_manage: boolean };
+    const PERMISSION_PRESETS: PermissionPreset[] = [
+        { label: "User", is_super_user: false, can_manage: false },
+        { label: "Manager", is_super_user: false, can_manage: true },
+        { label: "Super user", is_super_user: true, can_manage: true },
+    ];
 
     let { data } = $props();
     let ontologies = $state<Ontology[]>(untrack(() => data.ontologies));
@@ -479,7 +492,7 @@
                                                 <select bind:value={addMemberRole}>
                                                     <option value="annotator">Annotator</option>
                                                     <option value="curator">Curator</option>
-                                                    <option value="project_manager"
+                                                    <option value="manager"
                                                         >Project manager</option
                                                     >
                                                 </select>
@@ -566,34 +579,37 @@
                         {#each allUsers as u (u.user_id)}
                             <tr>
                                 <td>{u.email}</td>
-                                <td><span class="role-badge">{u.role}</span></td>
+                                <td><span class="role-badge">{userRoleLabel(u)}</span></td>
                                 <td class="actions-cell">
-                                    {#each (["user", "project_manager", "superuser"] as const).filter(
-                                        (r) => r !== u.role,
-                                    ) as newRole}
+                                    {#each PERMISSION_PRESETS.filter(
+                                        (p) => p.is_super_user !== u.is_super_user || p.can_manage !== u.can_manage,
+                                    ) as preset}
                                         <button
                                             class="btn-ghost-sm"
                                             onclick={async () => {
                                                 const res = await fetch(
-                                                    `/api/admin/users/${encodeURIComponent(u.email)}/role`,
+                                                    `/api/admin/users/${encodeURIComponent(u.email)}/permissions`,
                                                     {
                                                         method: "PUT",
                                                         headers: {
                                                             "Content-Type": "application/json",
                                                         },
-                                                        body: JSON.stringify({ role: newRole }),
+                                                        body: JSON.stringify({
+                                                            is_super_user: preset.is_super_user,
+                                                            can_manage: preset.can_manage,
+                                                        }),
                                                     },
                                                 );
                                                 if (res.ok) {
                                                     allUsers = allUsers.map((x) =>
                                                         x.user_id === u.user_id
-                                                            ? { ...x, role: newRole }
+                                                            ? { ...x, is_super_user: preset.is_super_user, can_manage: preset.can_manage }
                                                             : x,
                                                     );
                                                 }
                                             }}
                                         >
-                                            Make {newRole.replace("_", " ")}
+                                            Make {preset.label}
                                         </button>
                                     {/each}
                                 </td>

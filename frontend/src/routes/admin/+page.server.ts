@@ -12,8 +12,8 @@ export const load: PageServerLoad = async ({ cookies }) => {
     if (!meRes.ok) redirect(302, "/login");
 
     const me = await meRes.json();
-    const isSuperuser = me.role === "super_user";
-    const isProjectManager = me.is_project_manager === true;
+    const isSuperuser = me.is_super_user === true;
+    const isProjectCreator = me.can_manage === true;
 
     if (!isSuperuser) {
         error(403, "Access required");
@@ -37,7 +37,7 @@ export const load: PageServerLoad = async ({ cookies }) => {
 
     return {
         isSuperuser,
-        isProjectManager,
+        isProjectCreator,
         projects,
         allUsers,
         ontologies,

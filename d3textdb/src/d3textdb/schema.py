@@ -82,7 +82,7 @@ class ProjectMembership(SQLModel, table=True):
 
     Roles are not mutually exclusive: a user may have multiple rows for the
     same (project, user) pair with different roles. Current roles are
-    ``"project_manager"``, ``"annotator"``, and ``"curator"``.
+    ``"manager"``, ``"annotator"``, and ``"curator"``.
     """
 
     __tablename__ = "project_membership"
@@ -360,18 +360,18 @@ class User(SQLModel, table=True):
 
 
 class UserAuth(SQLModel, table=True):
-    """Authentication credentials and system-level role.
+    """Authentication credentials and system-level permissions.
 
-    Valid system roles (stored in ``role``):
+    Two independent permission flags govern system-level access:
 
-    - ``"user"`` — regular annotator / curator (default).
-    - ``"project_manager"`` — can be assigned to manage projects; has access
-      to the administration interface even before any project is assigned.
-    - ``"superuser"`` — full system access (ontology import, user management).
+    - ``is_super_user`` — full system access: user management and everything
+      ``can_manage`` implies.
+    - ``can_manage`` — can create projects and access the administration
+      interface before any project is assigned.
 
-    Project-scoped roles (``"annotator"``, ``"curator"``,
-    ``"project_manager"``) are stored separately in
-    :class:`ProjectMembership` and govern per-project permissions.
+    Project-scoped roles (``"annotator"``, ``"curator"``, ``"manager"``)
+    are stored separately in :class:`ProjectMembership` and govern
+    per-project permissions.
     """
 
     user_id: UUID = Field(
@@ -382,7 +382,8 @@ class UserAuth(SQLModel, table=True):
         )
     )
     hashed_password: str
-    role: str = Field(default="user")
+    is_super_user: bool = Field(default=False)
+    can_manage: bool = Field(default=False)
     disabled: bool = Field(default=False)
 
 

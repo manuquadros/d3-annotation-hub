@@ -57,7 +57,7 @@ from ahbackend.db import (
     save_curated_annotation,
     search_entities,
     set_user_last_project,
-    set_user_role,
+    set_user_permissions,
     list_users,
     update_entity_curie,
     upsert_annotation,
@@ -164,8 +164,8 @@ def fetch_annotation(
 class UserInfo(BaseModel):
     user_id: str
     email: str
-    role: str
-    is_project_manager: bool
+    is_super_user: bool
+    can_manage: bool
 
 
 @app.get("/me")
@@ -174,12 +174,11 @@ def get_me(
 ) -> UserInfo:
     """Return the authenticated user's profile and role."""
     user_auth = db.get_user_auth(current_user.user_id)
-    role = user_auth.role if user_auth else "user"
     return UserInfo(
         user_id=str(current_user.user_id),
         email=str(current_user.email),
-        role=role,
-        is_project_manager=role in ("project_manager", "super_user"),
+        is_super_user=user_auth.is_super_user if user_auth else False,
+        can_manage=user_auth.can_manage if user_auth else False,
     )
 
 
@@ -343,7 +342,7 @@ class UpdateCurieRequest(BaseModel):
 @app.post("/admin/entities/{curie:path}/confirm")
 def confirm_proposed_entity(
     curie: str,
-    current_user: Annotated[User, Depends(users.get_current_superuser)],
+    current_user: Annotated[User, Depends(users.get_current_admin)],
 ) -> dict:
     """Confirm (accept) a proposed entity."""
     confirm_entity(curie)
@@ -353,7 +352,7 @@ def confirm_proposed_entity(
 @app.delete("/admin/entities/{curie:path}")
 def remove_proposed_entity(
     curie: str,
-    current_user: Annotated[User, Depends(users.get_current_superuser)],
+    current_user: Annotated[User, Depends(users.get_current_admin)],
 ) -> dict:
     """Delete a proposed entity and all its annotations."""
     delete_entity(curie)
@@ -364,7 +363,7 @@ def remove_proposed_entity(
 def rename_entity_curie(
     curie: str,
     body: UpdateCurieRequest,
-    current_user: Annotated[User, Depends(users.get_current_superuser)],
+    current_user: Annotated[User, Depends(users.get_current_admin)],
 ) -> dict:
     """Rename an entity's CURIE across all tables."""
     update_entity_curie(curie, body.new_curie)
@@ -374,36 +373,29 @@ def rename_entity_curie(
 @app.delete("/admin/ontologies/{ontology_id}")
 def remove_ontology(
     ontology_id: int,
-    current_user: Annotated[User, Depends(users.get_current_superuser)],
+    current_user: Annotated[User, Depends(users.get_current_admin)],
 ) -> dict:
     """Delete an ontology and all its entities, names, and triples."""
     delete_ontology(ontology_id)
     return {"ok": True}
 
 
-_VALID_SYSTEM_ROLES = {"user", "project_manager", "superuser"}
+class SetPermissionsRequest(BaseModel):
+    is_super_user: bool
+    can_manage: bool
 
 
-class SetRoleRequest(BaseModel):
-    role: str
-
-
-@app.put("/admin/users/{username}/role", status_code=204)
-def update_user_role(
+@app.put("/admin/users/{username}/permissions", status_code=204)
+def update_user_permissions(
     username: str,
-    body: SetRoleRequest,
+    body: SetPermissionsRequest,
     _: Annotated[User, Depends(users.get_current_superuser)],
 ) -> None:
-    """Set the system-level role for a user (superuser only)."""
-    if body.role not in _VALID_SYSTEM_ROLES:
-        raise HTTPException(
-            status_code=422,
-            detail=f"role must be one of {sorted(_VALID_SYSTEM_ROLES)}",
-        )
+    """Set system-level permission flags for a user (superuser only)."""
     user = get_user(username)
     if user is None:
         raise HTTPException(status_code=404, detail="User not found")
-    set_user_role(user.user_id, body.role)
+    set_user_permissions(user.user_id, body.is_super_user, body.can_manage)
 
 
 @app.get("/admin/users")
@@ -415,8 +407,8 @@ def get_all_users(
         UserInfo(
             user_id=str(u.user_id),
             email=str(u.email),
-            role=a.role,
-            is_project_manager=a.role == "project_manager",
+            is_super_user=a.is_super_user,
+            can_manage=a.can_manage,
         )
         for u, a in list_users()
     ]
@@ -511,7 +503,7 @@ def create_new_project(
     project_id = create_project(
         body.name, body.description, body.required_annotators
     )
-    add_project_member(project_id, current_user.user_id, "project_manager")
+    add_project_member(project_id, current_user.user_id, "manager")
     project = get_project(project_id)
     return ProjectResponse.model_validate(project)
 
@@ -522,7 +514,7 @@ def list_all_projects(
 ) -> list[ProjectResponse]:
     """List projects. Superusers see all; other users see only their own."""
     user_auth = db.get_user_auth(current_user.user_id)
-    if user_auth and user_auth.role == "super_user":
+    if user_auth and (user_auth.can_manage or user_auth.is_super_user):
         projects = list_projects()
     else:
         projects = list_user_projects(current_user.user_id)
@@ -539,7 +531,7 @@ def get_one_project(
     if project is None:
         raise HTTPException(status_code=404, detail="Project not found")
     user_auth = db.get_user_auth(current_user.user_id)
-    if not (user_auth and user_auth.role == "super_user"):
+    if not (user_auth and (user_auth.can_manage or user_auth.is_super_user)):
         roles = get_user_project_roles(current_user.user_id, project_id)
         if not roles:
             raise HTTPException(status_code=403, detail="Access denied")
@@ -553,7 +545,7 @@ def get_one_project(
 
 class AddMemberRequest(BaseModel):
     email: EmailStr
-    role: str  # "project_manager" | "annotator" | "curator"
+    role: str  # "manager" | "annotator" | "curator"
     password: str | None = None  # if set, used when creating a new user
 
 
@@ -573,7 +565,7 @@ class MemberInfo(BaseModel):
 @app.get("/projects/{project_id}/members")
 def list_project_members(
     project_id: int,
-    _: Annotated[User, Depends(users.require_project_manager)],
+    _: Annotated[User, Depends(users.require_manager)],
 ) -> list[MemberInfo]:
     """Return all members of a project with their roles."""
     members = get_project_members(project_id)
@@ -587,7 +579,7 @@ def list_project_members(
 def lookup_user_for_project(
     project_id: int,
     email: str,
-    _: Annotated[User, Depends(users.require_project_manager)],
+    _: Annotated[User, Depends(users.require_manager)],
 ) -> UserLookupResponse:
     """Check whether a user with the given email exists in the database."""
     user = get_user(email)
@@ -604,7 +596,7 @@ def lookup_user_for_project(
 def add_member_to_project(
     project_id: int,
     body: AddMemberRequest,
-    _: Annotated[User, Depends(users.require_project_manager)],
+    _: Annotated[User, Depends(users.require_manager)],
 ) -> MemberInfo:
     """Add a user to a project.
 
@@ -615,7 +607,7 @@ def add_member_to_project(
     if get_project(project_id) is None:
         raise HTTPException(status_code=404, detail="Project not found")
 
-    valid_roles = {"project_manager", "annotator", "curator"}
+    valid_roles = {"manager", "annotator", "curator"}
     if body.role not in valid_roles:
         raise HTTPException(
             status_code=422,
@@ -630,7 +622,7 @@ def add_member_to_project(
             generated_password = password
         from d3textdb.schema import User as DbUser
 
-        create_user(DbUser(email=body.email), password, role="user")
+        create_user(DbUser(email=body.email), password)
         user = get_user(body.email)
         if user is None:
             raise HTTPException(
@@ -652,7 +644,7 @@ def remove_member_from_project(
     project_id: int,
     user_id: str,
     role: str,
-    _: Annotated[User, Depends(users.require_project_manager)],
+    _: Annotated[User, Depends(users.require_manager)],
 ) -> None:
     """Remove a specific role from a user within a project."""
     import uuid as _uuid
@@ -672,7 +664,7 @@ def remove_member_from_project(
 @app.get("/projects/{project_id}/ontologies")
 def list_project_ontologies(
     project_id: int,
-    _: Annotated[User, Depends(users.require_project_manager)],
+    _: Annotated[User, Depends(users.require_manager)],
 ) -> list[Ontology]:
     """List ontologies assigned to a project."""
     return get_project_ontologies(project_id)
@@ -682,7 +674,7 @@ def list_project_ontologies(
 def assign_ontology(
     project_id: int,
     ontology_id: int,
-    _: Annotated[User, Depends(users.require_project_manager)],
+    _: Annotated[User, Depends(users.require_manager)],
 ) -> None:
     """Make an ontology available for annotation within a project."""
     if get_project(project_id) is None:
@@ -792,7 +784,7 @@ def create_project_proposed_property(
 def unassign_ontology(
     project_id: int,
     ontology_id: int,
-    _: Annotated[User, Depends(users.require_project_manager)],
+    _: Annotated[User, Depends(users.require_manager)],
 ) -> None:
     """Remove an ontology from a project."""
     remove_ontology_from_project(project_id, ontology_id)
@@ -832,7 +824,7 @@ class ReferenceInfo(BaseModel):
 @app.get("/projects/{project_id}/references")
 def get_project_references(
     project_id: int,
-    _: Annotated[User, Depends(users.require_project_manager)],
+    _: Annotated[User, Depends(users.require_manager)],
 ) -> list[ReferenceInfo]:
     """List references associated with a project."""
     if get_project(project_id) is None:
@@ -844,7 +836,7 @@ def get_project_references(
 def add_references(
     project_id: int,
     body: AddReferencesRequest,
-    _: Annotated[User, Depends(users.require_project_manager)],
+    _: Annotated[User, Depends(users.require_manager)],
 ) -> AddReferencesResponse:
     """Add references to a project by PubMed ID or DOI."""
     if get_project(project_id) is None:
@@ -888,7 +880,7 @@ def add_references(
 def remove_reference(
     project_id: int,
     reference_id: int,
-    _: Annotated[User, Depends(users.require_project_manager)],
+    _: Annotated[User, Depends(users.require_manager)],
 ) -> None:
     """Remove a reference from a project."""
     remove_reference_from_project(project_id, reference_id)
@@ -912,7 +904,7 @@ def project_annotation_queue(
     """Return the annotation queue for the current user within a project."""
     roles = get_user_project_roles(current_user.user_id, project_id)
     user_auth = db.get_user_auth(current_user.user_id)
-    if not roles and not (user_auth and user_auth.role == "super_user"):
+    if not can_access_project(user_auth, roles):
         raise HTTPException(status_code=403, detail="Access denied")
     items = get_project_queue_with_status(project_id, current_user.user_id)
     return [QueueItem(ref=ref, completed=completed) for ref, completed in items]
@@ -927,7 +919,7 @@ def complete_queue_item(
     """Mark a reference as complete for the current user within a project."""
     roles = get_user_project_roles(current_user.user_id, project_id)
     user_auth = db.get_user_auth(current_user.user_id)
-    if not roles and not (user_auth and user_auth.role == "super_user"):
+    if not can_access_project(user_auth, roles):
         raise HTTPException(status_code=403, detail="Access denied")
     mark_annotation_complete(project_id, current_user.user_id, ref)
 
@@ -941,7 +933,7 @@ def uncomplete_queue_item(
     """Mark a reference as incomplete for the current user within a project."""
     roles = get_user_project_roles(current_user.user_id, project_id)
     user_auth = db.get_user_auth(current_user.user_id)
-    if not roles and not (user_auth and user_auth.role == "super_user"):
+    if not can_access_project(user_auth, roles):
         raise HTTPException(status_code=403, detail="Access denied")
     mark_annotation_incomplete(project_id, current_user.user_id, ref)
 
@@ -979,9 +971,7 @@ def curation_queue(
     """Return references ready for curation (have enough annotator completions)."""
     user_auth = db.get_user_auth(current_user.user_id)
     roles = get_user_project_roles(current_user.user_id, project_id)
-    if "curator" not in roles and not (
-        user_auth and user_auth.role == "super_user"
-    ):
+    if not can_curate_project(user_auth, roles):
         raise HTTPException(status_code=403, detail="Curator access required")
     refs = get_curation_queue(project_id)
     return [
@@ -1049,14 +1039,28 @@ class SnapshotsResponse(BaseModel):
     curated_relations: list[RelationOut] = []
 
 
+def can_access_project(
+    user_auth: db.UserAuth | None, roles: list[str]
+) -> bool:
+    """Return True if the user has any project role or the can_manage flag."""
+    return bool(roles) or (
+        user_auth is not None and (user_auth.can_manage or user_auth.is_super_user)
+    )
+
+
+def can_curate_project(
+    user_auth: db.UserAuth | None, roles: list[str]
+) -> bool:
+    """Return True if the user has the curator or manager role."""
+    return "curator" in roles or "manager" in roles
+
+
 def _curator_or_superuser(
     project_id: int, current_user: User
 ) -> None:
     user_auth = db.get_user_auth(current_user.user_id)
-    if user_auth and user_auth.role == "super_user":
-        return
     roles = get_user_project_roles(current_user.user_id, project_id)
-    if "curator" not in roles:
+    if not can_curate_project(user_auth, roles):
         raise HTTPException(
             status_code=403, detail="Curator access required"
         )

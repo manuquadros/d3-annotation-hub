@@ -51,8 +51,8 @@ def get_user_auth(user_id: uuid.UUID) -> UserAuth | None:
     return annodb.get_user_auth(user_id)
 
 
-def create_user(user: User, password: str, role: str = "user") -> uuid.UUID | None:
-    return annodb.create_user(user, password, role)
+def create_user(user: User, password: str) -> uuid.UUID | None:
+    return annodb.create_user(user, password)
 
 
 def get_reference_by_pubmed_id(pubmed_id: int) -> Reference | None:
@@ -286,16 +286,19 @@ def list_user_projects(user_id: uuid.UUID) -> list[Project]:
     return annodb.list_user_projects(user_id)
 
 
-def is_project_manager(user_id: uuid.UUID) -> bool:
-    return annodb.is_project_manager(user_id)
+def is_project_creator(user_id: uuid.UUID) -> bool:
+    return annodb.is_project_creator(user_id)
 
 
-def set_user_role(user_id: uuid.UUID, role: str) -> None:
+def set_user_permissions(
+    user_id: uuid.UUID, is_super_user: bool, can_manage: bool
+) -> None:
     with Session(annodb.engine) as session:
         auth = session.get(UserAuth, user_id)
         if auth is None:
             raise ValueError(f"No auth record for user_id {user_id}")
-        auth.role = role
+        auth.is_super_user = is_super_user
+        auth.can_manage = can_manage
         session.add(auth)
         session.commit()
 

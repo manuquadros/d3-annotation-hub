@@ -20,7 +20,6 @@ dependencies = [
   "uvicorn>=0.34.2",
   "xmlparser @ file:///${PROJECT_ROOT}/../xmlparser",
   "d3textdb @ file:///${PROJECT_ROOT}/../d3textdb",
-  "alembic>=1.13",
   "gunicorn>=25.3.0",
 ]
 
@@ -68,7 +67,6 @@ dev = [
 
 [tool.pdm.scripts]
 dev = "python scripts/run.py"
-migrate = "alembic upgrade head"
 lint = "flake8 ."
 fmt = { composite = ["black .", "isort ."] }
 

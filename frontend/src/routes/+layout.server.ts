@@ -48,11 +48,11 @@ export const load: LayoutServerLoad = async ({ cookies, url }) => {
             ? Number(urlProject)
             : (pathProjectId ?? lastProject?.project_id ?? projects[0]?.project_id ?? null);
 
-    const isSuperuser = me?.role === "super_user";
-    const isAdmin = isSuperuser || me?.is_project_manager === true;
+    const isSuperuser = me?.is_super_user === true;
+    const isAdmin = me?.can_manage === true || isSuperuser;
 
     // Determine curator status for the current project.
-    let isCurator = isSuperuser;
+    let isCurator = false;
     if (!isCurator && currentProjectId !== null) {
         const rolesRes = await fetch(
             `${API_BASE_URL}/me/project-roles?project_id=${currentProjectId}`,

@@ -101,7 +101,7 @@ async def get_current_superuser(
     current_user: Annotated[db.User, Depends(get_current_active_user)],
 ) -> db.User:
     user_auth = db.get_user_auth(current_user.user_id)
-    if not user_auth or user_auth.role != "super_user":
+    if not user_auth or not user_auth.is_super_user:
         raise HTTPException(status_code=403, detail="Superuser access required")
     return current_user
 
@@ -109,23 +109,23 @@ async def get_current_superuser(
 async def get_current_admin(
     current_user: Annotated[db.User, Depends(get_current_active_user)],
 ) -> db.User:
-    """Allow superusers and system-level project managers."""
+    """Allow users with the can_manage permission flag."""
     user_auth = db.get_user_auth(current_user.user_id)
-    if not user_auth or user_auth.role not in ("super_user", "project_manager"):
+    if not user_auth or not user_auth.can_manage:
         raise HTTPException(status_code=403, detail="Admin access required")
     return current_user
 
 
-async def require_project_manager(
+async def require_manager(
     project_id: int,
     current_user: Annotated[db.User, Depends(get_current_active_user)],
 ) -> db.User:
-    """Allow superusers, system-level project managers, and project-level project managers."""
+    """Allow users with can_manage permission or a project-level manager role."""
     user_auth = db.get_user_auth(current_user.user_id)
-    if user_auth and user_auth.role in ("super_user", "project_manager"):
+    if user_auth and user_auth.can_manage:
         return current_user
     roles = db.get_user_project_roles(current_user.user_id, project_id)
-    if "project_manager" not in roles:
+    if "manager" not in roles:
         raise HTTPException(
             status_code=403, detail="Project manager access required"
         )

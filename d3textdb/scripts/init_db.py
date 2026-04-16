@@ -95,9 +95,9 @@ def main() -> None:
     )
     db.create_user(test_user, password="test")
     admin = User(email="admin@dsmz.de", user_id=uuid4())
-    db.create_user(admin, password="admin", role="super_user")
+    db.create_user(admin, password="admin", is_super_user=True, can_manage=True)
     manager1 = User(email="manager@dsmz.de", user_id=uuid4())
-    db.create_user(manager1, password="manager", role="project_manager")
+    db.create_user(manager1, password="manager", can_manage=True)
     try:
         for doc in tqdm.tqdm(eligible):
             db.store_reference(to_reference(doc))

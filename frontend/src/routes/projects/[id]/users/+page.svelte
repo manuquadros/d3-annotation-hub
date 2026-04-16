@@ -117,7 +117,7 @@
     }
 
     function roleLabel(role: string): string {
-        return role === "project_manager"
+        return role === "manager"
             ? "Manager"
             : role.charAt(0).toUpperCase() + role.slice(1);
     }
@@ -229,7 +229,7 @@
                                 </div>
                             </td>
                             <td class="actions">
-                                {#each member.roles.filter((r) => r !== "project_manager") as role}
+                                {#each member.roles.filter((r) => r !== "manager") as role}
                                     <button
                                         class="btn-danger-sm"
                                         onclick={() => handleRemoveRole(member.user_id, role)}
