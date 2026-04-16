@@ -25,6 +25,7 @@ from .schema import (
     CuratedAnnotation,
     CuratedAnnotationPointer,
     CuratedAnnotationRelation,
+    CurationDecision,
     Entity,
     EntityAnnotation,
     EntityName,
@@ -50,6 +51,7 @@ from .schema import (
     UserAuth,
     UserLastProject,
     UserRelationReference,
+    Verdict,
 )
 
 
@@ -2079,3 +2081,48 @@ class D3TextDB:
             session.commit()
 
         self.rebuild_fts()
+
+    def set_curation_decision(
+        self,
+        project_id: int,
+        relation_id: int,
+        curator_id: UUID,
+        verdict: Verdict,
+    ) -> None:
+        """Upsert a curator's accept/reject verdict on a relation triple."""
+        from datetime import datetime, timezone
+
+        with Session(self.engine) as session:
+            existing = session.get(
+                CurationDecision, (project_id, relation_id, curator_id)
+            )
+            if existing:
+                existing.verdict = verdict
+                existing.decided_at = datetime.now(timezone.utc)
+            else:
+                session.add(
+                    CurationDecision(
+                        project_id=project_id,
+                        relation_id=relation_id,
+                        curator_id=curator_id,
+                        verdict=verdict,
+                        decided_at=datetime.now(timezone.utc),
+                    )
+                )
+            session.commit()
+
+    def get_curation_decisions(
+        self, project_id: int, curator_id: UUID
+    ) -> dict[int, Verdict]:
+        """Return all verdicts a curator has recorded for a project.
+
+        Returns a mapping of relation_id → Verdict.
+        """
+        with Session(self.engine) as session:
+            rows = session.scalars(
+                select(CurationDecision).where(
+                    CurationDecision.project_id == project_id,
+                    CurationDecision.curator_id == curator_id,
+                )
+            ).all()
+        return {row.relation_id: row.verdict for row in rows}

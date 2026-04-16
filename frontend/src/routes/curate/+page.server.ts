@@ -32,9 +32,11 @@ export interface EvidenceItem {
 }
 
 export interface ClaimItem {
+    relation_id: number;
     subject: string;
     predicate: string;
     object: string;
+    verdict: "accepted" | "rejected" | null;
     evidence: EvidenceItem[];
 }
 

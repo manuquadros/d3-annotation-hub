@@ -1,12 +1,13 @@
 """Declaration of the database schema."""
 
+import enum
 from datetime import datetime, timezone
 from typing import TypedDict
 from uuid import UUID, uuid4
 
 import pendulum
 from pydantic import BaseModel, ConfigDict, EmailStr
-from sqlalchemy import ForeignKeyConstraint
+from sqlalchemy import Enum as SAEnum, ForeignKeyConstraint
 from sqlalchemy.types import BINARY, String, TypeDecorator
 from sqlmodel import (
     Column,
@@ -16,6 +17,11 @@ from sqlmodel import (
     SQLModel,
     UniqueConstraint,
 )
+
+
+class Verdict(str, enum.Enum):
+    accepted = "accepted"
+    rejected = "rejected"
 
 
 class SqliteUUID(TypeDecorator):
@@ -603,6 +609,32 @@ class CuratedAnnotationRelation(SQLModel, table=True):
     )
     relation_id: int = Field(
         foreign_key="relation.relation_id", primary_key=True
+    )
+
+
+
+class CurationDecision(SQLModel, table=True):
+    """Curator's accept/reject verdict on a relation triple within a project.
+
+    Composite PK (project_id, relation_id, curator_id) — one verdict per
+    curator per triple per project; repeated calls upsert in place.
+    """
+
+    __tablename__ = "curation_decision"
+
+    project_id: int = Field(foreign_key="project.project_id", primary_key=True)
+    relation_id: int = Field(foreign_key="relation.relation_id", primary_key=True)
+    curator_id: UUID = Field(
+        sa_column=Column(
+            SqliteUUID,
+            ForeignKey("user.user_id"),
+            nullable=False,
+            primary_key=True,
+        )
+    )
+    verdict: Verdict = Field(sa_column=Column(SAEnum(Verdict), nullable=False))
+    decided_at: datetime = Field(
+        sa_column=Column(SqliteDatetime, nullable=False)
     )
 
 

@@ -29,6 +29,7 @@ from d3textdb.schema import (
     StateRelation,
     User,
     UserAuth,
+    Verdict,
 )
 from multimethod import multimethod
 from pydantic import EmailStr
@@ -384,16 +385,18 @@ def get_curation_claims(
     dict[tuple[str, str, str], dict[int, dict[str, set[tuple[int, int]]]]],
     dict[int, Reference],
     set[str],
+    dict[tuple[str, str, str], int],
 ]:
     """Return unique relations from all annotator snapshots for a project.
 
-    Returns a 3-tuple:
+    Returns a 4-tuple:
     - claims_map: (subject, predicate, object) -> {reference_id -> {
           'subject_pointers': set of (offset, length),
           'object_pointers': set of (offset, length)
       }}
     - refs: reference_id -> Reference
     - entity_curies: CURIEs appearing in any claim
+    - relation_ids: (subject, predicate, object) -> relation_id
     """
     with Session(annodb.engine) as session:
         snapshots = session.scalars(
@@ -403,7 +406,7 @@ def get_curation_claims(
         ).all()
 
         if not snapshots:
-            return {}, {}, set()
+            return {}, {}, set(), {}
 
         snapshot_ids = [s.snapshot_id for s in snapshots]
         snap_to_ref: dict[int, int] = {
@@ -432,6 +435,7 @@ def get_curation_claims(
         claims_map: dict[
             tuple[str, str, str], dict[int, dict[str, set[tuple[int, int]]]]
         ] = {}
+        relation_ids: dict[tuple[str, str, str], int] = {}
         entity_curies: set[str] = set()
 
         for relation, snap_id in rel_rows:
@@ -441,6 +445,7 @@ def get_curation_claims(
 
             if key not in claims_map:
                 claims_map[key] = {}
+                relation_ids[key] = relation.relation_id
             if ref_id not in claims_map[key]:
                 claims_map[key][ref_id] = {
                     "subject_pointers": set(),
@@ -466,7 +471,22 @@ def get_curation_claims(
             ).all():
                 refs[ref.reference_id] = ref
 
-        return claims_map, refs, entity_curies
+        return claims_map, refs, entity_curies, relation_ids
+
+
+def set_curation_decision(
+    project_id: int,
+    relation_id: int,
+    curator_id: uuid.UUID,
+    verdict: Verdict,
+) -> None:
+    annodb.set_curation_decision(project_id, relation_id, curator_id, verdict)
+
+
+def get_curation_decisions(
+    project_id: int, curator_id: uuid.UUID
+) -> dict[int, Verdict]:
+    return annodb.get_curation_decisions(project_id, curator_id)
 
 
 def save_curated_annotation(
@@ -530,8 +550,8 @@ def get_reference_annotation(
     )
 
 
-@query.register
-def _(predicate: str, subject: str, object: str) -> str:
+@multimethod
+def query(predicate: str, subject: str, object: str) -> str:
     relation = annodb.get_relation(
         predicate=predicate, subject=subject, object=object
     )

@@ -27,6 +27,7 @@ from ahbackend.db import (
     get_annotation_queue,
     get_entities_by_curies,
     get_curation_claims,
+    get_curation_decisions,
     get_curation_queue,
     get_entity_types,
     get_ontology_entities,
@@ -56,6 +57,7 @@ from ahbackend.db import (
     remove_reference_from_project,
     run_ontology_import,
     save_curated_annotation,
+    set_curation_decision,
     search_entities,
     set_user_last_project,
     set_user_permissions,
@@ -72,6 +74,7 @@ from d3textdb.schema import (
     ReferenceAnnotation,
     Relation,
     User,
+    Verdict,
 )
 from fastapi import Body, Depends, FastAPI, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
@@ -1015,9 +1018,11 @@ class EvidenceItem(BaseModel):
 
 
 class ClaimItem(BaseModel):
+    relation_id: int
     subject: str
     predicate: str
     object: str
+    verdict: Verdict | None = None
     evidence: list[EvidenceItem]
 
 
@@ -1037,7 +1042,8 @@ def curation_claims(
     if not can_curate_project(user_auth, roles):
         raise HTTPException(status_code=403, detail="Curator access required")
 
-    claims_map, refs, entity_curies = get_curation_claims(project_id)
+    claims_map, refs, entity_curies, relation_ids = get_curation_claims(project_id)
+    decisions = get_curation_decisions(project_id, current_user.user_id)
 
     entity_list = get_entities_by_curies(list(entity_curies))
     entities = {
@@ -1052,6 +1058,7 @@ def curation_claims(
 
     claims: list[ClaimItem] = []
     for (subject, predicate, object_), evidence_map in claims_map.items():
+        relation_id = relation_ids[(subject, predicate, object_)]
         evidence_items: list[EvidenceItem] = []
         for ref_id, ptrs in evidence_map.items():
             ref = refs.get(ref_id)
@@ -1081,14 +1088,35 @@ def curation_claims(
             )
         claims.append(
             ClaimItem(
+                relation_id=relation_id,
                 subject=subject,
                 predicate=predicate,
                 object=object_,
+                verdict=decisions.get(relation_id),
                 evidence=evidence_items,
             )
         )
 
     return ClaimsResponse(claims=claims, entities=entities)
+
+
+class VerdictBody(BaseModel):
+    verdict: Verdict
+
+
+@app.post("/projects/{project_id}/curation/claims/{relation_id}/verdict", status_code=204)
+def set_claim_verdict(
+    project_id: int,
+    relation_id: int,
+    body: VerdictBody,
+    current_user: Annotated[User, Depends(users.get_current_active_user)],
+) -> None:
+    """Record the current curator's accept/reject verdict on a relation."""
+    user_auth = db.get_user_auth(current_user.user_id)
+    roles = get_user_project_roles(current_user.user_id, project_id)
+    if not can_curate_project(user_auth, roles):
+        raise HTTPException(status_code=403, detail="Curator access required")
+    set_curation_decision(project_id, relation_id, current_user.user_id, body.verdict)
 
 
 # ---------------------------------------------------------------------------

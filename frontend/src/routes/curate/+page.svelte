@@ -21,11 +21,37 @@
     // evidenceReady[key] = true once segments are computed (reactive trigger)
     let evidenceReady = $state<Record<string, true>>({});
     // evidenceData[key][refId] = array of evidence paragraphs (non-reactive store)
-    const evidenceData: Record<string, Record<number, EvidenceParagraph[]>> = {};
+    const evidenceData: Record<
+        string,
+        Record<number, EvidenceParagraph[]>
+    > = {};
     // expandedParas[paraKey] = true when user has clicked (expand paragraph)
     let expandedParas = $state<Record<string, true>>({});
     // expandedRefs[refKey] = true when user has clicked (more) to show all paragraphs
     let expandedRefs = $state<Record<string, true>>({});
+    // verdicts[relation_id] = optimistic verdict state, seeded from server data
+    let verdicts = $state<Record<number, "accepted" | "rejected" | null>>(
+        Object.fromEntries(
+            data.claims.claims.map((c) => [c.relation_id, c.verdict]),
+        ),
+    );
+
+    async function setVerdict(
+        claim: ClaimItem,
+        verdict: "accepted" | "rejected",
+    ) {
+        const prev = verdicts[claim.relation_id];
+        verdicts[claim.relation_id] = verdict; // optimistic
+        const res = await fetch(
+            `/api/projects/${data.projectId}/curation/claims/${claim.relation_id}/verdict`,
+            {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ verdict }),
+            },
+        );
+        if (!res.ok) verdicts[claim.relation_id] = prev; // roll back on failure
+    }
 
     function claimKey(claim: ClaimItem): string {
         return `${claim.subject}|${claim.predicate}|${claim.object}`;
@@ -58,9 +84,14 @@
         const plainText = doc.body.textContent ?? "";
         const paraRanges = getParagraphRanges(doc);
         return buildEvidenceParagraphs(
-            plainText, paraRanges,
-            ev.subject_pointers, ev.object_pointers,
-            subjBg, objBg, subjFg, objFg,
+            plainText,
+            paraRanges,
+            ev.subject_pointers,
+            ev.object_pointers,
+            subjBg,
+            objBg,
+            subjFg,
+            objFg,
         );
     }
 
@@ -69,14 +100,24 @@
         const key = claimKey(claim);
         if (evidenceReady[key]) return;
 
-        const subjBg = getLabelColor(data.claims.entities[claim.subject]?.kind ?? "");
-        const objBg = getLabelColor(data.claims.entities[claim.object]?.kind ?? "");
+        const subjBg = getLabelColor(
+            data.claims.entities[claim.subject]?.kind ?? "",
+        );
+        const objBg = getLabelColor(
+            data.claims.entities[claim.object]?.kind ?? "",
+        );
         const subjFg = getContrastColor(subjBg);
         const objFg = getContrastColor(objBg);
 
         const byRef: Record<number, EvidenceParagraph[]> = {};
         for (const ev of claim.evidence) {
-            byRef[ev.reference_id] = computeEvidenceSegments(ev, subjBg, objBg, subjFg, objFg);
+            byRef[ev.reference_id] = computeEvidenceSegments(
+                ev,
+                subjBg,
+                objBg,
+                subjFg,
+                objFg,
+            );
         }
         evidenceData[key] = byRef;
         evidenceReady[key] = true; // reactive trigger → re-render
@@ -154,86 +195,160 @@
                 </tbody>
             </table>
         {/if}
+    {:else if data.claims.claims.length === 0}
+        <p>No claims have been annotated yet.</p>
     {:else}
-        {#if data.claims.claims.length === 0}
-            <p>No claims have been annotated yet.</p>
-        {:else}
-            <div class="claims-list">
-                {#each claimsByPredicate.entries() as [predicate, claims] (predicate)}
-                    <div class="predicate-group">
-                        <div class="predicate-label">{displayPredicate(predicate)}</div>
-                        {#each claims as claim (claim.subject + claim.object)}
-                            {@const subject = data.claims.entities[claim.subject]}
-                            {@const object = data.claims.entities[claim.object]}
-                            <div class="claim-row">
-                                <div class="claim-triple">
-                                    {#if subject}
-                                        <EntityBadge
-                                            preferredName={subject.preferred_name}
-                                            kind={subject.kind}
-                                        />
-                                    {:else}
-                                        <span class="unknown-entity">{claim.subject}</span>
-                                    {/if}
-                                    <span class="arrow">→</span>
-                                    {#if object}
-                                        <EntityBadge
-                                            preferredName={object.preferred_name}
-                                            kind={object.kind}
-                                        />
-                                    {:else}
-                                        <span class="unknown-entity">{claim.object}</span>
-                                    {/if}
-                                </div>
-                                {#if claim.evidence.length > 0 && browser}
-                                    <details
-                                        class="evidence-details"
-                                        ontoggle={(e) => handleEvidenceToggle(claim, e)}
+        <div class="claims-list">
+            {#each claimsByPredicate.entries() as [predicate, claims] (predicate)}
+                <div class="predicate-group">
+                    <div class="predicate-label">
+                        {displayPredicate(predicate)}
+                    </div>
+                    {#each claims as claim (claim.subject + claim.object)}
+                        {@const subject = data.claims.entities[claim.subject]}
+                        {@const object = data.claims.entities[claim.object]}
+                        <div class="claim-row">
+                            <div class="claim-triple">
+                                {#if subject}
+                                    <EntityBadge
+                                        preferredName={subject.preferred_name}
+                                        kind={subject.kind}
+                                    />
+                                {:else}
+                                    <span class="unknown-entity"
+                                        >{claim.subject}</span
                                     >
-                                        <summary>Show evidence</summary>
-                                        <div class="evidence-body">
-                                            {#each claim.evidence as ev (ev.reference_id)}
-                                                {@const segs = evidenceReady[claimKey(claim)]
-                                                    ? (evidenceData[claimKey(claim)]?.[ev.reference_id] ?? [])
-                                                    : []}
-                                                {@const refKey = `${claimKey(claim)}:${ev.reference_id}`}
-                                                {@const visibleSegs = expandedRefs[refKey] ? segs : segs.slice(0, 1)}
-                                                <div class="evidence-ref">
-                                                    <div class="evidence-ref-title">
-                                                        {ev.pubmed_id
-                                                            ? `PMID:${ev.pubmed_id}`
-                                                            : `Ref #${ev.reference_id}`} — {ev.title}
-                                                    </div>
-                                                    {#each visibleSegs as seg, paraIdx (paraIdx)}
-                                                        {@const paraKey = `${refKey}:${paraIdx}`}
-                                                        <p class="evidence-paragraph">
-                                                            {@html expandedParas[paraKey] || !seg.isExcerpt ? seg.fullHtml : seg.excerptHtml}
-                                                            {#if seg.isExcerpt && !expandedParas[paraKey]}
-                                                                <button class="expand-para-btn" onclick={() => { expandedParas[paraKey] = true; }}>(expand paragraph)</button>
-                                                            {:else if seg.isExcerpt && expandedParas[paraKey]}
-                                                                <button class="expand-para-btn" onclick={() => { delete expandedParas[paraKey]; expandedParas = expandedParas; }}>(collapse paragraph)</button>
-                                                            {/if}
-                                                        </p>
-                                                    {/each}
-                                                    {#if segs.length > 1 && !expandedRefs[refKey]}
-                                                        <button class="expand-para-btn" onclick={() => { expandedRefs[refKey] = true; }}>(show {segs.length - 1} more {segs.length - 1 === 1 ? "occurrence" : "occurrences"})</button>
-                                                    {/if}
-                                                    {#if evidenceReady[claimKey(claim)] && segs.length === 0}
-                                                        <p class="evidence-no-context">
-                                                            No annotated spans found for this reference.
-                                                        </p>
-                                                    {/if}
-                                                </div>
-                                            {/each}
-                                        </div>
-                                    </details>
+                                {/if}
+                                <span class="arrow">→</span>
+                                {#if object}
+                                    <EntityBadge
+                                        preferredName={object.preferred_name}
+                                        kind={object.kind}
+                                    />
+                                {:else}
+                                    <span class="unknown-entity"
+                                        >{claim.object}</span
+                                    >
                                 {/if}
                             </div>
-                        {/each}
-                    </div>
-                {/each}
-            </div>
-        {/if}
+                            <div class="verdict-btns">
+                                <button
+                                    class="verdict-btn accept"
+                                    class:active={verdicts[
+                                        claim.relation_id
+                                    ] === "accepted"}
+                                    onclick={() =>
+                                        setVerdict(claim, "accepted")}
+                                    >Approve</button
+                                >
+                                <button
+                                    class="verdict-btn reject"
+                                    class:active={verdicts[
+                                        claim.relation_id
+                                    ] === "rejected"}
+                                    onclick={() =>
+                                        setVerdict(claim, "rejected")}
+                                    >Reject</button
+                                >
+                            </div>
+                            {#if claim.evidence.length > 0 && browser}
+                                <details
+                                    class="evidence-details"
+                                    ontoggle={(e) =>
+                                        handleEvidenceToggle(claim, e)}
+                                >
+                                    <summary>Show evidence</summary>
+                                    <div class="evidence-body">
+                                        {#each claim.evidence as ev (ev.reference_id)}
+                                            {@const segs = evidenceReady[
+                                                claimKey(claim)
+                                            ]
+                                                ? (evidenceData[
+                                                      claimKey(claim)
+                                                  ]?.[ev.reference_id] ?? [])
+                                                : []}
+                                            {@const refKey = `${claimKey(claim)}:${ev.reference_id}`}
+                                            {@const visibleSegs = expandedRefs[
+                                                refKey
+                                            ]
+                                                ? segs
+                                                : segs.slice(0, 1)}
+                                            <div class="evidence-ref">
+                                                <div class="evidence-ref-title">
+                                                    {ev.pubmed_id
+                                                        ? `PMID:${ev.pubmed_id}`
+                                                        : `Ref #${ev.reference_id}`}
+                                                    — {ev.title}
+                                                </div>
+                                                {#each visibleSegs as seg, paraIdx (paraIdx)}
+                                                    {@const paraKey = `${refKey}:${paraIdx}`}
+                                                    <p
+                                                        class="evidence-paragraph"
+                                                    >
+                                                        {@html expandedParas[
+                                                            paraKey
+                                                        ] || !seg.isExcerpt
+                                                            ? seg.fullHtml
+                                                            : seg.excerptHtml}
+                                                        {#if seg.isExcerpt && !expandedParas[paraKey]}
+                                                            <button
+                                                                class="expand-para-btn"
+                                                                onclick={() => {
+                                                                    expandedParas[
+                                                                        paraKey
+                                                                    ] = true;
+                                                                }}
+                                                                >(expand
+                                                                paragraph)</button
+                                                            >
+                                                        {:else if seg.isExcerpt && expandedParas[paraKey]}
+                                                            <button
+                                                                class="expand-para-btn"
+                                                                onclick={() => {
+                                                                    delete expandedParas[
+                                                                        paraKey
+                                                                    ];
+                                                                    expandedParas =
+                                                                        expandedParas;
+                                                                }}
+                                                                >(collapse
+                                                                paragraph)</button
+                                                            >
+                                                        {/if}
+                                                    </p>
+                                                {/each}
+                                                {#if segs.length > 1 && !expandedRefs[refKey]}
+                                                    <button
+                                                        class="expand-para-btn"
+                                                        onclick={() => {
+                                                            expandedRefs[
+                                                                refKey
+                                                            ] = true;
+                                                        }}
+                                                        >(show {segs.length - 1} more
+                                                        {segs.length - 1 === 1
+                                                            ? "occurrence"
+                                                            : "occurrences"})</button
+                                                    >
+                                                {/if}
+                                                {#if evidenceReady[claimKey(claim)] && segs.length === 0}
+                                                    <p
+                                                        class="evidence-no-context"
+                                                    >
+                                                        No annotated spans found
+                                                        for this reference.
+                                                    </p>
+                                                {/if}
+                                            </div>
+                                        {/each}
+                                    </div>
+                                </details>
+                            {/if}
+                        </div>
+                    {/each}
+                </div>
+            {/each}
+        </div>
     {/if}
 </div>
 
@@ -257,7 +372,9 @@
         cursor: pointer;
         border-bottom: 2px solid transparent;
         margin-bottom: -2px;
-        transition: color 0.15s, border-color 0.15s;
+        transition:
+            color 0.15s,
+            border-color 0.15s;
     }
 
     .tab-btn:hover {
@@ -291,12 +408,15 @@
     }
 
     .predicate-group {
-        display: flex;
-        flex-direction: column;
-        gap: 0.5rem;
+        display: grid;
+        grid-template-columns: max-content auto;
+        align-items: start;
+        row-gap: 0.5rem;
+        column-gap: 0.75rem;
     }
 
     .predicate-label {
+        grid-column: 1 / -1;
         font-size: 1.1rem;
         font-weight: 600;
         text-transform: uppercase;
@@ -307,9 +427,7 @@
     }
 
     .claim-row {
-        display: flex;
-        flex-direction: column;
-        gap: 0.4rem;
+        display: contents;
     }
 
     .claim-triple {
@@ -325,6 +443,49 @@
         flex-shrink: 0;
     }
 
+    .verdict-btns {
+        display: flex;
+        flex-direction: row;
+        gap: 0.35rem;
+        align-self: center;
+    }
+
+    .verdict-btn {
+        padding: 0.2rem 0.75rem;
+        border-radius: 4px;
+        font-size: 1.3rem;
+        font-weight: 500;
+        cursor: pointer;
+        border: 1px solid transparent;
+        transition:
+            background-color 0.1s,
+            color 0.1s;
+    }
+
+    .verdict-btn.accept {
+        border-color: #16a34a;
+        color: #16a34a;
+        background: transparent;
+    }
+
+    .verdict-btn.accept:hover,
+    .verdict-btn.accept.active {
+        background: #16a34a;
+        color: #fff;
+    }
+
+    .verdict-btn.reject {
+        border-color: #dc2626;
+        color: #dc2626;
+        background: transparent;
+    }
+
+    .verdict-btn.reject:hover,
+    .verdict-btn.reject.active {
+        background: #dc2626;
+        color: #fff;
+    }
+
     .unknown-entity {
         font-family: monospace;
         font-size: 1.3rem;
@@ -335,6 +496,8 @@
     }
 
     .evidence-details {
+        grid-column: 1 / -1;
+        contain: inline-size;
         margin-left: 0.25rem;
     }
 
@@ -395,5 +558,4 @@
         color: #374151;
         text-decoration: underline;
     }
-
 </style>
