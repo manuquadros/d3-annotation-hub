@@ -43,7 +43,7 @@ db_path = resources.files("ahbackend.db") / "database.db"
 annodb = D3TextDB(db_path, echo=True)
 
 
-def get_user(email: EmailStr) -> User | None:
+def get_user(email: str) -> User | None:
     return annodb.get_user(email)
 
 

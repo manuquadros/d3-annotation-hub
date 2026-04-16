@@ -880,7 +880,7 @@ class D3TextDB:
                 )
             session.commit()
 
-    def get_user(self, email: EmailStr) -> User | None:
+    def get_user(self, email: str) -> User | None:
         with Session(self.engine) as session:
             return session.scalar(select(User).where(User.email == email))
 
