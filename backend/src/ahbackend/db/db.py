@@ -600,13 +600,31 @@ def mark_annotation_incomplete(
         return
 
     with Session(annodb.engine) as session:
-        session.execute(
-            delete(AnnotationSnapshot).where(
-                (AnnotationSnapshot.project_id == project_id)
-                & (AnnotationSnapshot.user_id == user_id)
-                & (AnnotationSnapshot.reference_id == ref.reference_id)
-            )
+        snapshot_ids = list(
+            session.scalars(
+                select(AnnotationSnapshot.snapshot_id).where(
+                    (AnnotationSnapshot.project_id == project_id)
+                    & (AnnotationSnapshot.user_id == user_id)
+                    & (AnnotationSnapshot.reference_id == ref.reference_id)
+                )
+            ).all()
         )
+        if snapshot_ids:
+            session.execute(
+                delete(SnapshotPointer).where(
+                    col(SnapshotPointer.snapshot_id).in_(snapshot_ids)
+                )
+            )
+            session.execute(
+                delete(SnapshotRelation).where(
+                    col(SnapshotRelation.snapshot_id).in_(snapshot_ids)
+                )
+            )
+            session.execute(
+                delete(AnnotationSnapshot).where(
+                    col(AnnotationSnapshot.snapshot_id).in_(snapshot_ids)
+                )
+            )
         session.commit()
 
 
