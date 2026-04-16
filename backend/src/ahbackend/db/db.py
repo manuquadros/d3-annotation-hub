@@ -378,6 +378,97 @@ def get_annotator_snapshots(
     return annodb.get_annotator_snapshots(project_id, reference_id)
 
 
+def get_curation_claims(
+    project_id: int,
+) -> tuple[
+    dict[tuple[str, str, str], dict[int, dict[str, set[tuple[int, int]]]]],
+    dict[int, Reference],
+    set[str],
+]:
+    """Return unique relations from all annotator snapshots for a project.
+
+    Returns a 3-tuple:
+    - claims_map: (subject, predicate, object) -> {reference_id -> {
+          'subject_pointers': set of (offset, length),
+          'object_pointers': set of (offset, length)
+      }}
+    - refs: reference_id -> Reference
+    - entity_curies: CURIEs appearing in any claim
+    """
+    with Session(annodb.engine) as session:
+        snapshots = session.scalars(
+            select(AnnotationSnapshot).where(
+                AnnotationSnapshot.project_id == project_id
+            )
+        ).all()
+
+        if not snapshots:
+            return {}, {}, set()
+
+        snapshot_ids = [s.snapshot_id for s in snapshots]
+        snap_to_ref: dict[int, int] = {
+            s.snapshot_id: s.reference_id for s in snapshots
+        }
+
+        rel_rows = session.execute(
+            select(Relation, SnapshotRelation.snapshot_id)
+            .join(
+                SnapshotRelation,
+                Relation.relation_id == SnapshotRelation.relation_id,
+            )
+            .where(col(SnapshotRelation.snapshot_id).in_(snapshot_ids))
+        ).all()
+
+        ptr_rows = session.scalars(
+            select(SnapshotPointer).where(
+                col(SnapshotPointer.snapshot_id).in_(snapshot_ids)
+            )
+        ).all()
+
+        ptrs_by_snapshot: dict[int, list[SnapshotPointer]] = {}
+        for p in ptr_rows:
+            ptrs_by_snapshot.setdefault(p.snapshot_id, []).append(p)
+
+        claims_map: dict[
+            tuple[str, str, str], dict[int, dict[str, set[tuple[int, int]]]]
+        ] = {}
+        entity_curies: set[str] = set()
+
+        for relation, snap_id in rel_rows:
+            key = (relation.subject, relation.predicate, relation.object)
+            ref_id = snap_to_ref[snap_id]
+            entity_curies.update([relation.subject, relation.object])
+
+            if key not in claims_map:
+                claims_map[key] = {}
+            if ref_id not in claims_map[key]:
+                claims_map[key][ref_id] = {
+                    "subject_pointers": set(),
+                    "object_pointers": set(),
+                }
+
+            for p in ptrs_by_snapshot.get(snap_id, []):
+                ptr = (p.offset, p.length)
+                if p.entity_id == relation.subject:
+                    claims_map[key][ref_id]["subject_pointers"].add(ptr)
+                elif p.entity_id == relation.object:
+                    claims_map[key][ref_id]["object_pointers"].add(ptr)
+
+        ref_ids = {
+            ref_id for evidence in claims_map.values() for ref_id in evidence
+        }
+        refs: dict[int, Reference] = {}
+        if ref_ids:
+            for ref in session.scalars(
+                select(Reference).where(
+                    col(Reference.reference_id).in_(ref_ids)
+                )
+            ).all():
+                refs[ref.reference_id] = ref
+
+        return claims_map, refs, entity_curies
+
+
 def save_curated_annotation(
     project_id: int,
     reference_id: int,

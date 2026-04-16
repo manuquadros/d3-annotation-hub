@@ -26,6 +26,7 @@ from ahbackend.db import (
     get_curated_annotation,
     get_annotation_queue,
     get_entities_by_curies,
+    get_curation_claims,
     get_curation_queue,
     get_entity_types,
     get_ontology_entities,
@@ -988,6 +989,109 @@ def curation_queue(
 
 
 # ---------------------------------------------------------------------------
+# Curation: claims
+# ---------------------------------------------------------------------------
+
+
+class EntityOut(BaseModel):
+    entity_id: str
+    preferred_name: str
+    kind: str
+    confirmed: bool
+
+
+class EvidencePointerItem(BaseModel):
+    offset: int
+    length: int
+
+
+class EvidenceItem(BaseModel):
+    reference_id: int
+    pubmed_id: int | None
+    title: str
+    body: str | None
+    subject_pointers: list[EvidencePointerItem]
+    object_pointers: list[EvidencePointerItem]
+
+
+class ClaimItem(BaseModel):
+    subject: str
+    predicate: str
+    object: str
+    evidence: list[EvidenceItem]
+
+
+class ClaimsResponse(BaseModel):
+    claims: list[ClaimItem]
+    entities: dict[str, EntityOut]
+
+
+@app.get("/projects/{project_id}/curation/claims")
+def curation_claims(
+    project_id: int,
+    current_user: Annotated[User, Depends(users.get_current_active_user)],
+) -> ClaimsResponse:
+    """Return all unique relations from completed annotations, with evidence."""
+    user_auth = db.get_user_auth(current_user.user_id)
+    roles = get_user_project_roles(current_user.user_id, project_id)
+    if not can_curate_project(user_auth, roles):
+        raise HTTPException(status_code=403, detail="Curator access required")
+
+    claims_map, refs, entity_curies = get_curation_claims(project_id)
+
+    entity_list = get_entities_by_curies(list(entity_curies))
+    entities = {
+        e.entity_id: EntityOut(
+            entity_id=e.entity_id,
+            preferred_name=e.preferred_name,
+            kind=e.kind,
+            confirmed=e.confirmed,
+        )
+        for e in entity_list
+    }
+
+    claims: list[ClaimItem] = []
+    for (subject, predicate, object_), evidence_map in claims_map.items():
+        evidence_items: list[EvidenceItem] = []
+        for ref_id, ptrs in evidence_map.items():
+            ref = refs.get(ref_id)
+            if ref is None:
+                continue
+            body_html: str | None = None
+            if ref.body:
+                try:
+                    body_html = transform_article(ref.body)
+                except Exception:
+                    body_html = None
+            evidence_items.append(
+                EvidenceItem(
+                    reference_id=ref_id,
+                    pubmed_id=ref.pubmed_id,
+                    title=ref.title,
+                    body=body_html,
+                    subject_pointers=[
+                        EvidencePointerItem(offset=o, length=l)
+                        for o, l in ptrs["subject_pointers"]
+                    ],
+                    object_pointers=[
+                        EvidencePointerItem(offset=o, length=l)
+                        for o, l in ptrs["object_pointers"]
+                    ],
+                )
+            )
+        claims.append(
+            ClaimItem(
+                subject=subject,
+                predicate=predicate,
+                object=object_,
+                evidence=evidence_items,
+            )
+        )
+
+    return ClaimsResponse(claims=claims, entities=entities)
+
+
+# ---------------------------------------------------------------------------
 # Curation: annotator snapshots and save
 # ---------------------------------------------------------------------------
 
@@ -1004,13 +1108,6 @@ class RelationOut(BaseModel):
     predicate: str
     subject: str
     object: str
-
-
-class EntityOut(BaseModel):
-    entity_id: str
-    preferred_name: str
-    kind: str
-    confirmed: bool
 
 
 class AnnotatorSnapshotResponse(BaseModel):

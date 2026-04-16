@@ -24,6 +24,7 @@ from .db import (
     list_users,
     set_user_permissions,
     get_annotation_queue,
+    get_curation_claims,
     get_curation_queue,
     get_entity_types,
     get_ontology_entities,
