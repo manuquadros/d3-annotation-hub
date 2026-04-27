@@ -15,8 +15,12 @@ export const load: PageServerLoad = async ({ cookies, params, parent }) => {
         fetch(`${API_BASE_URL}/admin/ontologies`, { headers }),
     ]);
 
-    const projectOntologies = projectOntologiesRes.ok ? await projectOntologiesRes.json() : [];
-    const allOntologies = allOntologiesRes.ok ? await allOntologiesRes.json() : [];
+    const projectOntologies = projectOntologiesRes.ok
+        ? await projectOntologiesRes.json()
+        : [];
+    const allOntologies = allOntologiesRes.ok
+        ? await allOntologiesRes.json()
+        : [];
 
     return { projectId, projectOntologies, allOntologies };
 };

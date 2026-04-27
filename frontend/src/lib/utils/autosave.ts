@@ -37,17 +37,23 @@ export async function saveAnnotationState(
             // status undefined means a network-level failure (fetch threw before
             // receiving a response) — always transient. Known HTTP error codes
             // like 401/422 are permanent and should not be retried.
-            const isTransient = status === undefined || TRANSIENT_STATUSES.has(status);
+            const isTransient =
+                status === undefined || TRANSIENT_STATUSES.has(status);
 
             if (!isTransient || attempt === MAX_RETRIES) {
                 console.error("Save error:", error);
                 return {
                     success: false,
-                    error: error instanceof Error ? error.message : "Unknown error",
+                    error:
+                        error instanceof Error
+                            ? error.message
+                            : "Unknown error",
                 };
             }
 
-            console.warn(`Save attempt ${attempt + 1} failed (${status ?? "network error"}), retrying in ${RETRY_DELAY_MS}ms…`);
+            console.warn(
+                `Save attempt ${attempt + 1} failed (${status ?? "network error"}), retrying in ${RETRY_DELAY_MS}ms…`,
+            );
             await new Promise((r) => setTimeout(r, RETRY_DELAY_MS));
         }
     }
@@ -80,9 +86,7 @@ export function createDebouncedSave(delayMs: number = 2000): {
         }
     }
 
-    async function scheduleSave(
-        state: AnnotationState,
-    ): Promise<SaveResult> {
+    async function scheduleSave(state: AnnotationState): Promise<SaveResult> {
         cancelPending();
 
         return new Promise((resolve) => {

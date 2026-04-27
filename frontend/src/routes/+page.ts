@@ -30,7 +30,10 @@ export const load: PageLoad = async ({ fetch, url, parent }) => {
         if (!first) {
             return { documentData: null };
         }
-        redirect(302, `/?ref=${encodeURIComponent(first.ref)}&project=${currentProjectId}`);
+        redirect(
+            302,
+            `/?ref=${encodeURIComponent(first.ref)}&project=${currentProjectId}`,
+        );
     }
 
     const documentData = await fetchReference(ref, currentProjectId, fetch);

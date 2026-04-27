@@ -1,22 +1,30 @@
-export type EvidenceParagraph = { excerptHtml: string; fullHtml: string; isExcerpt: boolean };
+export type EvidenceParagraph = {
+    excerptHtml: string;
+    fullHtml: string;
+    isExcerpt: boolean;
+};
 export type Span = [number, number];
 export type PointerItem = { offset: number; length: number };
 
 function escapeHtml(s: string): string {
-    return s
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;");
+    return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
-export function splitSentences(text: string): Array<{ start: number; end: number }> {
+export function splitSentences(
+    text: string,
+): Array<{ start: number; end: number }> {
     const result: Array<{ start: number; end: number }> = [];
     let start = 0;
     for (let i = 0; i < text.length; i++) {
         if (/[.!?]/.test(text[i])) {
             let end = i + 1;
             while (end < text.length && /[.!?'")\]»]/.test(text[end])) end++;
-            if (end >= text.length || (text[end] === " " && end + 1 < text.length && /[A-Z]/.test(text[end + 1]))) {
+            if (
+                end >= text.length ||
+                (text[end] === " " &&
+                    end + 1 < text.length &&
+                    /[A-Z]/.test(text[end + 1]))
+            ) {
                 result.push({ start, end });
                 start = end + 1;
                 i = end;
@@ -98,7 +106,9 @@ export function buildSegmentHtml(
  * pointer offsets stored in the database (both are into body.textContent).
  * Falls back to the whole body when no <p>/<li> elements are found.
  */
-export function getParagraphRanges(doc: Document): Array<{ start: number; end: number }> {
+export function getParagraphRanges(
+    doc: Document,
+): Array<{ start: number; end: number }> {
     const body = doc.body;
     const paras = Array.from(body.querySelectorAll("p, li"));
     if (paras.length === 0) {
@@ -146,10 +156,22 @@ export function buildEvidenceParagraphs(
         const text = plainText.slice(start, end).trim();
         if (!text) continue;
 
-        const fullHtml = buildSegmentHtml(text, subjSpans, objSpans, subjBg, objBg, subjFg, objFg);
+        const fullHtml = buildSegmentHtml(
+            text,
+            subjSpans,
+            objSpans,
+            subjBg,
+            objBg,
+            subjFg,
+            objFg,
+        );
 
         const sentences = splitSentences(text);
-        const { startIdx, endIdx } = findMinSentenceWindow(sentences, subjSpans, objSpans);
+        const { startIdx, endIdx } = findMinSentenceWindow(
+            sentences,
+            subjSpans,
+            objSpans,
+        );
         const isExcerpt = startIdx > 0 || endIdx < sentences.length - 1;
 
         if (!isExcerpt) {
@@ -160,11 +182,37 @@ export function buildEvidenceParagraphs(
             const excerptText = text.slice(excerptStart, excerptEnd);
             const adjustedSubj = subjSpans
                 .filter(([s, e]) => s < excerptEnd && e > excerptStart)
-                .map(([s, e]) => [Math.max(0, s - excerptStart), Math.min(excerptEnd - excerptStart, e - excerptStart)] as Span);
+                .map(
+                    ([s, e]) =>
+                        [
+                            Math.max(0, s - excerptStart),
+                            Math.min(
+                                excerptEnd - excerptStart,
+                                e - excerptStart,
+                            ),
+                        ] as Span,
+                );
             const adjustedObj = objSpans
                 .filter(([s, e]) => s < excerptEnd && e > excerptStart)
-                .map(([s, e]) => [Math.max(0, s - excerptStart), Math.min(excerptEnd - excerptStart, e - excerptStart)] as Span);
-            const excerptHtml = buildSegmentHtml(excerptText, adjustedSubj, adjustedObj, subjBg, objBg, subjFg, objFg);
+                .map(
+                    ([s, e]) =>
+                        [
+                            Math.max(0, s - excerptStart),
+                            Math.min(
+                                excerptEnd - excerptStart,
+                                e - excerptStart,
+                            ),
+                        ] as Span,
+                );
+            const excerptHtml = buildSegmentHtml(
+                excerptText,
+                adjustedSubj,
+                adjustedObj,
+                subjBg,
+                objBg,
+                subjFg,
+                objFg,
+            );
             result.push({ excerptHtml, fullHtml, isExcerpt: true });
         }
     }

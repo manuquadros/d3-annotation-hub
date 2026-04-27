@@ -11,21 +11,38 @@ export const load: PageServerLoad = async ({ cookies, params, parent }) => {
     const ontologyId = params.ontologyId;
     const projectId = params.id;
 
-    const [ontologiesRes, entitiesRes, triplesRes, propertiesRes] = await Promise.all([
-        fetch(`${API_BASE_URL}/projects/${projectId}/ontologies`, { headers }),
-        fetch(`${API_BASE_URL}/admin/ontologies/${ontologyId}/entities?limit=50&offset=0`, { headers }),
-        fetch(`${API_BASE_URL}/admin/ontologies/${ontologyId}/triples?limit=50&offset=0`, { headers }),
-        fetch(`${API_BASE_URL}/admin/ontologies/${ontologyId}/properties`, { headers }),
-    ]);
+    const [ontologiesRes, entitiesRes, triplesRes, propertiesRes] =
+        await Promise.all([
+            fetch(`${API_BASE_URL}/projects/${projectId}/ontologies`, {
+                headers,
+            }),
+            fetch(
+                `${API_BASE_URL}/admin/ontologies/${ontologyId}/entities?limit=50&offset=0`,
+                { headers },
+            ),
+            fetch(
+                `${API_BASE_URL}/admin/ontologies/${ontologyId}/triples?limit=50&offset=0`,
+                { headers },
+            ),
+            fetch(`${API_BASE_URL}/admin/ontologies/${ontologyId}/properties`, {
+                headers,
+            }),
+        ]);
 
-    const allProjectOntologies = ontologiesRes.ok ? await ontologiesRes.json() : [];
+    const allProjectOntologies = ontologiesRes.ok
+        ? await ontologiesRes.json()
+        : [];
     const ontology = allProjectOntologies.find(
         (o: { ontology_id: number }) => String(o.ontology_id) === ontologyId,
     );
     if (!ontology) error(404, "Ontology not found in this project");
 
-    const entitiesData = entitiesRes.ok ? await entitiesRes.json() : { entities: [], total: 0 };
-    const triplesData = triplesRes.ok ? await triplesRes.json() : { triples: [], total: 0 };
+    const entitiesData = entitiesRes.ok
+        ? await entitiesRes.json()
+        : { entities: [], total: 0 };
+    const triplesData = triplesRes.ok
+        ? await triplesRes.json()
+        : { triples: [], total: 0 };
     const properties = propertiesRes.ok ? await propertiesRes.json() : [];
 
     return {

@@ -67,8 +67,12 @@ export const load: PageServerLoad = async ({ cookies, url, parent }) => {
     const headers = { Authorization: `Bearer ${token}` };
 
     const [queueRes, claimsRes] = await Promise.all([
-        fetch(`${API_BASE_URL}/projects/${projectId}/curation/queue`, { headers }),
-        fetch(`${API_BASE_URL}/projects/${projectId}/curation/claims`, { headers }),
+        fetch(`${API_BASE_URL}/projects/${projectId}/curation/queue`, {
+            headers,
+        }),
+        fetch(`${API_BASE_URL}/projects/${projectId}/curation/claims`, {
+            headers,
+        }),
     ]);
 
     if (queueRes.status === 403 || claimsRes.status === 403) {

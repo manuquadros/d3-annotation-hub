@@ -2,7 +2,6 @@ import { z } from "zod";
 import { Map, Set, Record } from "immutable";
 import type { Map as ImmutableMap } from "immutable";
 
-
 export type Pointer = {
     entity_id: string;
     reference_id: number;
@@ -120,7 +119,11 @@ export type EditorState =
     | { mode: "create"; offset: number; length: number; sentenceStart: number }
     | { mode: "edit-pointer"; pointerId: string; sentenceStart: number }
     | { mode: "edit-entity"; entityId: string }
-    | { mode: "create-relation"; subjectEntityId: string; objectEntityId: string };
+    | {
+          mode: "create-relation";
+          subjectEntityId: string;
+          objectEntityId: string;
+      };
 
 export const AnnotationStateSchema = z.object({
     user: UserSchema,

@@ -21,12 +21,15 @@ export const load: PageServerLoad = async ({ cookies }) => {
 
     const headers = { Authorization: `Bearer ${token}` };
 
-    const [ontologiesRes, proposedRes, usersRes, projectsRes] = await Promise.all([
-        fetch(`${API_BASE_URL}/admin/ontologies`, { headers }),
-        fetch(`${API_BASE_URL}/admin/entities/proposed?limit=50&offset=0`, { headers }),
-        fetch(`${API_BASE_URL}/admin/users`, { headers }),
-        fetch(`${API_BASE_URL}/projects`, { headers }),
-    ]);
+    const [ontologiesRes, proposedRes, usersRes, projectsRes] =
+        await Promise.all([
+            fetch(`${API_BASE_URL}/admin/ontologies`, { headers }),
+            fetch(`${API_BASE_URL}/admin/entities/proposed?limit=50&offset=0`, {
+                headers,
+            }),
+            fetch(`${API_BASE_URL}/admin/users`, { headers }),
+            fetch(`${API_BASE_URL}/projects`, { headers }),
+        ]);
 
     const ontologies = ontologiesRes.ok ? await ontologiesRes.json() : [];
     const proposedData = proposedRes.ok

@@ -46,7 +46,10 @@ export const load: LayoutServerLoad = async ({ cookies, url }) => {
     const currentProjectId: number | null =
         urlProject !== null
             ? Number(urlProject)
-            : (pathProjectId ?? lastProject?.project_id ?? projects[0]?.project_id ?? null);
+            : (pathProjectId ??
+              lastProject?.project_id ??
+              projects[0]?.project_id ??
+              null);
 
     const isSuperuser = me?.is_super_user === true;
     const isAdmin = me?.can_manage === true || isSuperuser;

@@ -18,7 +18,6 @@ interface Snapshot {
     relations: ImmutableSet<Relation>;
 }
 
-
 export class AnnotationState {
     user: User;
     reference: Reference;
@@ -50,10 +49,12 @@ export class AnnotationState {
         this.pointers = validated.pointers;
         this.relations = validated.relations;
         this.completed = validated.completed;
-        this.#pointerCounter = this.pointers.keySeq()
-            .map(k => parseInt(k.slice(4), 10))
-            .filter(n => !isNaN(n))
-            .max() ?? 0;
+        this.#pointerCounter =
+            this.pointers
+                .keySeq()
+                .map((k) => parseInt(k.slice(4), 10))
+                .filter((n) => !isNaN(n))
+                .max() ?? 0;
     }
 
     #nextPointerKey(): string {
@@ -110,7 +111,6 @@ export class AnnotationState {
         return tempDiv.textContent || "";
     }
 
-
     /**
      * Creates a new entity with the given kind and preferred name, then creates
      * pointers at each offset. The text at each offset is added as a synonym.
@@ -150,7 +150,10 @@ export class AnnotationState {
 
         // Propagate to all other identical uncovered occurrences.
         const searchText = offsets[0]
-            ? plainText.slice(offsets[0].offset, offsets[0].offset + offsets[0].length)
+            ? plainText.slice(
+                  offsets[0].offset,
+                  offsets[0].offset + offsets[0].length,
+              )
             : "";
         if (searchText) {
             const candidates = allOccurrences(plainText, searchText);
@@ -263,8 +266,7 @@ export class AnnotationState {
 
     delete(key: string): void {
         const before = this.#snapshot();
-        const entity_id: string | undefined =
-            this.pointers.get(key)?.entity_id;
+        const entity_id: string | undefined = this.pointers.get(key)?.entity_id;
         this.pointers = this.pointers.delete(key);
         if (entity_id) this.#removeEntity(entity_id);
         this.#commit(before);
@@ -280,7 +282,8 @@ export class AnnotationState {
             .toArray();
 
         let updatedPointers = this.pointers;
-        for (const k of pointerKeys) updatedPointers = updatedPointers.delete(k);
+        for (const k of pointerKeys)
+            updatedPointers = updatedPointers.delete(k);
         this.pointers = updatedPointers;
 
         const relationsArray = this.relations.toArray();
@@ -326,10 +329,15 @@ export class AnnotationState {
         const entity = this.entities.get(entity_id);
         if (entity) {
             const trimmed = preferred_name.trim();
-            const synonyms = trimmed && !entity.synonyms.has(trimmed)
-                ? entity.synonyms.add(trimmed)
-                : entity.synonyms;
-            this.entities = this.entities.set(entity_id, { ...entity, preferred_name, synonyms });
+            const synonyms =
+                trimmed && !entity.synonyms.has(trimmed)
+                    ? entity.synonyms.add(trimmed)
+                    : entity.synonyms;
+            this.entities = this.entities.set(entity_id, {
+                ...entity,
+                preferred_name,
+                synonyms,
+            });
             this.#commit(before);
         }
     }
@@ -409,7 +417,10 @@ export class AnnotationState {
         // Propagate to all other identical uncovered occurrences.
         const plainText = this.#getPlainText();
         const searchText = offsets[0]
-            ? plainText.slice(offsets[0].offset, offsets[0].offset + offsets[0].length)
+            ? plainText.slice(
+                  offsets[0].offset,
+                  offsets[0].offset + offsets[0].length,
+              )
             : "";
         if (searchText) {
             const candidates = allOccurrences(plainText, searchText);
@@ -430,11 +441,19 @@ export class AnnotationState {
         this.#commit(before);
     }
 
-    updatePointerOffsets(pointerId: string, offset: number, length: number): void {
+    updatePointerOffsets(
+        pointerId: string,
+        offset: number,
+        length: number,
+    ): void {
         const before = this.#snapshot();
         const pointer = this.pointers.get(pointerId);
         if (pointer) {
-            this.pointers = this.pointers.set(pointerId, { ...pointer, offset, length });
+            this.pointers = this.pointers.set(pointerId, {
+                ...pointer,
+                offset,
+                length,
+            });
             this.#commit(before);
         }
     }
@@ -543,12 +562,17 @@ export function annotateHTMLString(
                 label: entities.get(pointer.entity_id)?.kind || "",
             };
         })
-        .filter((ar): ar is AnnotatedRange & { range: Range } => ar.range !== null)
+        .filter(
+            (ar): ar is AnnotatedRange & { range: Range } => ar.range !== null,
+        )
         .toArray();
     ranges.forEach((range) => markRange(elem, range));
 }
 
-function markRange(elem: HTMLElement, pointer: AnnotatedRange & { range: Range }) {
+function markRange(
+    elem: HTMLElement,
+    pointer: AnnotatedRange & { range: Range },
+) {
     const doc = elem.ownerDocument;
     const mark = doc.createElement("span");
     mark.id = pointer.pointer_id;

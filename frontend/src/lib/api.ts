@@ -84,8 +84,12 @@ export interface KindOption {
 export async function fetchEntityTypes(): Promise<KindOption[]> {
     const response = await fetch("/api/entity/types");
     if (!response.ok) return [];
-    const items: Array<{ entity_id: string; preferred_name: string }> = await response.json();
-    return items.map((item) => ({ curie: item.entity_id, label: item.preferred_name }));
+    const items: Array<{ entity_id: string; preferred_name: string }> =
+        await response.json();
+    return items.map((item) => ({
+        curie: item.entity_id,
+        label: item.preferred_name,
+    }));
 }
 
 export async function searchEntities(
@@ -111,7 +115,12 @@ export interface PropertyOption {
 
 export async function submitProposedProperty(
     projectId: number,
-    proposal: { label: string; curie?: string; domain_curie?: string; range_curie?: string },
+    proposal: {
+        label: string;
+        curie?: string;
+        domain_curie?: string;
+        range_curie?: string;
+    },
 ): Promise<void> {
     await fetch(`/api/projects/${projectId}/proposed-properties`, {
         method: "POST",
@@ -147,7 +156,9 @@ export async function saveAnnotation(jsonData: string): Promise<void> {
     });
 
     if (!response.ok) {
-        const err = new Error(`Failed to save annotation: ${response.statusText}`) as Error & { status: number };
+        const err = new Error(
+            `Failed to save annotation: ${response.statusText}`,
+        ) as Error & { status: number };
         err.status = response.status;
         throw err;
     }

@@ -49,7 +49,12 @@ export interface SnapshotsData {
     curated_relations: RelationOut[];
 }
 
-export const load: PageServerLoad = async ({ cookies, params, url, parent }) => {
+export const load: PageServerLoad = async ({
+    cookies,
+    params,
+    url,
+    parent,
+}) => {
     const token = cookies.get("auth_token");
     if (!token) redirect(302, "/login");
 
