@@ -771,20 +771,37 @@ class D3TextDB:
             session.commit()
 
     def store_reference(self, reference: Reference) -> int:
-        """Store reference and return its primary key."""
+        """Store reference and return its primary key.
+
+        Upserts by pubmed_id when set, else by doi when set, else plain insert.
+        reference_id is always excluded from the INSERT so that the DB
+        auto-assigns a fresh PK for new rows; existing rows are matched on the
+        natural identifier and left otherwise unchanged.
+        """
+        data = reference.model_dump(exclude={"reference_id"}, exclude_none=True)
+
+        if reference.pubmed_id is not None:
+            conflict_target = ["pubmed_id"]
+        elif reference.doi is not None:
+            conflict_target = ["doi"]
+        else:
+            conflict_target = None
+
         with Session(self.engine) as session:
-            ref_id: int = session.scalar(
-                insert(Reference)
-                .values(reference.model_dump(exclude_none=True))
-                .on_conflict_do_update(
-                    index_elements=["pubmed_id", "doi"],
-                    set_={
-                        "pubmed_id": Reference.pubmed_id,
-                        "doi": Reference.doi,
-                    },
+            if conflict_target:
+                stmt = (
+                    insert(Reference)
+                    .values(data)
+                    .on_conflict_do_update(
+                        index_elements=conflict_target,
+                        set_={conflict_target[0]: data[conflict_target[0]]},
+                    )
+                    .returning(Reference.reference_id)
                 )
-                .returning(Reference.reference_id)
-            )
+            else:
+                stmt = insert(Reference).values(data).returning(Reference.reference_id)
+
+            ref_id: int = session.scalar(stmt)
             session.commit()
 
         return ref_id

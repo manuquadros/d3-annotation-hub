@@ -273,7 +273,10 @@ class Triple(SQLModel, table=True):
 
 
 class Reference(SQLModel, table=True):
-    __table_args__ = (UniqueConstraint("pubmed_id", "doi"),)
+    __table_args__ = (
+        UniqueConstraint("pubmed_id"),
+        UniqueConstraint("doi"),
+    )
 
     reference_id: int | None = Field(default=None, primary_key=True)
     pubmed_id: int | None = None
