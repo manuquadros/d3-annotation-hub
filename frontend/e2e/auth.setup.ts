@@ -9,13 +9,10 @@ setup("authenticate", async ({ page }) => {
         );
     }
 
-    await page.goto("/login");
-    await page.fill("#username", username);
-    await page.fill("#password", password);
-    await page.getByRole("button", { name: "Sign In" }).click();
-
-    // Login calls window.location.replace("/"), then / may redirect further.
-    await expect(page).not.toHaveURL(/\/login/, { timeout: 10_000 });
+    const response = await page.request.post("/api/login", {
+        multipart: { username, password },
+    });
+    expect(response.ok()).toBeTruthy();
 
     await page.context().storageState({ path: "e2e/.auth.json" });
 });
