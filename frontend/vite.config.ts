@@ -7,10 +7,8 @@ export default defineConfig({
     test: {
         environment: "jsdom",
         globals: true,
-        slowTestThreshold: 1,
         bail: 1,
         coverage: {
-            enabled: true,
             provider: "v8",
         },
     },

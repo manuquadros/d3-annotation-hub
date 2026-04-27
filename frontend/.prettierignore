@@ -2,3 +2,12 @@
 package-lock.json
 pnpm-lock.yaml
 yarn.lock
+
+# Generated / build output
+.svelte-kit
+build
+coverage
+test-results
+
+# Third-party assets
+static/digidive
