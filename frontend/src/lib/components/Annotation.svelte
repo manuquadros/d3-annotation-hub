@@ -34,6 +34,13 @@
         const _relations = initialState.relations;
         const _completed = initialState.completed;
 
+        let hasMounted = false;
+
+        if (!hasMounted) {
+            hasMounted = true;
+            return;
+        }
+
         saveStatus = { type: "saving" };
 
         scheduleSave(initialState).then((result) => {
@@ -90,7 +97,7 @@
             return editorState;
         },
         set value(s: EditorState) {
-            console.debug('[Annotation] editorState set to', s.mode);
+            console.debug("[Annotation] editorState set to", s.mode);
             editorState = s;
         },
     });
