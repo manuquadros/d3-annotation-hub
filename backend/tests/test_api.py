@@ -1,0 +1,41 @@
+from unittest.mock import MagicMock
+
+from ahbackend.api.api import can_access_project, can_curate_project
+
+
+def make_user_auth(*, is_super_user: bool = False, can_manage: bool = False) -> MagicMock:
+    auth = MagicMock()
+    auth.is_super_user = is_super_user
+    auth.can_manage = can_manage
+    return auth
+
+
+class TestCanAccessProject:
+    def test_returns_true_when_user_has_a_project_role(self):
+        assert can_access_project(None, ["annotator"])
+
+    def test_returns_true_when_user_has_can_manage_and_no_roles(self):
+        assert can_access_project(make_user_auth(can_manage=True), [])
+
+    def test_returns_true_when_super_user_has_no_roles(self):
+        assert can_access_project(make_user_auth(is_super_user=True), [])
+
+    def test_returns_false_when_no_roles_and_plain_user(self):
+        assert not can_access_project(make_user_auth(), [])
+
+    def test_returns_false_when_user_auth_is_none_and_no_roles(self):
+        assert not can_access_project(None, [])
+
+
+class TestCanCurateProject:
+    def test_returns_true_when_user_has_curator_role(self):
+        assert can_curate_project(None, ["curator"])
+
+    def test_returns_true_when_user_has_manager_role(self):
+        assert can_curate_project(None, ["manager"])
+
+    def test_returns_false_when_user_has_annotator_role_only(self):
+        assert not can_curate_project(make_user_auth(), ["annotator"])
+
+    def test_returns_false_when_user_auth_is_none_and_no_roles(self):
+        assert not can_curate_project(None, [])
