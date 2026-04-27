@@ -6,9 +6,9 @@ import svelte from "eslint-plugin-svelte";
 
 /** @type {import('eslint').Linter.Config[]} */
 export default [
-    { ignores: ["static/digidive/"] },
+    { ignores: ["static/digidive/", ".svelte-kit/", "coverage/"] },
     {
-        files: ["**/*.{js,mjs,cjs,ts}"],
+        files: ["**/*.ts"],
         plugins: { tsdoc },
         rules: { "tsdoc/syntax": "warn" },
     },
@@ -17,9 +17,36 @@ export default [
     ...tseslint.configs.recommended,
     ...svelte.configs["flat/recommended"],
     {
-        files: ["**/*.svelte"],
+        files: ["**/*.svelte", "**/*.svelte.ts", "**/*.svelte.js"],
         languageOptions: {
             parserOptions: { parser: tseslint.parser },
+        },
+        rules: {
+            // No base path is configured, so resolveRoute() adds no value.
+            "svelte/no-navigation-without-resolve": "off",
+            // Flags Map/Set used as local computation variables inside $derived.by(),
+            // which don't need SvelteMap/SvelteSet.
+            "svelte/prefer-svelte-reactivity": "off",
+            "@typescript-eslint/no-unused-vars": [
+                "error",
+                {
+                    varsIgnorePattern: "^_",
+                    argsIgnorePattern: "^_",
+                },
+            ],
+        },
+    },
+    {
+        files: ["**/*.ts"],
+        rules: {
+            "svelte/no-navigation-without-resolve": "off",
+            "@typescript-eslint/no-unused-vars": [
+                "error",
+                {
+                    varsIgnorePattern: "^_",
+                    argsIgnorePattern: "^_",
+                },
+            ],
         },
     },
 ];

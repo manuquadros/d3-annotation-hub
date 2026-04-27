@@ -80,7 +80,7 @@
         <form onsubmit={handleSubmit}>
             <textarea
                 bind:value={input}
-                placeholder={"36828727\n10.1038/s41586-023-05881-4\n37001221"}
+                placeholder="36828727&#10;10.1038/s41586-023-05881-4&#10;37001221"
                 rows={6}
                 disabled={submitting}
             ></textarea>

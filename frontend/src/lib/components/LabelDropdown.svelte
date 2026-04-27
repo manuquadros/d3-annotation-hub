@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { getContext, onMount } from "svelte";
+    import { getContext } from "svelte";
 
     interface CustomAction {
         label: string;
@@ -20,13 +20,13 @@
     }>("dropdownState");
 
     let searchInput = $state("");
-    let dropdownElement: HTMLDivElement;
+    let dropdownElement: HTMLDivElement = $state()!;
 
     // Available label options
     const allLabels = ["d3o:Strain", "d3o:Bacteria", "d3o:Enzyme"];
 
     // Filtered labels based on search input
-    let filteredLabels = $derived(
+    let filteredLabels: string[] = $derived(
         allLabels
             .filter((label) =>
                 label.toLowerCase().includes(searchInput.toLowerCase()),
@@ -104,7 +104,7 @@
     >
         {#if customActions.length > 0}
             <div class="custom-actions">
-                {#each customActions as action}
+                {#each customActions as action (action.label)}
                     <button
                         class="label-option custom-action"
                         onclick={() => handleCustomAction(action)}
@@ -124,7 +124,7 @@
             aria-label="Search labels"
         />
         <div class="label-options">
-            {#each filteredLabels as label}
+            {#each filteredLabels as label (label)}
                 <button
                     class="label-option"
                     onclick={() => selectLabel(label)}

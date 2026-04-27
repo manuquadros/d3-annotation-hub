@@ -24,6 +24,7 @@
 
     onMount(() => {
         if (mountpoint && fragment) {
+            // eslint-disable-next-line svelte/no-dom-manipulating
             mountpoint.append(fragment);
         }
     });

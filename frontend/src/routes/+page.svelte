@@ -1,5 +1,4 @@
 <script lang="ts">
-    import { browser } from "$app/environment";
     import type { PageData } from "./$types";
 
     import "../styles.css";

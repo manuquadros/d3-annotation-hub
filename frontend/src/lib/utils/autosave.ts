@@ -33,7 +33,10 @@ export async function saveAnnotationState(
             await saveAnnotation(jsonString);
             return { success: true };
         } catch (error) {
-            const status = (error as any).status as number | undefined;
+            const status =
+                error instanceof Object && "status" in error
+                    ? (error as { status?: number }).status
+                    : undefined;
             // status undefined means a network-level failure (fetch threw before
             // receiving a response) — always transient. Known HTTP error codes
             // like 401/422 are permanent and should not be retried.

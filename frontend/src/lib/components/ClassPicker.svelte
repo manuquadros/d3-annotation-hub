@@ -18,7 +18,7 @@
         query = found ? `${found.label} (${found.curie})` : value;
     });
 
-    const filtered = $derived(
+    const filtered: KindOption[] = $derived(
         query.length === 0
             ? options
             : options.filter(
@@ -56,10 +56,16 @@
     />
     {#if open && filtered.length > 0}
         <ul class="dropdown" role="listbox">
-            {#each filtered as opt}
+            {#each filtered as opt (opt.curie)}
                 <li role="option" aria-selected={opt.curie === value}>
                     <!-- onmousedown prevents blur from firing before click -->
-                    <button type="button" onmousedown={(e) => { e.preventDefault(); select(opt); }}>
+                    <button
+                        type="button"
+                        onmousedown={(e) => {
+                            e.preventDefault();
+                            select(opt);
+                        }}
+                    >
                         <span class="opt-label">{opt.label}</span>
                         <span class="opt-curie">{opt.curie}</span>
                     </button>

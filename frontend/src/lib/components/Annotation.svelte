@@ -28,13 +28,12 @@
 
     const { scheduleSave, cancelPending } = createDebouncedSave(2000);
 
+    let hasMounted = false;
     $effect(() => {
         const _entities = initialState.entities;
         const _pointers = initialState.pointers;
         const _relations = initialState.relations;
         const _completed = initialState.completed;
-
-        let hasMounted = false;
 
         if (!hasMounted) {
             hasMounted = true;

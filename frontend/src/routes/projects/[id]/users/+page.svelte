@@ -82,16 +82,21 @@
                 body: JSON.stringify(payload),
             });
             if (!res.ok) {
-                const d = await res.json().catch(() => ({ detail: res.statusText }));
+                const d = await res
+                    .json()
+                    .catch(() => ({ detail: res.statusText }));
                 addError = d.detail ?? res.statusText;
                 return;
             }
-            const member: Member & { generated_password?: string } = await res.json();
+            const member: Member & { generated_password?: string } =
+                await res.json();
             if (member.generated_password) {
                 addedPassword = member.generated_password;
             }
             // Refresh member list
-            const listRes = await fetch(`/api/projects/${data.projectId}/members`);
+            const listRes = await fetch(
+                `/api/projects/${data.projectId}/members`,
+            );
             if (listRes.ok) members = await listRes.json();
             // Reset form
             searchEmail = "";
@@ -106,10 +111,15 @@
 
     async function handleRemoveRole(userId: string, role: string) {
         try {
-            await fetch(`/api/projects/${data.projectId}/members/${userId}/${role}`, {
-                method: "DELETE",
-            });
-            const listRes = await fetch(`/api/projects/${data.projectId}/members`);
+            await fetch(
+                `/api/projects/${data.projectId}/members/${userId}/${role}`,
+                {
+                    method: "DELETE",
+                },
+            );
+            const listRes = await fetch(
+                `/api/projects/${data.projectId}/members`,
+            );
             if (listRes.ok) members = await listRes.json();
         } catch {
             // ignore
@@ -165,7 +175,11 @@
             <form onsubmit={handleAdd} class="add-form">
                 <div class="field">
                     <label for="role">Role</label>
-                    <select id="role" bind:value={selectedRole} disabled={submitting}>
+                    <select
+                        id="role"
+                        bind:value={selectedRole}
+                        disabled={submitting}
+                    >
                         <option value="annotator">Annotator</option>
                         <option value="curator">Curator</option>
                     </select>
@@ -190,7 +204,11 @@
                 {/if}
 
                 <button type="submit" class="btn-primary" disabled={submitting}>
-                    {submitting ? "Adding…" : lookup.status === "not_found" ? "Create & add" : "Add to project"}
+                    {submitting
+                        ? "Adding…"
+                        : lookup.status === "not_found"
+                          ? "Create & add"
+                          : "Add to project"}
                 </button>
             </form>
         {/if}
@@ -223,16 +241,22 @@
                             <td class="email">{member.email}</td>
                             <td>
                                 <div class="role-list">
-                                    {#each member.roles as role}
-                                        <span class="role-badge">{roleLabel(role)}</span>
+                                    {#each member.roles as role (role)}
+                                        <span class="role-badge"
+                                            >{roleLabel(role)}</span
+                                        >
                                     {/each}
                                 </div>
                             </td>
                             <td class="actions">
-                                {#each member.roles.filter((r) => r !== "manager") as role}
+                                {#each member.roles.filter((r) => r !== "manager") as role (role)}
                                     <button
                                         class="btn-danger-sm"
-                                        onclick={() => handleRemoveRole(member.user_id, role)}
+                                        onclick={() =>
+                                            handleRemoveRole(
+                                                member.user_id,
+                                                role,
+                                            )}
                                         title="Remove {roleLabel(role)} role"
                                     >
                                         Remove {roleLabel(role)}

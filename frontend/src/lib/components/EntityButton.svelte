@@ -55,9 +55,6 @@
         const targetEntity = entity;
         if (!sourceEntity || !targetEntity) return;
 
-        const sourceKind = sourceEntity.kind;
-        const targetKind = targetEntity.kind;
-
         if (sourceEntity.kind !== targetEntity.kind) {
             // Cross-kind drop: open relation creation modal
             console.debug('[EntityButton] opening create-relation dialog');

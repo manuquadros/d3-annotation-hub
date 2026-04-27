@@ -42,7 +42,7 @@
         return offset;
     }
 
-    function handleTextSelection(event: MouseEvent): void {
+    function handleTextSelection(_event: MouseEvent): void {
         console.debug('[ArticleBody] mouseup fired');
         const selection = window.getSelection();
         if (!selection || selection.isCollapsed) { console.debug('[ArticleBody] no selection'); return; }

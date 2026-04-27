@@ -8,6 +8,7 @@
 
 {#if header}
     <div id="header">
+        <!-- eslint-disable-next-line svelte/no-at-html-tags -->
         {@html header.innerHTML}
     </div>
 {/if}

@@ -10,7 +10,10 @@
      * Groups entities by their kind and returns a Map of kind -> entities array.
      * The kinds are sorted alphabetically.
      */
-    const entitiesByKind = $derived.by(() => {
+    const entitiesByKind: Map<
+        string,
+        Array<{ id: string; entity: Entity }>
+    > = $derived.by(() => {
         const grouped = new Map<
             string,
             Array<{ id: string; entity: Entity }>
@@ -51,11 +54,11 @@
     <h2>Entities</h2>
 
     <div class="summary-groups">
-        {#each entitiesByKind.entries() as [kind, entities]}
+        {#each entitiesByKind.entries() as [kind, entities] (kind)}
             <div class="summary-group">
                 <div class="summary-label">{plural(kind)}</div>
                 <div class="entity-group">
-                    {#each entities as { id, entity }}
+                    {#each entities as { id } (id)}
                         <EntityButton entityId={id} />
                     {/each}
                 </div>

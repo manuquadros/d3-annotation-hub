@@ -101,7 +101,7 @@ export function buildSegmentHtml(
 }
 
 /**
- * Returns {start, end} character ranges (into body.textContent) for every
+ * Returns start/end character ranges (into body.textContent) for every
  * paragraph-level element. Uses the Range API so the offsets match the
  * pointer offsets stored in the database (both are into body.textContent).
  * Falls back to the whole body when no <p>/<li> elements are found.

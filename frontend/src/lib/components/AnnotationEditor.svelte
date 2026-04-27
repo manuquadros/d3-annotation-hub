@@ -2,11 +2,16 @@
     import { getContext, onMount } from "svelte";
     import { browser } from "$app/environment";
     import { AnnotationState, extractSentence } from "$lib/annotation.svelte";
-    import type { EditorState, EntitySearchResult } from "$lib/types.ts";
+    import type {
+        EditorState,
+        EntitySearchResult,
+        Pointer,
+    } from "$lib/types.ts";
     import { searchEntities, fetchEntityTypes } from "$lib/api.ts";
     import type { KindOption } from "$lib/api.ts";
     import ClassPicker from "$lib/components/ClassPicker.svelte";
     import DOMPurify from "dompurify";
+    import { Map as ImmutableMap } from "immutable";
 
     interface Props {
         editorState: EditorState;
@@ -368,7 +373,8 @@
 
     function toggleMention(i: number) {
         const next = new Set(expandedMentions);
-        next.has(i) ? next.delete(i) : next.add(i);
+        if (next.has(i)) next.delete(i);
+        else next.add(i);
         expandedMentions = next;
     }
 
@@ -383,7 +389,6 @@
     );
 </script>
 
-<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 <dialog
     bind:this={dialog}
     onclose={close}
@@ -429,7 +434,7 @@
                 {#if searchLoading}
                     <li class="empty">Searching…</li>
                 {:else}
-                    {#each searchResults as e}
+                    {#each searchResults as e (e.entity_id)}
                         <li>
                             <label class="entity-option">
                                 <input
@@ -491,6 +496,7 @@
                 onmouseup={handleSentenceMouseUp}
             >
                 {#if pendingRange}
+                    <!-- eslint-disable-next-line svelte/no-at-html-tags -->
                     {@html DOMPurify.sanitize(
                         sentenceData.sentence.slice(0, pendingRange.offset) +
                             "<mark>" +
@@ -541,7 +547,7 @@
         <div class="field">
             <p class="field-label">Synonyms</p>
             <ul class="synonym-list">
-                {#each synonymList as s}
+                {#each synonymList as s (s)}
                     <li>
                         <span>{s}</span>
                         <button
@@ -606,7 +612,7 @@
         <div class="field">
             <p class="field-label">Synonyms</p>
             <ul class="synonym-list">
-                {#each synonymList as s}
+                {#each synonymList as s (s)}
                     <li>
                         <span>{s}</span>
                         <button
@@ -630,12 +636,12 @@
 
         <div class="mentions">
             <p class="mentions-header">
-                {entityPointerEntries.length} mention{entityPointerEntries.length !==
+                {entityPointerEntries.count()} mention{entityPointerEntries.count() !==
                 1
                     ? "s"
                     : ""} in text
             </p>
-            {#each entityPointerEntries as [, p], i}
+            {#each entityPointerEntries as [, p], i (p.entity_id)}
                 <div class="mention">
                     <button
                         class="mention-toggle"

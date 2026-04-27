@@ -157,11 +157,6 @@
         }
     }
 
-    async function handleUnassignOntology(projectId: number, ontologyId: number) {
-        await fetch(`/api/projects/${projectId}/ontologies/${ontologyId}`, {
-            method: "DELETE",
-        });
-    }
 
     let file = $state<File | null>(null);
     let name = $state("");
@@ -435,16 +430,16 @@
                                                         </tr>
                                                     </thead>
                                                     <tbody>
-                                                        {#each projectMembers[project.project_id] as member}
+                                                        {#each projectMembers[project.project_id] as member (member.user_id)}
                                                             <tr>
                                                                 <td>{member.email}</td>
                                                                 <td>
-                                                                    {#each member.roles as role}
+                                                                    {#each member.roles as role (role)}
                                                                         <span class="role-badge">{role}</span>
                                                                     {/each}
                                                                 </td>
                                                                 <td class="actions-cell">
-                                                                    {#each member.roles as role}
+                                                                    {#each member.roles as role (role)}
                                                                         <button
                                                                             class="btn-ghost-sm danger"
                                                                             onclick={() =>
@@ -514,7 +509,7 @@
                                                         ]}
                                                     >
                                                         <option value={null}>Select…</option>
-                                                        {#each ontologies as onto}
+                                                        {#each ontologies as onto (onto.ontology_id)}
                                                             <option value={onto.ontology_id}>
                                                                 {onto.prefix} — {onto.name}
                                                             </option>
@@ -569,7 +564,7 @@
                                 <td class="actions-cell">
                                     {#each PERMISSION_PRESETS.filter(
                                         (p) => p.is_super_user !== u.is_super_user || p.can_manage !== u.can_manage,
-                                    ) as preset}
+                                    ) as preset (preset.label)}
                                         <button
                                             class="btn-ghost-sm"
                                             onclick={async () => {
@@ -765,7 +760,7 @@
                                                         </tr>
                                                     </thead>
                                                     <tbody>
-                                                        {#each entities as e}
+                                                        {#each entities as e (e.entity_id)}
                                                             <tr>
                                                                 <td><code>{e.entity_id}</code></td>
                                                                 <td>{e.preferred_name}</td>
@@ -819,7 +814,7 @@
                         </tr>
                     </thead>
                     <tbody>
-                        {#each proposedEntities as e}
+                        {#each proposedEntities as e (e.entity_id)}
                             <tr>
                                 <td>{e.preferred_name}</td>
                                 <td class="kind">{e.kind || "—"}</td>

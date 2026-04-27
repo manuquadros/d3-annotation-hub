@@ -1,4 +1,5 @@
 <script>
+    /* global digidive */
     /**
      * @typedef {Object} Props
      * @property {import('svelte').Snippet} [children]
@@ -104,7 +105,7 @@
 
                     {#if breadcrumbs.length > 0}
                         <ul class="breadcrumb navbar-breadcrumb">
-                            {#each breadcrumbs as crumb, i}
+                            {#each breadcrumbs as crumb, i (crumb.label)}
                                 {@const isLast = i === breadcrumbs.length - 1}
                                 <li class:active={isLast} aria-current={isLast ? "page" : undefined}>
                                     {#if crumb.href}

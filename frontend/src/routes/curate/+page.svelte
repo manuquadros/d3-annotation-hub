@@ -279,6 +279,7 @@
                                                     <p
                                                         class="evidence-paragraph"
                                                     >
+                                                        <!-- eslint-disable-next-line svelte/no-at-html-tags -->
                                                         {@html expandedParas[
                                                             paraKey
                                                         ] || !seg.isExcerpt
