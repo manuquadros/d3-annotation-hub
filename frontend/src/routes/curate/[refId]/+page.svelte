@@ -19,10 +19,6 @@
         curated_relations,
     } = untrack(() => data.data);
 
-    // ---------------------------------------------------------------------------
-    // Plain-text extraction from the HTML body (client-side only)
-    // ---------------------------------------------------------------------------
-
     let plainText = $derived(
         browser && reference.body
             ? (() => {
@@ -40,15 +36,8 @@
         return plainText.slice(offset, offset + length);
     }
 
-    // ---------------------------------------------------------------------------
-    // Entity state (mutable so CURIE edits can update local keys)
-    // ---------------------------------------------------------------------------
-
+    // mutable: CURIE edits update local keys
     let entities = $state({ ...initialEntities });
-
-    // ---------------------------------------------------------------------------
-    // Build unique pointer map: key = "entity_id|offset|length"
-    // ---------------------------------------------------------------------------
 
     type PointerKey = string;
     function pointerKey(p: PointerOut): PointerKey {
@@ -69,10 +58,6 @@
         }
     }
 
-    // ---------------------------------------------------------------------------
-    // Build unique entity map: entity_id → set of annotators who used it
-    // ---------------------------------------------------------------------------
-
     const entityAnnotators = new Map<string, Set<string>>();
     for (const snap of snapshots) {
         for (const p of snap.pointers) {
@@ -82,10 +67,6 @@
             entityAnnotators.get(p.entity_id)!.add(snap.email);
         }
     }
-
-    // ---------------------------------------------------------------------------
-    // Build unique relations
-    // ---------------------------------------------------------------------------
 
     type RelationKey = string;
     function relationKey(r: RelationOut): RelationKey {
@@ -106,12 +87,6 @@
         }
     }
 
-    // ---------------------------------------------------------------------------
-    // Text panel: split plain text into segments at pointer boundaries
-    // (must be after pointerAnnotators / pointerData are populated)
-    // ---------------------------------------------------------------------------
-
-    // Spans sorted by offset for linear text rendering
     const spansByOffset = [...pointerAnnotators.keys()]
         .map((k) => ({ key: k, p: pointerData.get(k)! }))
         .sort((a, b) => a.p.offset - b.p.offset || b.p.length - a.p.length);
@@ -154,7 +129,6 @@
         return segs;
     });
 
-    // Active pointer (set by clicking a row → scrolls text panel to the span)
     let activePointerKey = $state<PointerKey | null>(null);
 
     function focusPointer(k: PointerKey) {
@@ -167,7 +141,6 @@
         }
     }
 
-    // Keyboard navigation: Space = toggle, j/↓ = next, k/↑ = prev
     $effect(() => {
         function onKeydown(e: KeyboardEvent) {
             const tag = (e.target as HTMLElement).tagName;
@@ -213,11 +186,6 @@
         return () => document.removeEventListener("keydown", onKeydown);
     });
 
-    // ---------------------------------------------------------------------------
-    // Accepted keys from previously saved curated annotation
-    // (must be declared before the sort computations below)
-    // ---------------------------------------------------------------------------
-
     const acceptedPointerKeys = new Set<PointerKey>(
         curated_pointers.map((p) => pointerKey(p)),
     );
@@ -226,17 +194,11 @@
         curated_relations.map((r) => relationKey(r)),
     );
 
-    // Accepted entity ids: any entity that appears in an accepted pointer
     const acceptedEntityIds = new Set<string>(
         curated_pointers.map((p) => p.entity_id),
     );
 
-    // ---------------------------------------------------------------------------
-    // Sorted keys (reference accepted* sets declared above)
-    // ---------------------------------------------------------------------------
-
     const sortedPointerKeys = [...pointerAnnotators.keys()].sort((a, b) => {
-        // Accepted pointers go to the bottom
         const aAccepted = acceptedPointerKeys.has(a) ? 1 : 0;
         const bAccepted = acceptedPointerKeys.has(b) ? 1 : 0;
         if (aAccepted !== bAccepted) return aAccepted - bAccepted;
@@ -251,7 +213,6 @@
     });
 
     const sortedEntityIds = [...entityAnnotators.keys()].sort((a, b) => {
-        // Accepted entities go to the bottom
         const aAccepted = acceptedEntityIds.has(a) ? 1 : 0;
         const bAccepted = acceptedEntityIds.has(b) ? 1 : 0;
         if (aAccepted !== bAccepted) return aAccepted - bAccepted;
@@ -272,11 +233,7 @@
         );
     });
 
-    // ---------------------------------------------------------------------------
-    // Pointer/relation selection state
-    // Pre-select from saved curation if available, otherwise unanimous agreement
-    // ---------------------------------------------------------------------------
-
+    // pre-select from saved curation if any, else unanimous agreement
     const hasSavedCuration =
         acceptedPointerKeys.size > 0 || acceptedRelationKeys.size > 0;
 
@@ -317,7 +274,6 @@
         selectedRelations = next;
     }
 
-    // An entity is "accepted" when every one of its pointer keys is selected.
     function isEntityAccepted(entityId: string): boolean {
         const keys = sortedPointerKeys.filter(
             (k) => pointerData.get(k)!.entity_id === entityId,
@@ -338,10 +294,6 @@
         }
         selectedPointers = next;
     }
-
-    // ---------------------------------------------------------------------------
-    // CURIE editing for proposed entities
-    // ---------------------------------------------------------------------------
 
     let curieEdits = $state(new Map<string, string>());
     let curieErrors = $state(new Map<string, string>());
@@ -390,10 +342,6 @@
             curieSaving.delete(entityId);
         }
     }
-
-    // ---------------------------------------------------------------------------
-    // Save curated annotation
-    // ---------------------------------------------------------------------------
 
     let saving = $state(false);
     let saveError = $state<string | null>(null);
@@ -470,9 +418,6 @@
                     {/each}
                 </div>
 
-                <!-- ---------------------------------------------------------------- -->
-                <!-- Entities table                                                    -->
-                <!-- ---------------------------------------------------------------- -->
                 <section class="curate-section">
                     <h3>Entities</h3>
                     <p class="section-hint">
@@ -600,9 +545,6 @@
                     </table>
                 </section>
 
-                <!-- ---------------------------------------------------------------- -->
-                <!-- Pointers table                                                    -->
-                <!-- ---------------------------------------------------------------- -->
                 <section class="curate-section">
                     <h3>Pointers</h3>
                     <p class="section-hint">
@@ -682,9 +624,6 @@
                     </table>
                 </section>
 
-                <!-- ---------------------------------------------------------------- -->
-                <!-- Relations table                                                   -->
-                <!-- ---------------------------------------------------------------- -->
                 {#if sortedRelationKeys.length > 0}
                     <section class="curate-section">
                         <h3>Relations</h3>
@@ -773,11 +712,7 @@
                     </button>
                 </div>
             </div>
-            <!-- end .curate-tables -->
 
-            <!-- ---------------------------------------------------------------- -->
-            <!-- Article text panel                                                -->
-            <!-- ---------------------------------------------------------------- -->
             <aside class="curate-text-panel">
                 <p class="text-panel-title">Article text</p>
                 {#if textSegments.length > 0}
@@ -804,7 +739,6 @@
                 {/if}
             </aside>
         </div>
-        <!-- end .curate-body -->
     {/if}
 </div>
 
@@ -829,8 +763,6 @@
         gap: 1.5rem;
         min-width: 0;
     }
-
-    /* ---- text panel ---- */
 
     .curate-text-panel {
         position: sticky;
@@ -884,8 +816,6 @@
         color: var(--text-muted, #888);
         margin: 0;
     }
-
-    /* ---- pointer table rows ---- */
 
     .pointer-row {
         cursor: pointer;

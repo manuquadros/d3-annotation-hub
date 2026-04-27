@@ -36,7 +36,6 @@
 
     const ontology: Ontology = data.ontology;
 
-    // ── Classes (entities) ───────────────────────────────────────────────────
     let entities = $state<Entity[]>(untrack(() => data.entities));
     let entitiesTotal = $state<number>(untrack(() => data.entitiesTotal));
     let entitiesOffset = $state(0);
@@ -83,7 +82,6 @@
         });
     }
 
-    // ── Triples ──────────────────────────────────────────────────────────────
     let triples = $state<Triple[]>(untrack(() => data.triples));
     let triplesTotal = $state<number>(untrack(() => data.triplesTotal));
     let triplesOffset = $state(0);
@@ -131,7 +129,6 @@
         });
     }
 
-    // ── Properties ───────────────────────────────────────────────────────────
     const properties: Property[] = untrack(() => data.properties);
 
     let propCurieFilter = $state("");
@@ -173,7 +170,6 @@
         </div>
     </div>
 
-    <!-- Classes -->
     <section class="card">
         <div class="section-header">
             <h2>Classes</h2>
@@ -263,7 +259,6 @@
         {/if}
     </section>
 
-    <!-- Properties -->
     {#if properties.length > 0}
         <section class="card">
             <div class="section-header">
@@ -333,7 +328,6 @@
         </section>
     {/if}
 
-    <!-- Triples -->
     <section class="card">
         <div class="section-header">
             <h2>Triples</h2>

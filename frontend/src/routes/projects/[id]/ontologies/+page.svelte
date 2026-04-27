@@ -20,7 +20,6 @@
     let projectOntologies = $state<Ontology[]>(untrack(() => data.projectOntologies));
     const allOntologies: Ontology[] = untrack(() => data.allOntologies);
 
-    // ── Import form ──────────────────────────────────────────────────────────
     let file = $state<File | null>(null);
     let name = $state("");
     let prefix = $state("");
@@ -56,13 +55,11 @@
             const result: ImportResult = await res.json();
             importResult = result;
 
-            // Automatically assign the newly imported ontology to this project
             await fetch(
                 `/api/projects/${data.projectId}/ontologies/${result.ontology_id}`,
                 { method: "POST" },
             );
 
-            // Immediately reflect in the list
             projectOntologies = [
                 ...projectOntologies,
                 {
@@ -74,7 +71,6 @@
                 },
             ];
 
-            // Reset form
             file = null;
             name = "";
             prefix = "";
@@ -85,7 +81,6 @@
         }
     }
 
-    // ── Assign existing ──────────────────────────────────────────────────────
     let selectedOntologyId = $state<number | null>(null);
     let assigning = $state(false);
     let assignError = $state<string | null>(null);
@@ -117,7 +112,6 @@
         }
     }
 
-    // ── Remove ───────────────────────────────────────────────────────────────
     let removingId = $state<number | null>(null);
 
     async function handleRemove(ontologyId: number) {
@@ -139,7 +133,6 @@
 <div class="page">
     <h1>Ontologies</h1>
 
-    <!-- Assigned ontologies -->
     <section class="card">
         <h2>Assigned to this project</h2>
         {#if projectOntologies.length === 0}
@@ -201,7 +194,6 @@
         {/if}
     </section>
 
-    <!-- Import OWL -->
     <section class="card">
         <h2>Import OWL ontology</h2>
         <form onsubmit={handleImport}>

@@ -7,6 +7,10 @@ init_vars.sh
 .env*
 *.key
 
+# Emacs auto-save and lock files
+\#*\#
+.\#*
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

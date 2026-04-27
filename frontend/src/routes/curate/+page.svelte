@@ -18,18 +18,13 @@
 
     let activeTab = $state<"references" | "claims">("references");
 
-    // evidenceReady[key] = true once segments are computed (reactive trigger)
     let evidenceReady = $state<Record<string, true>>({});
-    // evidenceData[key][refId] = array of evidence paragraphs (non-reactive store)
     const evidenceData: Record<
         string,
         Record<number, EvidenceParagraph[]>
     > = {};
-    // expandedParas[paraKey] = true when user has clicked (expand paragraph)
     let expandedParas = $state<Record<string, true>>({});
-    // expandedRefs[refKey] = true when user has clicked (more) to show all paragraphs
     let expandedRefs = $state<Record<string, true>>({});
-    // verdicts[relation_id] = optimistic verdict state, seeded from server data
     let verdicts = $state<Record<number, "accepted" | "rejected" | null>>(
         Object.fromEntries(
             data.claims.claims.map((c) => [c.relation_id, c.verdict]),
@@ -123,7 +118,6 @@
         evidenceReady[key] = true; // reactive trigger → re-render
     }
 
-    // Group claims by predicate
     const claimsByPredicate = $derived.by(() => {
         const map = new Map<string, ClaimItem[]>();
         for (const claim of data.claims.claims) {

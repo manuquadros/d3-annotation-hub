@@ -60,7 +60,6 @@
     let ontologies = $state<Ontology[]>(untrack(() => data.ontologies));
     let allUsers = $state<UserRecord[]>(untrack(() => data.allUsers ?? []));
 
-    // ── Project state ──────────────────────────────────────────────────────────
     let projects = $state<Project[]>(untrack(() => data.projects));
 
     // Per-project expanded panel
@@ -85,7 +84,6 @@
         }
     }
 
-    // Add member form (per project)
     let addMemberEmail = $state("");
     let addMemberRole = $state("annotator");
     let addMemberPending = $state(false);
@@ -108,7 +106,6 @@
             } else {
                 const member = await res.json();
                 if (member.generated_password) generatedPassword = member.generated_password;
-                // Merge into existing member list
                 const existing = projectMembers[projectId] ?? [];
                 const idx = existing.findIndex((m) => m.user_id === member.user_id);
                 if (idx >= 0) {
@@ -144,7 +141,6 @@
         }
     }
 
-    // Ontology assignment (per project)
     let assignOntologyId = $state<Record<number, number | null>>({});
     let assignOntologyPending = $state<number | null>(null);
 
@@ -167,7 +163,6 @@
         });
     }
 
-    // ── Import form state ──────────────────────────────────────────────────────
     let file = $state<File | null>(null);
     let name = $state("");
     let prefix = $state("");
@@ -218,7 +213,6 @@
         }
     }
 
-    // ── Entity viewer state ────────────────────────────────────────────────────
     let viewingId = $state<number | null>(null);
     let entities = $state<Entity[]>([]);
     let entityTotal = $state(0);
@@ -255,7 +249,6 @@
         }
     }
 
-    // ── Proposed entities state ────────────────────────────────────────────────
     interface ProposedEntity {
         entity_id: string;
         preferred_name: string;
@@ -282,7 +275,6 @@
         }
     }
 
-    // ── Proposed entity actions ────────────────────────────────────────────────
     let confirmRejectId = $state<string | null>(null);
     let editCurieId = $state<string | null>(null);
     let editCurieValue = $state("");
@@ -346,7 +338,6 @@
         }
     }
 
-    // ── FTS rebuild ───────────────────────────────────────────────────────────
     let ftsRebuilding = $state(false);
     let ftsRebuildStatus = $state<'idle' | 'ok' | 'error'>('idle');
 
@@ -363,7 +354,6 @@
         }
     }
 
-    // ── Delete ontology state ──────────────────────────────────────────────────
     let confirmDeleteId = $state<number | null>(null);
     let deleting = $state(false);
 
@@ -390,7 +380,6 @@
 <div class="admin-page">
     <h1>Administration</h1>
 
-    <!-- ── Projects ─────────────────────────────────────────────────────────── -->
     <section class="card">
         <div class="section-header">
             <h2>Projects</h2>
@@ -430,7 +419,6 @@
                                 <td colspan="4">
                                     <div class="project-panel">
 
-                                        <!-- Members -->
                                         <div class="panel-section">
                                             <p class="panel-title">Members</p>
                                             {#if membersLoading}
@@ -516,7 +504,6 @@
                                             {/if}
                                         </div>
 
-                                        <!-- Ontology assignment (superuser only) -->
                                         {#if data.isSuperuser && ontologies.length > 0}
                                             <div class="panel-section">
                                                 <p class="panel-title">Assign ontology</p>
@@ -560,7 +547,6 @@
         {/if}
     </section>
 
-    <!-- ── Superuser-only sections ───────────────────────────────────────────── -->
     {#if data.isSuperuser}
         <section class="card">
             <h2>User Management</h2>
@@ -620,7 +606,6 @@
             {/if}
         </section>
 
-        <!-- Ontology import -->
         <section class="card">
             <h2>Import OWL Ontology</h2>
             <form onsubmit={handleSubmit}>
@@ -1192,7 +1177,6 @@
         font-size: 0.85em;
     }
 
-    /* Project panel */
     .project-panel-row > td {
         padding: 0;
         border-bottom: 2px solid #eee;
@@ -1280,7 +1264,6 @@
         user-select: all;
     }
 
-    /* Entity panel (existing) */
     .entity-panel-row > td {
         padding: 0;
         border-bottom: 2px solid #eee;

@@ -17,12 +17,15 @@
     const annotationState = getContext<AnnotationState>("annotationState");
 
     let availableKinds = $state<KindOption[]>([]);
-    onMount(() => { fetchEntityTypes().then((kinds) => (availableKinds = kinds)); });
+    onMount(() => {
+        fetchEntityTypes().then((kinds) => (availableKinds = kinds));
+    });
 
     const sortedKinds = $derived.by(() => {
         const freq = new Map<string, number>();
         for (const entity of annotationState.entities.values()) {
-            if (entity.kind) freq.set(entity.kind, (freq.get(entity.kind) ?? 0) + 1);
+            if (entity.kind)
+                freq.set(entity.kind, (freq.get(entity.kind) ?? 0) + 1);
         }
         return [...availableKinds].sort((a, b) => {
             const diff = (freq.get(b.curie) ?? 0) - (freq.get(a.curie) ?? 0);
@@ -32,25 +35,22 @@
 
     let dialog: HTMLDialogElement;
 
-    // ── Derived data from editorState ────────────────────────────────────────
-
     const pointer = $derived(
-        editorState.mode === 'edit-pointer'
+        editorState.mode === "edit-pointer"
             ? annotationState.pointer(editorState.pointerId)
             : null,
     );
 
     const entity = $derived.by(() => {
-        if (editorState.mode === 'edit-pointer' && pointer) {
+        if (editorState.mode === "edit-pointer" && pointer) {
             return annotationState.entity(pointer.entity_id);
         }
-        if (editorState.mode === 'edit-entity') {
+        if (editorState.mode === "edit-entity") {
             return annotationState.entity(editorState.entityId);
         }
         return null;
     });
 
-    // Plain text from reference body (computed once per open)
     const plainText = $derived.by(() => {
         if (!browser) return "";
         const body = annotationState.reference.body;
@@ -60,9 +60,8 @@
         return div.textContent || "";
     });
 
-    // Sentence text and highlight bounds for create / edit-pointer modes
     const sentenceData = $derived.by(() => {
-        if (editorState.mode === 'create') {
+        if (editorState.mode === "create") {
             const { text } = extractSentence(plainText, editorState.offset);
             const relOffset = editorState.offset - editorState.sentenceStart;
             return {
@@ -71,7 +70,7 @@
                 highlightEnd: relOffset + editorState.length,
             };
         }
-        if (editorState.mode === 'edit-pointer' && pointer) {
+        if (editorState.mode === "edit-pointer" && pointer) {
             const { text } = extractSentence(plainText, pointer.offset);
             const relOffset = pointer.offset - editorState.sentenceStart;
             return {
@@ -83,7 +82,6 @@
         return null;
     });
 
-    // Highlighted text (used as default preferred name in create mode)
     const highlightedText = $derived.by(() => {
         if (!sentenceData) return "";
         return sentenceData.sentence.slice(
@@ -92,42 +90,40 @@
         );
     });
 
-    // ── Local form state ─────────────────────────────────────────────────────
-
     let selectedKind = $state("");
     let preferredName = $state("");
     let newSynonym = $state("");
     let synonymList = $state<string[]>([]);
     let uriValue = $state("");
 
-    // For create mode: which tab is active
-    let createTab = $state<'existing' | 'new'>('existing');
+    let createTab = $state<"existing" | "new">("existing");
     let entitySearch = $state("");
     let selectedExistingEntityId = $state<string | null>(null);
 
-    // For edit-pointer: pending re-selection
     let sentenceContainer = $state<HTMLDivElement | undefined>(undefined);
     let pendingRange = $state<{ offset: number; length: number } | null>(null);
 
-    // For edit-entity: expanded mention indices
     let expandedMentions = $state<Set<number>>(new Set());
 
-    // ── Dialog open/close ────────────────────────────────────────────────────
-
     const isMyMode = $derived(
-        editorState.mode === 'create' ||
-        editorState.mode === 'edit-pointer' ||
-        editorState.mode === 'edit-entity',
+        editorState.mode === "create" ||
+            editorState.mode === "edit-pointer" ||
+            editorState.mode === "edit-entity",
     );
 
     $effect(() => {
-        console.debug('[AnnotationEditor] effect fired, mode =', editorState.mode, 'isMyMode =', isMyMode);
+        console.debug(
+            "[AnnotationEditor] effect fired, mode =",
+            editorState.mode,
+            "isMyMode =",
+            isMyMode,
+        );
         if (!dialog) return;
         if (!isMyMode) {
             dialog.close();
         } else {
             resetForm();
-            console.debug('[AnnotationEditor] calling showModal()');
+            console.debug("[AnnotationEditor] calling showModal()");
             dialog.showModal();
         }
     });
@@ -138,19 +134,19 @@
         newSynonym = "";
         entitySearch = "";
         selectedExistingEntityId = null;
-        createTab = 'existing';
+        createTab = "existing";
 
-        if (editorState.mode === 'create') {
+        if (editorState.mode === "create") {
             selectedKind = "";
             preferredName = highlightedText;
             synonymList = [highlightedText];
             uriValue = "";
-        } else if (editorState.mode === 'edit-pointer' && entity) {
+        } else if (editorState.mode === "edit-pointer" && entity) {
             selectedKind = entity.kind;
             preferredName = entity.preferred_name;
             synonymList = entity.synonyms.toArray();
             uriValue = entity.uri ?? "";
-        } else if (editorState.mode === 'edit-entity' && entity) {
+        } else if (editorState.mode === "edit-entity" && entity) {
             selectedKind = entity.kind;
             preferredName = entity.preferred_name;
             synonymList = entity.synonyms.toArray();
@@ -159,10 +155,8 @@
     }
 
     function close() {
-        editorState = { mode: 'closed' };
+        editorState = { mode: "closed" };
     }
-
-    // ── Sentence preview helpers ──────────────────────────────────────────────
 
     function buildSentenceHTML(data: typeof sentenceData): string {
         if (!data) return "";
@@ -190,15 +184,12 @@
         );
     }
 
-    // ── Re-selection in sentence preview ─────────────────────────────────────
-
     function handleSentenceMouseUp() {
         const selection = window.getSelection();
         if (!selection || selection.isCollapsed || !sentenceContainer) return;
         const range = selection.getRangeAt(0);
         if (!sentenceContainer.contains(range.commonAncestorContainer)) return;
 
-        // Walk text nodes in the sentence container to compute offset
         const walker = sentenceContainer.ownerDocument.createTreeWalker(
             sentenceContainer,
             NodeFilter.SHOW_TEXT,
@@ -219,29 +210,33 @@
         selection.removeAllRanges();
     }
 
-    // ── Entity search (API) for "add to existing" ─────────────────────────────
-
     let searchResults = $state<EntitySearchResult[]>(
-        annotationState.entities.valueSeq().map((e) => ({
-            entity_id: e.entity_id,
-            preferred_name: e.preferred_name,
-            kind: e.kind,
-            uri: e.uri ?? undefined,
-            confirmed: e.confirmed,
-        })).toArray()
+        annotationState.entities
+            .valueSeq()
+            .map((e) => ({
+                entity_id: e.entity_id,
+                preferred_name: e.preferred_name,
+                kind: e.kind,
+                uri: e.uri ?? undefined,
+                confirmed: e.confirmed,
+            }))
+            .toArray(),
     );
     let searchLoading = $state(false);
 
     $effect(() => {
         const q = entitySearch;
         if (q.length < 2) {
-            searchResults = annotationState.entities.valueSeq().map((e) => ({
-                entity_id: e.entity_id,
-                preferred_name: e.preferred_name,
-                kind: e.kind,
-                uri: e.uri ?? undefined,
-                confirmed: e.confirmed,
-            })).toArray();
+            searchResults = annotationState.entities
+                .valueSeq()
+                .map((e) => ({
+                    entity_id: e.entity_id,
+                    preferred_name: e.preferred_name,
+                    kind: e.kind,
+                    uri: e.uri ?? undefined,
+                    confirmed: e.confirmed,
+                }))
+                .toArray();
             searchLoading = false;
             return;
         }
@@ -255,14 +250,14 @@
         return () => clearTimeout(timer);
     });
 
-    // ── Confirm handlers ──────────────────────────────────────────────────────
-
     function confirmCreate() {
-        if (editorState.mode !== 'create') return;
+        if (editorState.mode !== "create") return;
         const { offset, length } = editorState;
-        if (createTab === 'existing') {
+        if (createTab === "existing") {
             if (!selectedExistingEntityId) return;
-            const result = searchResults.find((e) => e.entity_id === selectedExistingEntityId);
+            const result = searchResults.find(
+                (e) => e.entity_id === selectedExistingEntityId,
+            );
             annotationState.addWithId(
                 selectedExistingEntityId,
                 result?.kind ?? "",
@@ -272,7 +267,9 @@
             );
         } else {
             if (!selectedKind || !preferredName.trim()) return;
-            annotationState.add(selectedKind, preferredName.trim(), [{ offset, length }]);
+            annotationState.add(selectedKind, preferredName.trim(), [
+                { offset, length },
+            ]);
         }
         close();
     }
@@ -281,27 +278,37 @@
         if (!pointer || !entity) return;
         const entityId = pointer.entity_id;
 
-        // Apply re-selection if the user made one
-        if (pendingRange && editorState.mode === 'edit-pointer') {
+        if (pendingRange && editorState.mode === "edit-pointer") {
             const absOffset = editorState.sentenceStart + pendingRange.offset;
-            // Add new highlighted text as synonym
-            const newText = plainText.slice(absOffset, absOffset + pendingRange.length).trim();
-            if (newText && !synonymList.includes(newText)) synonymList = [...synonymList, newText];
-            annotationState.updatePointerOffsets(editorState.pointerId, absOffset, pendingRange.length);
+            const newText = plainText
+                .slice(absOffset, absOffset + pendingRange.length)
+                .trim();
+            if (newText && !synonymList.includes(newText))
+                synonymList = [...synonymList, newText];
+            annotationState.updatePointerOffsets(
+                editorState.pointerId,
+                absOffset,
+                pendingRange.length,
+            );
         }
 
         annotationState.updateEntityKind(entityId, selectedKind);
-        annotationState.updateEntityPreferredName(entityId, preferredName.trim());
-        if (uriValue.trim()) annotationState.updateEntityUri(entityId, uriValue.trim());
+        annotationState.updateEntityPreferredName(
+            entityId,
+            preferredName.trim(),
+        );
+        if (uriValue.trim())
+            annotationState.updateEntityUri(entityId, uriValue.trim());
 
-        // Sync synonyms: add new ones, remove deleted ones
         const currentSynonyms = entity.synonyms;
         const targetSynonyms = new Set(synonymList);
         for (const s of targetSynonyms) {
-            if (!currentSynonyms.has(s)) annotationState.addSynonym(entityId, s);
+            if (!currentSynonyms.has(s))
+                annotationState.addSynonym(entityId, s);
         }
         for (const s of currentSynonyms) {
-            if (!targetSynonyms.has(s)) annotationState.removeSynonym(entityId, s);
+            if (!targetSynonyms.has(s))
+                annotationState.removeSynonym(entityId, s);
         }
 
         close();
@@ -309,39 +316,43 @@
 
     function confirmEditEntity() {
         const state = editorState;
-        if (!entity || state.mode !== 'edit-entity') return;
+        if (!entity || state.mode !== "edit-entity") return;
         const entityId = state.entityId;
 
         annotationState.updateEntityKind(entityId, selectedKind);
-        annotationState.updateEntityPreferredName(entityId, preferredName.trim());
-        if (uriValue.trim()) annotationState.updateEntityUri(entityId, uriValue.trim());
+        annotationState.updateEntityPreferredName(
+            entityId,
+            preferredName.trim(),
+        );
+        if (uriValue.trim())
+            annotationState.updateEntityUri(entityId, uriValue.trim());
 
         const currentSynonyms = entity.synonyms;
         const targetSynonyms = new Set(synonymList);
         for (const s of targetSynonyms) {
-            if (!currentSynonyms.has(s)) annotationState.addSynonym(entityId, s);
+            if (!currentSynonyms.has(s))
+                annotationState.addSynonym(entityId, s);
         }
         for (const s of currentSynonyms) {
-            if (!targetSynonyms.has(s)) annotationState.removeSynonym(entityId, s);
+            if (!targetSynonyms.has(s))
+                annotationState.removeSynonym(entityId, s);
         }
 
         close();
     }
 
     function deletePointer() {
-        if (editorState.mode !== 'edit-pointer') return;
+        if (editorState.mode !== "edit-pointer") return;
         annotationState.delete(editorState.pointerId);
         close();
     }
 
     function deleteEntity() {
         const state = editorState;
-        if (state.mode !== 'edit-entity') return;
+        if (state.mode !== "edit-entity") return;
         annotationState.deleteEntity(state.entityId);
         close();
     }
-
-    // ── Synonym list helpers ──────────────────────────────────────────────────
 
     function addSynonym() {
         const s = newSynonym.trim();
@@ -355,37 +366,33 @@
         synonymList = synonymList.filter((x) => x !== s);
     }
 
-    // ── Mention expand/collapse ───────────────────────────────────────────────
-
     function toggleMention(i: number) {
         const next = new Set(expandedMentions);
         next.has(i) ? next.delete(i) : next.add(i);
         expandedMentions = next;
     }
 
-    // ── Pointer list for edit-entity ──────────────────────────────────────────
-
-    const entityPointerEntries = $derived.by(() => {
-        const state = editorState;
-        if (state.mode !== 'edit-entity') return [];
-        return annotationState.pointers
-            .entrySeq()
-            .filter(([, p]) => p.entity_id === state.entityId)
-            .toArray();
-    });
+    const entityPointerEntries: ImmutableMap<string, Pointer> = $derived.by(
+        () => {
+            const state = editorState;
+            if (state.mode !== "edit-entity") return ImmutableMap();
+            return annotationState.pointers.filter(
+                (p) => p.entity_id === state.entityId,
+            );
+        },
+    );
 </script>
 
 <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 <dialog
     bind:this={dialog}
     onclose={close}
-    onkeydown={(e) => e.key === 'Escape' && close()}
+    onkeydown={(e) => e.key === "Escape" && close()}
     class="annotation-editor"
 >
-    {#if editorState.mode === 'create'}
+    {#if editorState.mode === "create"}
         <h2>New Annotation</h2>
 
-        <!-- Sentence preview -->
         {#if sentenceData}
             <div class="sentence-preview">
                 <!-- eslint-disable-next-line svelte/no-at-html-tags -->
@@ -393,23 +400,25 @@
             </div>
         {/if}
 
-        <!-- Tabs -->
         <div class="tabs">
             <button
-                class:active={createTab === 'existing'}
-                onclick={() => { createTab = 'existing'; selectedExistingEntityId = null; }}
+                class:active={createTab === "existing"}
+                onclick={() => {
+                    createTab = "existing";
+                    selectedExistingEntityId = null;
+                }}
             >
                 Add to existing entity
             </button>
             <button
-                class:active={createTab === 'new'}
-                onclick={() => createTab = 'new'}
+                class:active={createTab === "new"}
+                onclick={() => (createTab = "new")}
             >
                 New entity
             </button>
         </div>
 
-        {#if createTab === 'existing'}
+        {#if createTab === "existing"}
             <input
                 class="search-input"
                 type="text"
@@ -429,8 +438,12 @@
                                     value={e.entity_id}
                                     bind:group={selectedExistingEntityId}
                                 />
-                                <span class="entity-name">{e.preferred_name}</span>
-                                {#if !e.confirmed}<span class="entity-proposed">proposed</span>{/if}
+                                <span class="entity-name"
+                                    >{e.preferred_name}</span
+                                >
+                                {#if !e.confirmed}<span class="entity-proposed"
+                                        >proposed</span
+                                    >{/if}
                                 <span class="entity-kind">{e.kind}</span>
                             </label>
                         </li>
@@ -452,7 +465,11 @@
 
             <div class="field">
                 <label for="kind-create">Class</label>
-                <ClassPicker id="kind-create" bind:value={selectedKind} options={sortedKinds} />
+                <ClassPicker
+                    id="kind-create"
+                    bind:value={selectedKind}
+                    options={sortedKinds}
+                />
             </div>
         {/if}
 
@@ -460,13 +477,13 @@
             <button class="btn-primary" onclick={confirmCreate}>Confirm</button>
             <button class="btn-secondary" onclick={close}>Cancel</button>
         </div>
-
-    {:else if editorState.mode === 'edit-pointer'}
+    {:else if editorState.mode === "edit-pointer"}
         <h2>Edit Annotation</h2>
 
-        <!-- Sentence preview with re-selection -->
         {#if sentenceData}
-            <p class="hint">Select text below to change the highlight boundary.</p>
+            <p class="hint">
+                Select text below to change the highlight boundary.
+            </p>
             <!-- svelte-ignore a11y_no_static_element_interactions -->
             <div
                 class="sentence-preview selectable"
@@ -476,8 +493,15 @@
                 {#if pendingRange}
                     {@html DOMPurify.sanitize(
                         sentenceData.sentence.slice(0, pendingRange.offset) +
-                        '<mark>' + sentenceData.sentence.slice(pendingRange.offset, pendingRange.offset + pendingRange.length) + '</mark>' +
-                        sentenceData.sentence.slice(pendingRange.offset + pendingRange.length)
+                            "<mark>" +
+                            sentenceData.sentence.slice(
+                                pendingRange.offset,
+                                pendingRange.offset + pendingRange.length,
+                            ) +
+                            "</mark>" +
+                            sentenceData.sentence.slice(
+                                pendingRange.offset + pendingRange.length,
+                            ),
                     )}
                 {:else}
                     <!-- eslint-disable-next-line svelte/no-at-html-tags -->
@@ -486,20 +510,32 @@
             </div>
         {/if}
 
-        <!-- Entity fields -->
         <div class="field">
             <label for="preferred-name-ep">Preferred name</label>
-            <input id="preferred-name-ep" type="text" bind:value={preferredName} />
+            <input
+                id="preferred-name-ep"
+                type="text"
+                bind:value={preferredName}
+            />
         </div>
 
         <div class="field">
             <label for="uri-ep">URI</label>
-            <input id="uri-ep" type="text" bind:value={uriValue} placeholder="optional" />
+            <input
+                id="uri-ep"
+                type="text"
+                bind:value={uriValue}
+                placeholder="optional"
+            />
         </div>
 
         <div class="field">
             <label for="kind-ep">Class</label>
-            <ClassPicker id="kind-ep" bind:value={selectedKind} options={sortedKinds} />
+            <ClassPicker
+                id="kind-ep"
+                bind:value={selectedKind}
+                options={sortedKinds}
+            />
         </div>
 
         <div class="field">
@@ -508,38 +544,63 @@
                 {#each synonymList as s}
                     <li>
                         <span>{s}</span>
-                        <button class="btn-remove" onclick={() => removeSynonym(s)} aria-label="Remove synonym">×</button>
+                        <button
+                            class="btn-remove"
+                            onclick={() => removeSynonym(s)}
+                            aria-label="Remove synonym">×</button
+                        >
                     </li>
                 {/each}
             </ul>
             <div class="synonym-add">
-                <input type="text" bind:value={newSynonym} placeholder="Add synonym…" onkeydown={(e) => e.key === 'Enter' && addSynonym()} />
+                <input
+                    type="text"
+                    bind:value={newSynonym}
+                    placeholder="Add synonym…"
+                    onkeydown={(e) => e.key === "Enter" && addSynonym()}
+                />
                 <button class="btn-secondary" onclick={addSynonym}>Add</button>
             </div>
         </div>
 
         <div class="actions">
-            <button class="btn-primary" onclick={confirmEditPointer}>Confirm</button>
-            <button class="btn-danger" onclick={deletePointer}>Delete highlight</button>
+            <button class="btn-primary" onclick={confirmEditPointer}
+                >Confirm</button
+            >
+            <button class="btn-danger" onclick={deletePointer}
+                >Delete highlight</button
+            >
             <button class="btn-secondary" onclick={close}>Cancel</button>
         </div>
-
-    {:else if editorState.mode === 'edit-entity'}
+    {:else if editorState.mode === "edit-entity"}
         <h2>Edit Entity</h2>
 
         <div class="field">
             <label for="preferred-name-ee">Preferred name</label>
-            <input id="preferred-name-ee" type="text" bind:value={preferredName} />
+            <input
+                id="preferred-name-ee"
+                type="text"
+                bind:value={preferredName}
+            />
         </div>
 
         <div class="field">
             <label for="uri-ee">URI</label>
-            <input id="uri-ee" type="text" bind:value={uriValue} placeholder="optional" />
+            <input
+                id="uri-ee"
+                type="text"
+                bind:value={uriValue}
+                placeholder="optional"
+            />
         </div>
 
         <div class="field">
             <label for="kind-ee">Class</label>
-            <ClassPicker id="kind-ee" bind:value={selectedKind} options={sortedKinds} />
+            <ClassPicker
+                id="kind-ee"
+                bind:value={selectedKind}
+                options={sortedKinds}
+            />
         </div>
 
         <div class="field">
@@ -548,23 +609,39 @@
                 {#each synonymList as s}
                     <li>
                         <span>{s}</span>
-                        <button class="btn-remove" onclick={() => removeSynonym(s)} aria-label="Remove synonym">×</button>
+                        <button
+                            class="btn-remove"
+                            onclick={() => removeSynonym(s)}
+                            aria-label="Remove synonym">×</button
+                        >
                     </li>
                 {/each}
             </ul>
             <div class="synonym-add">
-                <input type="text" bind:value={newSynonym} placeholder="Add synonym…" onkeydown={(e) => e.key === 'Enter' && addSynonym()} />
+                <input
+                    type="text"
+                    bind:value={newSynonym}
+                    placeholder="Add synonym…"
+                    onkeydown={(e) => e.key === "Enter" && addSynonym()}
+                />
                 <button class="btn-secondary" onclick={addSynonym}>Add</button>
             </div>
         </div>
 
-        <!-- Mentions -->
         <div class="mentions">
-            <p class="mentions-header">{entityPointerEntries.length} mention{entityPointerEntries.length !== 1 ? 's' : ''} in text</p>
+            <p class="mentions-header">
+                {entityPointerEntries.length} mention{entityPointerEntries.length !==
+                1
+                    ? "s"
+                    : ""} in text
+            </p>
             {#each entityPointerEntries as [, p], i}
                 <div class="mention">
-                    <button class="mention-toggle" onclick={() => toggleMention(i)}>
-                        {expandedMentions.has(i) ? '▾' : '▸'}
+                    <button
+                        class="mention-toggle"
+                        onclick={() => toggleMention(i)}
+                    >
+                        {expandedMentions.has(i) ? "▾" : "▸"}
                         {plainText.slice(p.offset, p.offset + p.length)}
                     </button>
                     {#if expandedMentions.has(i)}
@@ -578,8 +655,12 @@
         </div>
 
         <div class="actions">
-            <button class="btn-primary" onclick={confirmEditEntity}>Confirm</button>
-            <button class="btn-danger" onclick={deleteEntity}>Delete entity</button>
+            <button class="btn-primary" onclick={confirmEditEntity}
+                >Confirm</button
+            >
+            <button class="btn-danger" onclick={deleteEntity}
+                >Delete entity</button
+            >
             <button class="btn-secondary" onclick={close}>Cancel</button>
         </div>
     {/if}
@@ -721,7 +802,8 @@
         margin-bottom: 1rem;
     }
 
-    .field label, .field .field-label {
+    .field label,
+    .field .field-label {
         display: block;
         font-size: 0.8rem;
         font-weight: 600;
@@ -838,7 +920,9 @@
         font-size: 0.875rem;
     }
 
-    .btn-primary:hover { background: #111; }
+    .btn-primary:hover {
+        background: #111;
+    }
 
     .btn-secondary {
         padding: 0.5rem 1rem;
@@ -850,7 +934,9 @@
         font-size: 0.875rem;
     }
 
-    .btn-secondary:hover { background: #e0e0e0; }
+    .btn-secondary:hover {
+        background: #e0e0e0;
+    }
 
     .btn-danger {
         padding: 0.5rem 1rem;
@@ -863,5 +949,7 @@
         margin-left: auto;
     }
 
-    .btn-danger:hover { background: #900; }
+    .btn-danger:hover {
+        background: #900;
+    }
 </style>

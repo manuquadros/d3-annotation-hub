@@ -17,8 +17,6 @@
     let dialog: HTMLDialogElement;
     let searchInput: HTMLInputElement;
 
-    // ── Remote data ──────────────────────────────────────────────────────────
-
     let allProperties = $state<PropertyOption[]>([]);
     let entityTypes = $state<KindOption[]>([]);
 
@@ -26,8 +24,6 @@
         fetchProjectProperties(annotationState.project_id).then((p) => (allProperties = p));
         fetchEntityTypes().then((k) => (entityTypes = k));
     });
-
-    // ── Derived entities ─────────────────────────────────────────────────────
 
     const subjectEntity = $derived(
         editorState.mode === "create-relation"
@@ -40,12 +36,8 @@
             : null,
     );
 
-    // ── View state ───────────────────────────────────────────────────────────
-
     type View = "select" | "propose";
     let view = $state<View>("select");
-
-    // ── Search & property lists ──────────────────────────────────────────────
 
     let query = $state("");
 
@@ -68,7 +60,6 @@
         );
     });
 
-    /** Non-recent properties for the "All" section (only when search is empty). */
     const remainingProperties = $derived.by(() => {
         const recentCuries = new Set(recentProperties.map((p) => p.curie));
         return [...allProperties]
@@ -76,11 +67,7 @@
             .sort((a, b) => a.label.localeCompare(b.label));
     });
 
-    // ── Selection ────────────────────────────────────────────────────────────
-
     let selectedCurie = $state<string | null>(null);
-
-    // ── Dialog lifecycle ─────────────────────────────────────────────────────
 
     $effect(() => {
         console.debug('[RelationEditor] effect fired, mode =', editorState.mode);
@@ -121,8 +108,6 @@
         close();
     }
 
-    // ── Propose form state ───────────────────────────────────────────────────
-
     let proposedLabel = $state("");
     let proposedCurie = $state("");
     let proposedDomain = $state("");
@@ -156,7 +141,6 @@
             range_curie: proposedRange || null,
         };
 
-        // Add to the session property list if not already present
         if (!allProperties.some((p) => p.curie === curie)) {
             allProperties = [...allProperties, newProp];
         }
@@ -172,8 +156,6 @@
         selectedCurie = curie;
         confirm();
     }
-
-    // ── Helpers ──────────────────────────────────────────────────────────────
 
     function kindLabel(curie: string): string {
         return curie.includes(":") ? curie.split(":")[1] : curie;
@@ -214,7 +196,6 @@
         </div>
 
         {#if view === "select"}
-            <!-- ── Search ──────────────────────────────────────────────── -->
             <div class="search-row">
                 <i class="ph ph-magnifying-glass search-icon"></i>
                 <input
@@ -226,7 +207,6 @@
                 />
             </div>
 
-            <!-- ── Property list ──────────────────────────────────────── -->
             {#if allProperties.length === 0}
                 <p class="empty">No properties available for this project's ontologies.</p>
             {:else if query.trim()}
@@ -262,7 +242,6 @@
                     </ul>
                 {/if}
             {:else}
-                <!-- Unfiltered: recent + remaining -->
                 <ul class="property-list">
                     {#if recentProperties.length > 0}
                         <li class="list-section-label">Recently used</li>
@@ -308,7 +287,6 @@
                 </ul>
             {/if}
 
-            <!-- Always-available propose link -->
             {#if query.trim() === "" || filteredProperties.length > 0}
                 <button class="propose-link propose-link--subtle" onclick={openPropose}>
                     <i class="ph ph-plus-circle"></i>
@@ -322,7 +300,6 @@
             </div>
 
         {:else}
-            <!-- ── Propose form ─────────────────────────────────────── -->
             <button class="back-link" onclick={backToSelect}>
                 <i class="ph ph-arrow-left"></i> Back to search
             </button>
@@ -407,8 +384,6 @@
         font-size: 1.1rem;
     }
 
-    /* ── Entity pair ── */
-
     .entity-pair {
         display: flex;
         align-items: center;
@@ -468,8 +443,6 @@
         background: #f5f5f5;
     }
 
-    /* ── Search ── */
-
     .search-row {
         position: relative;
         margin-bottom: 0.5rem;
@@ -498,8 +471,6 @@
     .search-input:focus {
         border-color: #888;
     }
-
-    /* ── Property list ── */
 
     .property-list {
         list-style: none;
@@ -575,8 +546,6 @@
         white-space: nowrap;
     }
 
-    /* ── No results ── */
-
     .no-results {
         padding: 0.75rem 0;
         margin-bottom: 0.5rem;
@@ -587,8 +556,6 @@
         color: #666;
         margin: 0 0 0.5rem;
     }
-
-    /* ── Propose link ── */
 
     .propose-link {
         display: inline-flex;
@@ -619,8 +586,6 @@
         color: #333;
     }
 
-    /* ── Back link ── */
-
     .back-link {
         display: inline-flex;
         align-items: center;
@@ -637,8 +602,6 @@
     .back-link:hover {
         color: #111;
     }
-
-    /* ── Propose form ── */
 
     .propose-form {
         display: flex;
@@ -710,8 +673,6 @@
         color: #888;
         margin: 0 0 1.25rem;
     }
-
-    /* ── Actions ── */
 
     .actions {
         display: flex;
