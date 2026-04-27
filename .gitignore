@@ -167,6 +167,8 @@ database.db
 node_modules
 dist
 test-results/
+coverage/
+e2e/.auth.json
 yarn.lock
 vite.config.js.timestamp-*
 /packages/create-svelte/template/CHANGELOG.md
