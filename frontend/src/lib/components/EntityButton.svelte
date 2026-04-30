@@ -2,7 +2,7 @@
     import { getContext } from "svelte";
     import { Set } from "immutable";
     import { AnnotationState } from "$lib/annotation.svelte";
-    import { getLabelColor, getContrastColor } from "$lib/utils.ts";
+    import { getLabelColor, getContrastColor } from "$lib/colors.ts";
     import { createRelation } from "$lib/types.ts";
     import type { EditorState } from "$lib/types.ts";
 

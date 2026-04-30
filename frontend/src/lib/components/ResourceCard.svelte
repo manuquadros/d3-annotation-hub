@@ -1,7 +1,7 @@
 <script lang="ts">
     import { getContext, onMount } from "svelte";
     import { AnnotationState, extractSentence } from "$lib/annotation.svelte";
-    import { getLabelColor } from "$lib/utils.ts";
+    import { getLabelColor } from "$lib/colors.ts";
     import type { EditorState } from "$lib/types.ts";
     import DOMPurify from "dompurify";
 

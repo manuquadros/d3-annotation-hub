@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { getLabelColor, getContrastColor } from "$lib/utils.ts";
+    import { getLabelColor, getContrastColor } from "$lib/colors.ts";
 
     interface Props {
         preferredName: string;

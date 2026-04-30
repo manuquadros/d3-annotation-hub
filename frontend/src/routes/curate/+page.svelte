@@ -3,7 +3,7 @@
     import type { PageData } from "./$types";
     import type { ClaimItem, EvidenceItem } from "./+page.server";
     import EntityBadge from "$lib/components/EntityBadge.svelte";
-    import { getLabelColor, getContrastColor } from "$lib/utils.ts";
+    import { getLabelColor, getContrastColor } from "$lib/colors.ts";
     import {
         type EvidenceParagraph,
         getParagraphRanges,

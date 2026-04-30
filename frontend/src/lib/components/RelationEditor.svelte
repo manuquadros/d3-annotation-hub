@@ -4,7 +4,7 @@
     import type { EditorState } from "$lib/types.ts";
     import { fetchProjectProperties, fetchEntityTypes, submitProposedProperty } from "$lib/api.ts";
     import type { PropertyOption, KindOption } from "$lib/api.ts";
-    import { getLabelColor, getContrastColor } from "$lib/utils.ts";
+    import { getLabelColor, getContrastColor } from "$lib/colors.ts";
 
     interface Props {
         editorState: EditorState;
