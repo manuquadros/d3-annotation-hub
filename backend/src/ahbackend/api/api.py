@@ -1145,6 +1145,10 @@ class PointerOut(BaseModel):
     entity_id: str
     offset: int
     length: int
+    field: str = "body"
+    exact_text: str = ""
+    prefix_text: str = ""
+    suffix_text: str = ""
 
 
 class RelationOut(BaseModel):
@@ -1249,6 +1253,10 @@ def annotator_snapshots(
                     entity_id=p.entity_id,
                     offset=p.offset,
                     length=p.length,
+                    field=p.field,
+                    exact_text=p.exact_text,
+                    prefix_text=p.prefix_text,
+                    suffix_text=p.suffix_text,
                 )
                 for p in s.pointers
             ],
@@ -1281,6 +1289,10 @@ def annotator_snapshots(
             entity_id=p.entity_id,
             offset=p.offset,
             length=p.length,
+            field=p.field,
+            exact_text=p.exact_text,
+            prefix_text=p.prefix_text,
+            suffix_text=p.suffix_text,
         )
         for p in curated_ptr_rows
     ]
@@ -1338,6 +1350,10 @@ def save_curated(
             entity_id=p.entity_id,
             offset=p.offset,
             length=p.length,
+            field=p.field,
+            exact_text=p.exact_text,
+            prefix_text=p.prefix_text,
+            suffix_text=p.suffix_text,
         )
         for p in body.pointers
     ]

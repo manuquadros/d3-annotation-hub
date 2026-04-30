@@ -212,8 +212,11 @@
         let node: Node | null;
         while ((node = walker.nextNode())) {
             if (node === range.startContainer) {
-                const selectionOffset = offset + range.startOffset;
-                const length = range.toString().length;
+                const rawText = range.toString();
+                const trimmedText = rawText.trim();
+                const leadingSpaces = rawText.length - rawText.trimStart().length;
+                const selectionOffset = offset + range.startOffset + leadingSpaces;
+                const length = trimmedText.length;
                 if (length > 0) {
                     pendingRange = { offset: selectionOffset, length };
                 }

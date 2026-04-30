@@ -57,12 +57,15 @@
         const anchorNode = selection.anchorNode;
         if (!anchorNode || !container?.contains(anchorNode.parentNode)) return;
 
-        const selectedText = selection.toString().trim();
-        if (!selectedText) return;
+        const rawText = selection.toString();
+        const trimmedText = rawText.trim();
+        if (!trimmedText) return;
 
         const range = selection.getRangeAt(0);
-        const offset = rangeToOffset(range, container);
-        const length = selectedText.length;
+        const rawOffset = rangeToOffset(range, container);
+        const leadingSpaces = rawText.length - rawText.trimStart().length;
+        const offset = rawOffset + leadingSpaces;
+        const length = trimmedText.length;
 
         const tempDiv = document.createElement("div");
         tempDiv.innerHTML = DOMPurify.sanitize(html ?? "");
