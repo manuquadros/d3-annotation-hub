@@ -45,6 +45,13 @@
     </xsl:element>
   </xsl:template>
 
+  <!-- abstract → section.abstract -->
+  <xsl:template match="*[local-name()='abstract']">
+    <section class="abstract">
+      <xsl:apply-templates/>
+    </section>
+  </xsl:template>
+
   <!-- fig → figure: graphic/media first, then label + caption below -->
   <xsl:template match="*[local-name()='fig']">
     <figure>

@@ -1,6 +1,6 @@
 <script lang="ts">
     import { getContext, onMount } from "svelte";
-    import { AnnotationState, extractSentence } from "$lib/annotation.svelte";
+    import { AnnotationState, extractSentence, resolvePointerOffset } from "$lib/annotation.svelte";
     import { getLabelColor } from "$lib/colors.ts";
     import type { EditorState } from "$lib/types.ts";
     import DOMPurify from "dompurify";
@@ -33,16 +33,21 @@
         const pointer = annState.pointer(pointer_id);
         if (!pointer) return;
 
-        const body = annState.reference.body;
-        if (!body) return;
+        const fieldHtml =
+            pointer.field === "abstract"
+                ? annState.reference.abstract
+                : annState.reference.body;
+        if (!fieldHtml) return;
 
         const tempDiv = document.createElement("div");
-        tempDiv.innerHTML = DOMPurify.sanitize(body);
+        tempDiv.innerHTML = DOMPurify.sanitize(fieldHtml);
         const plainText = tempDiv.textContent || "";
 
-        const { start: sentenceStart } = extractSentence(plainText, pointer.offset);
+        const resolved = resolvePointerOffset(pointer, plainText);
+        const offset = resolved?.offset ?? pointer.offset;
+        const { start: sentenceStart } = extractSentence(plainText, offset);
 
-        editorStateCtx.value = { mode: 'edit-pointer', pointerId: pointer_id, sentenceStart };
+        editorStateCtx.value = { mode: "edit-pointer", pointerId: pointer_id, sentenceStart };
     }
 </script>
 

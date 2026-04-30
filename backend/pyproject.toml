@@ -20,6 +20,7 @@ dependencies = [
   "uvicorn>=0.34.2",
   "xmlparser @ file:///${PROJECT_ROOT}/../xmlparser",
   "d3textdb @ file:///${PROJECT_ROOT}/../d3textdb",
+  "apiadapters @ file:///${PROJECT_ROOT}/../apiadapters",
   "gunicorn>=25.3.0",
 ]
 

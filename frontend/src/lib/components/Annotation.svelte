@@ -5,7 +5,7 @@
     import Summary from "$lib/components/Summary.svelte";
     import Relations from "$lib/components/Relations.svelte";
     import type { AnnotationState } from "$lib/annotation.svelte.ts";
-    import ArticleBody from "./ArticleBody.svelte";
+    import ArticleSection from "./ArticleSection.svelte";
     import SaveIndicator from "./SaveIndicator.svelte";
     import type { SaveStatus } from "./SaveIndicator.svelte";
     import {
@@ -76,7 +76,6 @@
     const reference: Reference | undefined = untrack(
         () => initialState.reference,
     );
-    const body: string | undefined = reference?.body;
 
     untrack(() => {
         const validEntityIds = new globalThis.Set(initialState.entities.keys());
@@ -112,7 +111,10 @@
                 {/if}
             </p>
         </div>
-        <ArticleBody {body} />
+        {#if reference?.abstract}
+            <ArticleSection html={reference.abstract} field="abstract" />
+        {/if}
+        <ArticleSection html={reference?.body} field="body" />
     </div>
 
     <div id="sidebar-col">

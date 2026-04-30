@@ -56,7 +56,16 @@
         return null;
     });
 
-    const plainText = $derived.by(() => {
+    const abstractPlainText = $derived.by(() => {
+        if (!browser) return "";
+        const abstract = annotationState.reference.abstract;
+        if (!abstract) return "";
+        const div = document.createElement("div");
+        div.innerHTML = DOMPurify.sanitize(abstract);
+        return div.textContent || "";
+    });
+
+    const bodyPlainText = $derived.by(() => {
         if (!browser) return "";
         const body = annotationState.reference.body;
         if (!body) return "";
@@ -65,9 +74,14 @@
         return div.textContent || "";
     });
 
+    function plainTextForField(field: "abstract" | "body"): string {
+        return field === "abstract" ? abstractPlainText : bodyPlainText;
+    }
+
     const sentenceData = $derived.by(() => {
         if (editorState.mode === "create") {
-            const { text } = extractSentence(plainText, editorState.offset);
+            const pt = plainTextForField(editorState.field);
+            const { text } = extractSentence(pt, editorState.offset);
             const relOffset = editorState.offset - editorState.sentenceStart;
             return {
                 sentence: text,
@@ -76,7 +90,8 @@
             };
         }
         if (editorState.mode === "edit-pointer" && pointer) {
-            const { text } = extractSentence(plainText, pointer.offset);
+            const pt = plainTextForField(pointer.field);
+            const { text } = extractSentence(pt, pointer.offset);
             const relOffset = pointer.offset - editorState.sentenceStart;
             return {
                 sentence: text,
@@ -169,12 +184,13 @@
         );
     }
 
-    function buildMentionSentenceHTML(offset: number, length: number): string {
-        const { text, start } = extractSentence(plainText, offset);
-        const relOffset = offset - start;
+    function buildMentionSentenceHTML(p: Pointer): string {
+        const pt = plainTextForField(p.field);
+        const { text, start } = extractSentence(pt, p.offset);
+        const relOffset = p.offset - start;
         const before = text.slice(0, relOffset);
-        const highlight = text.slice(relOffset, relOffset + length);
-        const after = text.slice(relOffset + length);
+        const highlight = text.slice(relOffset, relOffset + p.length);
+        const after = text.slice(relOffset + p.length);
         return (
             DOMPurify.sanitize(before) +
             `<mark>${DOMPurify.sanitize(highlight)}</mark>` +
@@ -254,7 +270,7 @@
 
     function confirmCreate() {
         if (editorState.mode !== "create") return;
-        const { offset, length } = editorState;
+        const { offset, length, field } = editorState;
         if (createTab === "existing") {
             if (!selectedExistingEntityId) return;
             const result = searchResults.find(
@@ -266,12 +282,11 @@
                 result?.preferred_name ?? "",
                 [{ offset, length }],
                 result?.confirmed ?? true,
+                field,
             );
         } else {
             if (!selectedKind || !preferredName.trim()) return;
-            annotationState.add(selectedKind, preferredName.trim(), [
-                { offset, length },
-            ]);
+            annotationState.add(selectedKind, preferredName.trim(), [{ offset, length }], field);
         }
         close();
     }
@@ -282,7 +297,7 @@
 
         if (pendingRange && editorState.mode === "edit-pointer") {
             const absOffset = editorState.sentenceStart + pendingRange.offset;
-            const newText = plainText
+            const newText = plainTextForField(pointer.field)
                 .slice(absOffset, absOffset + pendingRange.length)
                 .trim();
             if (newText && !synonymList.includes(newText))
@@ -655,12 +670,12 @@
                         onclick={() => toggleMention(i)}
                     >
                         {collapsedMentions.has(i) ? "▸" : "▾"}
-                        {plainText.slice(p.offset, p.offset + p.length)}
+                        {plainTextForField(p.field).slice(p.offset, p.offset + p.length)}
                     </button>
                     {#if !collapsedMentions.has(i)}
                         <div class="sentence-preview">
                             <!-- eslint-disable-next-line svelte/no-at-html-tags -->
-                            {@html buildMentionSentenceHTML(p.offset, p.length)}
+                            {@html buildMentionSentenceHTML(p)}
                         </div>
                     {/if}
                 </div>
