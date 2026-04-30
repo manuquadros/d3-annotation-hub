@@ -104,7 +104,7 @@
 <div id="container">
     <div id="chunk">
         <div class="reference-meta">
-            <h2>{reference.title}</h2>
+            <h1>{reference.title}</h1>
             <p class="meta-line">
                 {reference.authors} · {reference.year}
                 {#if reference.pubmed_id}
