@@ -108,7 +108,7 @@
     let sentenceContainer = $state<HTMLDivElement | undefined>(undefined);
     let pendingRange = $state<{ offset: number; length: number } | null>(null);
 
-    let expandedMentions = $state<Set<number>>(new Set());
+    let collapsedMentions = $state<Set<number>>(new Set());
 
     const isMyMode = $derived(
         editorState.mode === "create" ||
@@ -128,7 +128,7 @@
 
     function resetForm() {
         pendingRange = null;
-        expandedMentions = new Set();
+        collapsedMentions = new Set();
         newSynonym = "";
         entitySearch = "";
         selectedExistingEntityId = null;
@@ -369,10 +369,10 @@
     }
 
     function toggleMention(i: number) {
-        const next = new Set(expandedMentions);
+        const next = new Set(collapsedMentions);
         if (next.has(i)) next.delete(i);
         else next.add(i);
-        expandedMentions = next;
+        collapsedMentions = next;
     }
 
     const entityPointerEntries: ImmutableMap<string, Pointer> = $derived.by(
@@ -631,6 +631,16 @@
             </div>
         </div>
 
+        <div class="actions">
+            <button class="btn-primary" onclick={confirmEditEntity}
+                >Confirm</button
+            >
+            <button class="btn-danger" onclick={deleteEntity}
+                >Delete entity</button
+            >
+            <button class="btn-secondary" onclick={close}>Cancel</button>
+        </div>
+
         <div class="mentions">
             <p class="mentions-header">
                 {entityPointerEntries.count()} mention{entityPointerEntries.count() !==
@@ -644,10 +654,10 @@
                         class="mention-toggle"
                         onclick={() => toggleMention(i)}
                     >
-                        {expandedMentions.has(i) ? "▾" : "▸"}
+                        {collapsedMentions.has(i) ? "▸" : "▾"}
                         {plainText.slice(p.offset, p.offset + p.length)}
                     </button>
-                    {#if expandedMentions.has(i)}
+                    {#if !collapsedMentions.has(i)}
                         <div class="sentence-preview">
                             <!-- eslint-disable-next-line svelte/no-at-html-tags -->
                             {@html buildMentionSentenceHTML(p.offset, p.length)}
@@ -655,16 +665,6 @@
                     {/if}
                 </div>
             {/each}
-        </div>
-
-        <div class="actions">
-            <button class="btn-primary" onclick={confirmEditEntity}
-                >Confirm</button
-            >
-            <button class="btn-danger" onclick={deleteEntity}
-                >Delete entity</button
-            >
-            <button class="btn-secondary" onclick={close}>Cancel</button>
         </div>
     {/if}
 </dialog>
@@ -911,6 +911,7 @@
         display: flex;
         gap: 0.5rem;
         margin-top: 1.5rem;
+        margin-bottom: 1rem;
     }
 
     .btn-primary {
