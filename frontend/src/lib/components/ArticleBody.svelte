@@ -9,7 +9,11 @@
     import type { EditorState } from "$lib/types.ts";
     import type { Attachment } from "svelte/attachments";
 
-    let { body } = $props();
+    interface Props {
+        html: string | undefined;
+        field: "abstract" | "body";
+    }
+    let { html, field }: Props = $props();
     const annotationState = getContext<AnnotationState>("annotationState");
     const editorStateCtx = getContext<{ value: EditorState }>("editorState");
 
@@ -19,7 +23,11 @@
     const entities = $derived(annotationState.entities);
 
     const renderAnnotated: Attachment<HTMLDivElement> = (element) => {
-        annotateHTMLString(element, body, pointers, entities);
+        if (html) {
+            annotateHTMLString(element, html, pointers, entities, field);
+        } else {
+            element.replaceChildren();
+        }
     };
 
     /**
@@ -57,12 +65,12 @@
         const length = selectedText.length;
 
         const tempDiv = document.createElement("div");
-        tempDiv.innerHTML = DOMPurify.sanitize(body);
+        tempDiv.innerHTML = DOMPurify.sanitize(html ?? "");
         const plainText = tempDiv.textContent || "";
 
         const { start: sentenceStart } = extractSentence(plainText, offset);
 
-        editorStateCtx.value = { mode: 'create', offset, length, sentenceStart };
+        editorStateCtx.value = { mode: "create", offset, length, sentenceStart, field };
         window.getSelection()?.removeAllRanges();
     }
 </script>

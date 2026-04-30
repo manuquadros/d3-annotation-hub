@@ -18,6 +18,82 @@ interface Snapshot {
     relations: ImmutableSet<Relation>;
 }
 
+const CONTEXT_SIZE = 32;
+
+function buildTextQuoteSelector(
+    plainText: string,
+    offset: number,
+    length: number,
+): { exact_text: string; prefix_text: string; suffix_text: string } {
+    return {
+        exact_text: plainText.slice(offset, offset + length),
+        prefix_text: plainText.slice(Math.max(0, offset - CONTEXT_SIZE), offset),
+        suffix_text: plainText.slice(offset + length, offset + length + CONTEXT_SIZE),
+    };
+}
+
+function commonPrefixLength(a: string, b: string): number {
+    let i = 0;
+    while (i < a.length && i < b.length && a[i] === b[i]) i++;
+    return i;
+}
+
+function commonSuffixLength(a: string, b: string): number {
+    let i = a.length - 1, j = b.length - 1, count = 0;
+    while (i >= 0 && j >= 0 && a[i] === b[j]) { i--; j--; count++; }
+    return count;
+}
+
+/**
+ * Resolves the actual offset of a pointer in the given plain text using the
+ * stored TextQuoteSelector. Tries the stored offset first (fast path); falls
+ * back to a full-text search disambiguated by prefix/suffix context.
+ */
+export function resolvePointerOffset(
+    pointer: Pointer,
+    plainText: string,
+): { offset: number; length: number } | null {
+    if (!pointer.exact_text) {
+        // No TQS data — trust the raw offset if it's in range.
+        if (pointer.offset + pointer.length <= plainText.length) {
+            return { offset: pointer.offset, length: pointer.length };
+        }
+        return null;
+    }
+
+    // Fast path: stored offset still points to the right text.
+    if (
+        plainText.slice(pointer.offset, pointer.offset + pointer.length) ===
+        pointer.exact_text
+    ) {
+        return { offset: pointer.offset, length: pointer.length };
+    }
+
+    // Fallback: search for all occurrences of exact_text.
+    const occurrences = allOccurrences(plainText, pointer.exact_text);
+    if (occurrences.length === 0) return null;
+    if (occurrences.length === 1) {
+        return { offset: occurrences[0].offset, length: pointer.exact_text.length };
+    }
+
+    // Disambiguate by prefix/suffix overlap score.
+    let bestScore = -1;
+    let best: { offset: number; length: number } | null = null;
+    for (const { offset } of occurrences) {
+        const length = pointer.exact_text.length;
+        const actualPrefix = plainText.slice(Math.max(0, offset - CONTEXT_SIZE), offset);
+        const actualSuffix = plainText.slice(offset + length, offset + length + CONTEXT_SIZE);
+        const score =
+            commonSuffixLength(pointer.prefix_text, actualPrefix) +
+            commonPrefixLength(pointer.suffix_text, actualSuffix);
+        if (score > bestScore) {
+            bestScore = score;
+            best = { offset, length };
+        }
+    }
+    return best;
+}
+
 export class AnnotationState {
     user: User;
     reference: Reference;
@@ -102,30 +178,31 @@ export class AnnotationState {
         this.completed = false;
     }
 
-    #getPlainText(): string {
-        const body = this.reference.body;
-        if (!body) return "";
+    #getPlainText(field: "abstract" | "body"): string {
+        const html = field === "abstract" ? this.reference.abstract : this.reference.body;
+        if (!html) return "";
         const tempDiv = globalThis.document?.createElement("div");
         if (!tempDiv) return "";
-        tempDiv.innerHTML = DOMPurify.sanitize(body);
+        tempDiv.innerHTML = DOMPurify.sanitize(html);
         return tempDiv.textContent || "";
     }
 
     /**
      * Creates a new entity with the given kind and preferred name, then creates
-     * pointers at each offset. The text at each offset is added as a synonym.
-     * Propagates the annotation to all other identical uncovered occurrences.
+     * pointers at each offset within the given field. The text at each offset is
+     * added as a synonym. Propagates the annotation to all other identical
+     * uncovered occurrences within the same field.
      */
     add(
         kind: string,
         preferredName: string,
         offsets: Array<{ offset: number; length: number }>,
+        field: "abstract" | "body",
     ): void {
         const before = this.#snapshot();
-        const plainText = this.#getPlainText();
+        const plainText = this.#getPlainText(field);
         const synonyms = new globalThis.Set<string>();
 
-        // Always include the preferred name itself as a synonym.
         const trimmedName = preferredName.trim();
         if (trimmedName) synonyms.add(trimmedName);
 
@@ -144,20 +221,20 @@ export class AnnotationState {
                 reference_id: this.reference.reference_id,
                 offset,
                 length,
+                field,
+                ...buildTextQuoteSelector(plainText, offset, length),
             });
         }
         this.pointers = updatedPointers;
 
-        // Propagate to all other identical uncovered occurrences.
+        // Propagate to all other identical uncovered occurrences in the same field.
         const searchText = offsets[0]
-            ? plainText.slice(
-                  offsets[0].offset,
-                  offsets[0].offset + offsets[0].length,
-              )
+            ? plainText.slice(offsets[0].offset, offsets[0].offset + offsets[0].length)
             : "";
         if (searchText) {
             const candidates = allOccurrences(plainText, searchText);
-            const extras = uncoveredOffsets(candidates, this.pointers);
+            const fieldPointers = this.pointers.filter((p) => p.field === field);
+            const extras = uncoveredOffsets(candidates, fieldPointers);
             let propagated = this.pointers;
             for (const { offset, length } of extras) {
                 const key = this.#nextPointerKey();
@@ -166,6 +243,8 @@ export class AnnotationState {
                     reference_id: this.reference.reference_id,
                     offset,
                     length,
+                    field,
+                    ...buildTextQuoteSelector(plainText, offset, length),
                 });
             }
             this.pointers = propagated;
@@ -176,13 +255,14 @@ export class AnnotationState {
 
     /**
      * Adds new pointer(s) to an existing entity and appends the highlighted
-     * text as a synonym if it isn't already present.
-     * Propagates the annotation to all other identical uncovered occurrences.
+     * text as a synonym if it isn't already present. Propagates the annotation
+     * to all other identical uncovered occurrences within the same field.
      */
     addToExistingEntity(
         entityId: string,
         synonym: string,
         offsets: Array<{ offset: number; length: number }>,
+        field: "abstract" | "body",
     ): void {
         const before = this.#snapshot();
         const entity = this.entities.get(entityId);
@@ -196,6 +276,8 @@ export class AnnotationState {
             });
         }
 
+        const plainText = this.#getPlainText(field);
+
         let updatedPointers = this.pointers;
         for (const { offset, length } of offsets) {
             const key = this.#nextPointerKey();
@@ -204,16 +286,18 @@ export class AnnotationState {
                 reference_id: this.reference.reference_id,
                 offset,
                 length,
+                field,
+                ...buildTextQuoteSelector(plainText, offset, length),
             });
         }
         this.pointers = updatedPointers;
 
-        // Propagate to all other identical uncovered occurrences.
+        // Propagate to all other identical uncovered occurrences in the same field.
         const searchText = trimmed;
         if (searchText) {
-            const plainText = this.#getPlainText();
             const candidates = allOccurrences(plainText, searchText);
-            const extras = uncoveredOffsets(candidates, this.pointers);
+            const fieldPointers = this.pointers.filter((p) => p.field === field);
+            const extras = uncoveredOffsets(candidates, fieldPointers);
             let propagated = this.pointers;
             for (const { offset, length } of extras) {
                 const key = this.#nextPointerKey();
@@ -222,6 +306,8 @@ export class AnnotationState {
                     reference_id: this.reference.reference_id,
                     offset,
                     length,
+                    field,
+                    ...buildTextQuoteSelector(plainText, offset, length),
                 });
             }
             this.pointers = propagated;
@@ -301,7 +387,6 @@ export class AnnotationState {
         this.relations = this.relations.add(
             createRelation({ predicate, subject: subjectId, object: objectId }),
         );
-        // Track recently used predicates (most recent first, no duplicates)
         this.recentPredicates = [
             predicate,
             ...this.recentPredicates.filter((p) => p !== predicate),
@@ -377,10 +462,10 @@ export class AnnotationState {
 
     /**
      * Adds pointer(s) for an entity identified by a known ID (e.g. an ontology
-     * CURIE). If the entity is not yet in the local state it is created with the
-     * given kind and preferredName; if it already exists the pointer is simply
-     * appended and the highlighted text is added as a synonym.
-     * Propagates the annotation to all other identical uncovered occurrences.
+     * CURIE). If the entity is not yet in local state it is created; otherwise
+     * the pointer is appended and the highlighted text added as a synonym.
+     * Propagates the annotation to all other identical uncovered occurrences
+     * within the same field.
      */
     addWithId(
         entityId: string,
@@ -388,6 +473,7 @@ export class AnnotationState {
         preferredName: string,
         offsets: Array<{ offset: number; length: number }>,
         confirmed = true,
+        field: "abstract" | "body" = "body",
     ): void {
         const before = this.#snapshot();
 
@@ -402,6 +488,8 @@ export class AnnotationState {
             });
         }
 
+        const plainText = this.#getPlainText(field);
+
         let updatedPointers = this.pointers;
         for (const { offset, length } of offsets) {
             const key = this.#nextPointerKey();
@@ -410,21 +498,20 @@ export class AnnotationState {
                 reference_id: this.reference.reference_id,
                 offset,
                 length,
+                field,
+                ...buildTextQuoteSelector(plainText, offset, length),
             });
         }
         this.pointers = updatedPointers;
 
-        // Propagate to all other identical uncovered occurrences.
-        const plainText = this.#getPlainText();
+        // Propagate to all other identical uncovered occurrences in the same field.
         const searchText = offsets[0]
-            ? plainText.slice(
-                  offsets[0].offset,
-                  offsets[0].offset + offsets[0].length,
-              )
+            ? plainText.slice(offsets[0].offset, offsets[0].offset + offsets[0].length)
             : "";
         if (searchText) {
             const candidates = allOccurrences(plainText, searchText);
-            const extras = uncoveredOffsets(candidates, this.pointers);
+            const fieldPointers = this.pointers.filter((p) => p.field === field);
+            const extras = uncoveredOffsets(candidates, fieldPointers);
             let propagated = this.pointers;
             for (const { offset, length } of extras) {
                 const key = this.#nextPointerKey();
@@ -433,6 +520,8 @@ export class AnnotationState {
                     reference_id: this.reference.reference_id,
                     offset,
                     length,
+                    field,
+                    ...buildTextQuoteSelector(plainText, offset, length),
                 });
             }
             this.pointers = propagated;
@@ -449,10 +538,12 @@ export class AnnotationState {
         const before = this.#snapshot();
         const pointer = this.pointers.get(pointerId);
         if (pointer) {
+            const plainText = this.#getPlainText(pointer.field);
             this.pointers = this.pointers.set(pointerId, {
                 ...pointer,
                 offset,
                 length,
+                ...buildTextQuoteSelector(plainText, offset, length),
             });
             this.#commit(before);
         }
@@ -499,24 +590,21 @@ export function uncoveredOffsets(
 
 /**
  * Extracts the sentence containing the character at `offset` from plain text.
- * Returns the sentence string and its start offset in the full text.
+ *
+ * Boundary rules: `.!?` only split when followed by whitespace/end-of-string,
+ * and not when preceded by a single isolated uppercase letter (abbreviations
+ * like "E. coli"). "RyhB. Next" still splits because "B" is not isolated.
+ *
+ * @returns sentence text (trimmed) and its start offset in the full text.
  */
 export function extractSentence(
     plainText: string,
     offset: number,
 ): { text: string; start: number } {
-    // A sentence-ending punctuation only acts as a boundary when:
-    //   1. It is followed by whitespace or end-of-string, AND
-    //   2. It is NOT preceded by a single isolated uppercase letter.
-    // Rule 1 handles "E.coli" (no space → not a boundary).
-    // Rule 2 handles "E. coli" (single uppercase + period + space → abbreviation,
-    //   not a boundary). "RyhB. Next" still IS a boundary because "B" is preceded
-    //   by another word character, so it is not isolated.
     function isSentenceBoundary(pos: number): boolean {
         if (!/[.!?]/.test(plainText[pos])) return false;
         const next = plainText[pos + 1];
         if (next !== undefined && !/\s/.test(next)) return false;
-        // Single isolated uppercase letter before the dot → abbreviation
         const prev = plainText[pos - 1];
         if (prev && /[A-Z]/.test(prev)) {
             const prevPrev = plainText[pos - 2];
@@ -534,7 +622,7 @@ export function extractSentence(
     while (end < plainText.length && !isSentenceBoundary(end)) {
         end++;
     }
-    if (end < plainText.length) end++; // include the sentence-ending punctuation
+    if (end < plainText.length) end++;
 
     const raw = plainText.slice(start, end);
     const leadingSpaces = raw.length - raw.trimStart().length;
@@ -544,13 +632,15 @@ export function extractSentence(
 const _sanitizeCache = new WeakMap<HTMLDivElement, { html: string; sanitized: string }>();
 
 /**
- * Returns an HTMLElement annotated according to the state parameters.
+ * Renders annotated HTML into `elem`, highlighting only pointers that belong
+ * to the given `field`. Uses TextQuoteSelector to resolve offsets robustly.
  */
 export function annotateHTMLString(
     elem: HTMLDivElement,
     html: string,
     pointers: ImmutableMap<string, Pointer>,
     entities: ImmutableMap<string, Entity>,
+    field: "abstract" | "body",
 ): void {
     const cached = _sanitizeCache.get(elem);
     const sanitized =
@@ -567,11 +657,20 @@ export function annotateHTMLString(
     elem.replaceChildren();
     elem.innerHTML = sanitized;
 
-    const ranges: Array<AnnotatedRange & { range: Range }> = pointers
+    const plainText = elem.textContent || "";
+    const fieldPointers = pointers.filter((p) => p.field === field);
+
+    const ranges: Array<AnnotatedRange & { range: Range }> = fieldPointers
         .entrySeq()
         .map(([key, pointer]) => {
+            const resolved = resolvePointerOffset(pointer, plainText);
+            if (!resolved) return { range: null, pointer_id: key, label: "" };
             return {
-                range: rangeFromPointer(elem, pointer),
+                range: createRangeFromOffsets(
+                    elem,
+                    resolved.offset,
+                    resolved.offset + resolved.length,
+                ),
                 pointer_id: key,
                 label: entities.get(pointer.entity_id)?.kind || "",
             };
@@ -598,14 +697,6 @@ function markRange(
     });
     pointer.range.insertNode(mark);
     pointer.range.detach?.();
-}
-
-function rangeFromPointer(anchor: HTMLElement, pointer: Pointer): Range | null {
-    return createRangeFromOffsets(
-        anchor,
-        pointer.offset,
-        pointer.offset + pointer.length,
-    );
 }
 
 function getTextNodes(element: HTMLElement): Text[] {
