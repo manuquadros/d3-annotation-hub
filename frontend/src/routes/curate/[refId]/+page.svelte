@@ -4,6 +4,8 @@
     import { untrack } from "svelte";
     import type { PageData } from "./$types";
     import type { PointerOut, RelationOut } from "./+page.server";
+    import { resolvePointerOffset } from "$lib/annotation.svelte";
+    import type { Pointer } from "$lib/types.ts";
 
     interface Props {
         data: PageData;
@@ -28,6 +30,7 @@
     const bodyPlainText = $derived(toPlainText(reference.body));
 
     function getAnnotatedText(p: PointerOut): string {
+        if (p.exact_text) return p.exact_text;
         const pt = p.field === "abstract" ? abstractPlainText : bodyPlainText;
         return pt.slice(p.offset, p.offset + p.length);
     }
@@ -107,15 +110,23 @@
     function buildSegments(plainText: string, spans: SpanEntry[]): TextSeg[] {
         if (!plainText) return [];
         const segs: TextSeg[] = [];
+
+        const resolved = spans
+            .map(({ key, p }) => {
+                const r = resolvePointerOffset(p as unknown as Pointer, plainText);
+                return { key, offset: r?.offset ?? p.offset, length: r?.length ?? p.length };
+            })
+            .sort((a, b) => a.offset - b.offset || b.length - a.length);
+
         let pos = 0;
-        for (const { key, p } of spans) {
-            if (p.offset >= plainText.length) break;
-            if (p.offset > pos) {
-                segs.push({ text: plainText.slice(pos, p.offset), key: null, idx: -1 });
+        for (const { key, offset, length } of resolved) {
+            if (offset >= plainText.length) break;
+            if (offset > pos) {
+                segs.push({ text: plainText.slice(pos, offset), key: null, idx: -1 });
             }
-            if (p.offset >= pos) {
-                const end = Math.min(p.offset + p.length, plainText.length);
-                segs.push({ text: plainText.slice(p.offset, end), key, idx: spanIndexByKey.get(key)! });
+            if (offset >= pos) {
+                const end = Math.min(offset + length, plainText.length);
+                segs.push({ text: plainText.slice(offset, end), key, idx: spanIndexByKey.get(key)! });
                 pos = end;
             }
         }

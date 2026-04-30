@@ -63,7 +63,7 @@ def hash_password(password: str) -> str:
 
 def _content_hash(pointers: list[Pointer], relations: list[Relation]) -> str:
     """Compute a deterministic SHA-256 hash of the annotation content."""
-    pointer_data = sorted((p.entity_id, p.offset, p.length) for p in pointers)
+    pointer_data = sorted((p.entity_id, p.field, p.offset, p.length) for p in pointers)
     relation_data = sorted(
         (r.predicate, r.subject, r.object) for r in relations
     )
@@ -666,8 +666,19 @@ class D3TextDB:
                         entity_id=pointer.entity_id,
                         offset=pointer.offset,
                         length=pointer.length,
+                        field=pointer.field,
+                        exact_text=pointer.exact_text,
+                        prefix_text=pointer.prefix_text,
+                        suffix_text=pointer.suffix_text,
                     )
-                    .on_conflict_do_nothing()
+                    .on_conflict_do_update(
+                        index_elements=["reference_id", "entity_id", "offset", "length", "field"],
+                        set_={
+                            "exact_text": pointer.exact_text,
+                            "prefix_text": pointer.prefix_text,
+                            "suffix_text": pointer.suffix_text,
+                        },
+                    )
                 )
 
             # Store relations and UserRelationReference entries.
@@ -721,6 +732,7 @@ class D3TextDB:
                         entity_id=pointer.entity_id,
                         offset=pointer.offset,
                         length=pointer.length,
+                        field=pointer.field,
                     )
                     .on_conflict_do_nothing()
                 )
@@ -755,6 +767,7 @@ class D3TextDB:
                             entity_id=pointer.entity_id,
                             offset=pointer.offset,
                             length=pointer.length,
+                            field=pointer.field,
                         )
                         .on_conflict_do_nothing()
                     )
@@ -1263,7 +1276,8 @@ class D3TextDB:
                             (Pointer.reference_id == SnapshotPointer.reference_id)
                             & (Pointer.entity_id == SnapshotPointer.entity_id)
                             & (Pointer.offset == SnapshotPointer.offset)
-                            & (Pointer.length == SnapshotPointer.length),
+                            & (Pointer.length == SnapshotPointer.length)
+                            & (Pointer.field == SnapshotPointer.field),
                         )
                         .where(SnapshotPointer.snapshot_id == snap.snapshot_id)
                     ).all()
@@ -1354,6 +1368,7 @@ class D3TextDB:
                         entity_id=pointer.entity_id,
                         offset=pointer.offset,
                         length=pointer.length,
+                        field=pointer.field,
                     )
                     .on_conflict_do_nothing()
                 )
@@ -1405,7 +1420,8 @@ class D3TextDB:
                         (Pointer.reference_id == CuratedAnnotationPointer.reference_id)
                         & (Pointer.entity_id == CuratedAnnotationPointer.entity_id)
                         & (Pointer.offset == CuratedAnnotationPointer.offset)
-                        & (Pointer.length == CuratedAnnotationPointer.length),
+                        & (Pointer.length == CuratedAnnotationPointer.length)
+                        & (Pointer.field == CuratedAnnotationPointer.field),
                     )
                     .where(
                         CuratedAnnotationPointer.curated_id == curated.curated_id
@@ -1508,7 +1524,8 @@ class D3TextDB:
                         (Pointer.reference_id == StatePointer.reference_id)
                         & (Pointer.entity_id == StatePointer.entity_id)
                         & (Pointer.offset == StatePointer.offset)
-                        & (Pointer.length == StatePointer.length),
+                        & (Pointer.length == StatePointer.length)
+                        & (Pointer.field == StatePointer.field),
                     )
                     .where(StatePointer.state_id == latest_state.state_id)
                 )
