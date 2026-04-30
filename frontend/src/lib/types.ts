@@ -7,6 +7,10 @@ export type Pointer = {
     reference_id: number;
     offset: number;
     length: number;
+    field: "abstract" | "body";
+    exact_text: string;
+    prefix_text: string;
+    suffix_text: string;
 };
 
 export const PointerSchema = z.object({
@@ -14,6 +18,10 @@ export const PointerSchema = z.object({
     reference_id: z.int(),
     offset: z.int(),
     length: z.int(),
+    field: z.enum(["abstract", "body"]).default("body"),
+    exact_text: z.string().default(""),
+    prefix_text: z.string().default(""),
+    suffix_text: z.string().default(""),
 }) satisfies z.ZodType<Pointer>;
 
 export type Entity = {
@@ -116,7 +124,13 @@ export type EntitySearchResult = {
 
 export type EditorState =
     | { mode: "closed" }
-    | { mode: "create"; offset: number; length: number; sentenceStart: number }
+    | {
+          mode: "create";
+          offset: number;
+          length: number;
+          sentenceStart: number;
+          field: "abstract" | "body";
+      }
     | { mode: "edit-pointer"; pointerId: string; sentenceStart: number }
     | { mode: "edit-entity"; entityId: string }
     | {

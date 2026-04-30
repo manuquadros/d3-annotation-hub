@@ -14,6 +14,10 @@ export interface PointerOut {
     entity_id: string;
     offset: number;
     length: number;
+    field: string;
+    exact_text: string;
+    prefix_text: string;
+    suffix_text: string;
 }
 
 export interface RelationOut {
@@ -38,6 +42,7 @@ export interface ReferenceInfo {
     title: string;
     authors: string;
     year: number;
+    abstract: string | null;
     body: string | null;
 }
 

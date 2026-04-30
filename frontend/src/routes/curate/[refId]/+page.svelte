@@ -19,21 +19,17 @@
         curated_relations,
     } = untrack(() => data.data);
 
-    let plainText = $derived(
-        browser && reference.body
-            ? (() => {
-                  const doc = new DOMParser().parseFromString(
-                      reference.body!,
-                      "text/html",
-                  );
-                  return doc.body.textContent ?? "";
-              })()
-            : "",
-    );
+    function toPlainText(html: string | null): string {
+        if (!browser || !html) return "";
+        return new DOMParser().parseFromString(html, "text/html").body.textContent ?? "";
+    }
 
-    function getAnnotatedText(offset: number, length: number): string {
-        if (!plainText) return "";
-        return plainText.slice(offset, offset + length);
+    const abstractPlainText = $derived(toPlainText(reference.abstract));
+    const bodyPlainText = $derived(toPlainText(reference.body));
+
+    function getAnnotatedText(p: PointerOut): string {
+        const pt = p.field === "abstract" ? abstractPlainText : bodyPlainText;
+        return pt.slice(p.offset, p.offset + p.length);
     }
 
     // mutable: CURIE edits update local keys
@@ -41,7 +37,7 @@
 
     type PointerKey = string;
     function pointerKey(p: PointerOut): PointerKey {
-        return `${p.entity_id}|${p.offset}|${p.length}`;
+        return `${p.entity_id}|${p.field}|${p.offset}|${p.length}`;
     }
 
     const pointerAnnotators = new Map<PointerKey, Set<string>>();
@@ -87,10 +83,19 @@
         }
     }
 
-    const spansByOffset = [...pointerAnnotators.keys()]
+    interface SpanEntry { key: PointerKey; p: PointerOut }
+
+    const abstractSpansByOffset: SpanEntry[] = [...pointerAnnotators.keys()]
+        .filter((k) => pointerData.get(k)!.field === "abstract")
         .map((k) => ({ key: k, p: pointerData.get(k)! }))
         .sort((a, b) => a.p.offset - b.p.offset || b.p.length - a.p.length);
 
+    const bodySpansByOffset: SpanEntry[] = [...pointerAnnotators.keys()]
+        .filter((k) => pointerData.get(k)!.field !== "abstract")
+        .map((k) => ({ key: k, p: pointerData.get(k)! }))
+        .sort((a, b) => a.p.offset - b.p.offset || b.p.length - a.p.length);
+
+    const spansByOffset: SpanEntry[] = [...abstractSpansByOffset, ...bodySpansByOffset];
     const spanIndexByKey = new Map(spansByOffset.map((s, i) => [s.key, i]));
 
     interface TextSeg {
@@ -99,35 +104,29 @@
         idx: number;
     }
 
-    let textSegments = $derived.by((): TextSeg[] => {
+    function buildSegments(plainText: string, spans: SpanEntry[]): TextSeg[] {
         if (!plainText) return [];
         const segs: TextSeg[] = [];
         let pos = 0;
-        for (const { key, p } of spansByOffset) {
+        for (const { key, p } of spans) {
             if (p.offset >= plainText.length) break;
             if (p.offset > pos) {
-                segs.push({
-                    text: plainText.slice(pos, p.offset),
-                    key: null,
-                    idx: -1,
-                });
+                segs.push({ text: plainText.slice(pos, p.offset), key: null, idx: -1 });
             }
             if (p.offset >= pos) {
                 const end = Math.min(p.offset + p.length, plainText.length);
-                segs.push({
-                    text: plainText.slice(p.offset, end),
-                    key,
-                    idx: spanIndexByKey.get(key)!,
-                });
+                segs.push({ text: plainText.slice(p.offset, end), key, idx: spanIndexByKey.get(key)! });
                 pos = end;
             }
-            // overlapping span: skip
         }
         if (pos < plainText.length) {
             segs.push({ text: plainText.slice(pos), key: null, idx: -1 });
         }
         return segs;
-    });
+    }
+
+    const abstractSegments = $derived(buildSegments(abstractPlainText, abstractSpansByOffset));
+    const bodySegments = $derived(buildSegments(bodyPlainText, bodySpansByOffset));
 
     let activePointerKey = $state<PointerKey | null>(null);
 
@@ -605,8 +604,7 @@
                                         >
                                     </td>
                                     <td class="span-cell">
-                                        {getAnnotatedText(p.offset, p.length) ||
-                                            `@${p.offset}+${p.length}`}
+                                        {getAnnotatedText(p) || `@${p.field}:${p.offset}+${p.length}`}
                                     </td>
                                     <td>
                                         <span class="agreement-count"
@@ -714,27 +712,37 @@
             </div>
 
             <aside class="curate-text-panel">
-                <p class="text-panel-title">Article text</p>
-                {#if textSegments.length > 0}
+                {#snippet segmentList(segs: TextSeg[])}
+                    {#each segs as seg, i (i)}
+                        {#if seg.key !== null}
+                            <mark
+                                id="pspan-{seg.idx}"
+                                class="pointer-mark"
+                                class:active={activePointerKey === seg.key}
+                                title={entities[pointerData.get(seg.key)!.entity_id]?.preferred_name ?? seg.key}
+                                onclick={() => focusPointer(seg.key!)}
+                            >{seg.text}</mark>
+                        {:else}
+                            {seg.text}
+                        {/if}
+                    {/each}
+                {/snippet}
+
+                {#if abstractSegments.length > 0}
+                    <p class="text-panel-title">Abstract</p>
                     <div class="article-text">
-                        {#each textSegments as seg, i (i)}
-                            {#if seg.key !== null}
-                                <mark
-                                    id="pspan-{seg.idx}"
-                                    class="pointer-mark"
-                                    class:active={activePointerKey === seg.key}
-                                    title={entities[
-                                        pointerData.get(seg.key)!.entity_id
-                                    ]?.preferred_name ?? seg.key}
-                                    onclick={() => focusPointer(seg.key!)}
-                                    >{seg.text}</mark
-                                >
-                            {:else}
-                                {seg.text}
-                            {/if}
-                        {/each}
+                        {@render segmentList(abstractSegments)}
                     </div>
-                {:else}
+                {/if}
+
+                {#if bodySegments.length > 0}
+                    <p class="text-panel-title">Full text</p>
+                    <div class="article-text">
+                        {@render segmentList(bodySegments)}
+                    </div>
+                {/if}
+
+                {#if abstractSegments.length === 0 && bodySegments.length === 0}
                     <p class="no-text">No article text available.</p>
                 {/if}
             </aside>

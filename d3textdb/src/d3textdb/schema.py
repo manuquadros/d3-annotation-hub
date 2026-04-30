@@ -7,7 +7,8 @@ from uuid import UUID, uuid4
 
 import pendulum
 from pydantic import BaseModel, ConfigDict, EmailStr
-from sqlalchemy import Enum as SAEnum, ForeignKeyConstraint
+from sqlalchemy import Enum as SAEnum
+from sqlalchemy import ForeignKeyConstraint
 from sqlalchemy.types import BINARY, String, TypeDecorator
 from sqlmodel import (
     Column,
@@ -110,9 +111,7 @@ class ProjectOntology(SQLModel, table=True):
 
     __tablename__ = "project_ontology"
 
-    project_id: int = Field(
-        foreign_key="project.project_id", primary_key=True
-    )
+    project_id: int = Field(foreign_key="project.project_id", primary_key=True)
     ontology_id: int = Field(
         foreign_key="ontology.ontology_id", primary_key=True
     )
@@ -228,7 +227,6 @@ class OntologyProperty(SQLModel, table=True):
     range_curie: str | None = None  # e.g. "d3o:Bacteria"
 
 
-
 class ProposedProperty(SQLModel, table=True):
     """An object property proposed by an annotator within a project.
 
@@ -245,8 +243,12 @@ class ProposedProperty(SQLModel, table=True):
     domain_curie: str | None = None
     range_curie: str | None = None
     proposed_by: str | None = None  # user e-mail / username
-    status: str = Field(default="pending", index=True)  # pending|accepted|rejected
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    status: str = Field(
+        default="pending", index=True
+    )  # pending|accepted|rejected
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc)
+    )
 
 
 class Triple(SQLModel, table=True):
@@ -260,7 +262,9 @@ class Triple(SQLModel, table=True):
 
     triple_id: int | None = Field(default=None, primary_key=True)
     subject_id: int = Field(foreign_key="entity.entity_id", index=True)
-    predicate: str = Field(index=True)  # e.g. "rdfs:subClassOf", "skos:exactMatch"
+    predicate: str = Field(
+        index=True
+    )  # e.g. "rdfs:subClassOf", "skos:exactMatch"
     object_id: int | None = Field(
         default=None, foreign_key="entity.entity_id", index=True
     )
@@ -309,6 +313,11 @@ class Pointer(SQLModel, table=True):
     User attribution lives at the AnnotationState / AnnotationSnapshot level.
 
     ``entity_id`` stores the entity's CURIE (FK → entity.curie).
+    ``field`` is either ``"abstract"`` or ``"body"``, scoping the offset to the
+    corresponding HTML field of the reference.
+    ``exact_text``, ``prefix_text``, and ``suffix_text`` implement the W3C
+    TextQuoteSelector, allowing re-anchoring if the HTML is regenerated
+    differently.
     """
 
     reference_id: int = Field(
@@ -317,6 +326,10 @@ class Pointer(SQLModel, table=True):
     entity_id: str = Field(foreign_key="entity.curie", primary_key=True)
     offset: int = Field(primary_key=True)
     length: int = Field(primary_key=True)
+    field: str = Field(default="body", primary_key=True)
+    exact_text: str = ""
+    prefix_text: str = ""
+    suffix_text: str = ""
 
 
 class Relation(SQLModel, table=True):
@@ -455,12 +468,13 @@ class StatePointer(SQLModel, table=True):
     __tablename__ = "state_pointer"
     __table_args__ = (
         ForeignKeyConstraint(
-            ["reference_id", "entity_id", "offset", "length"],
+            ["reference_id", "entity_id", "offset", "length", "field"],
             [
                 "pointer.reference_id",
                 "pointer.entity_id",
                 "pointer.offset",
                 "pointer.length",
+                "pointer.field",
             ],
         ),
     )
@@ -472,6 +486,7 @@ class StatePointer(SQLModel, table=True):
     entity_id: str = Field(primary_key=True)
     offset: int = Field(primary_key=True)
     length: int = Field(primary_key=True)
+    field: str = Field(default="body", primary_key=True)
 
 
 class StateRelation(SQLModel, table=True):
@@ -518,12 +533,13 @@ class SnapshotPointer(SQLModel, table=True):
     __tablename__ = "snapshot_pointer"
     __table_args__ = (
         ForeignKeyConstraint(
-            ["reference_id", "entity_id", "offset", "length"],
+            ["reference_id", "entity_id", "offset", "length", "field"],
             [
                 "pointer.reference_id",
                 "pointer.entity_id",
                 "pointer.offset",
                 "pointer.length",
+                "pointer.field",
             ],
         ),
     )
@@ -535,6 +551,7 @@ class SnapshotPointer(SQLModel, table=True):
     entity_id: str = Field(primary_key=True)
     offset: int = Field(primary_key=True)
     length: int = Field(primary_key=True)
+    field: str = Field(default="body", primary_key=True)
 
 
 class SnapshotRelation(SQLModel, table=True):
@@ -583,12 +600,13 @@ class CuratedAnnotationPointer(SQLModel, table=True):
     __tablename__ = "curated_annotation_pointer"
     __table_args__ = (
         ForeignKeyConstraint(
-            ["reference_id", "entity_id", "offset", "length"],
+            ["reference_id", "entity_id", "offset", "length", "field"],
             [
                 "pointer.reference_id",
                 "pointer.entity_id",
                 "pointer.offset",
                 "pointer.length",
+                "pointer.field",
             ],
         ),
     )
@@ -600,6 +618,7 @@ class CuratedAnnotationPointer(SQLModel, table=True):
     entity_id: str = Field(primary_key=True)
     offset: int = Field(primary_key=True)
     length: int = Field(primary_key=True)
+    field: str = Field(default="body", primary_key=True)
 
 
 class CuratedAnnotationRelation(SQLModel, table=True):
@@ -615,7 +634,6 @@ class CuratedAnnotationRelation(SQLModel, table=True):
     )
 
 
-
 class CurationDecision(SQLModel, table=True):
     """Curator's accept/reject verdict on a relation triple within a project.
 
@@ -626,7 +644,9 @@ class CurationDecision(SQLModel, table=True):
     __tablename__ = "curation_decision"
 
     project_id: int = Field(foreign_key="project.project_id", primary_key=True)
-    relation_id: int = Field(foreign_key="relation.relation_id", primary_key=True)
+    relation_id: int = Field(
+        foreign_key="relation.relation_id", primary_key=True
+    )
     curator_id: UUID = Field(
         sa_column=Column(
             SqliteUUID,
