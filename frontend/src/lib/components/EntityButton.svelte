@@ -48,7 +48,6 @@
     function handleDrop(event: DragEvent) {
         event.preventDefault();
         const sourceEntityId = event.dataTransfer?.getData("text/plain");
-        console.debug('[EntityButton] drop fired, source =', sourceEntityId, 'target =', entityId);
         if (!sourceEntityId || sourceEntityId === entityId) return;
 
         const sourceEntity = annotationState.entity(sourceEntityId);
@@ -56,8 +55,6 @@
         if (!sourceEntity || !targetEntity) return;
 
         if (sourceEntity.kind !== targetEntity.kind) {
-            // Cross-kind drop: open relation creation modal
-            console.debug('[EntityButton] opening create-relation dialog');
             editorStateCtx.value = {
                 mode: "create-relation",
                 subjectEntityId: sourceEntityId,

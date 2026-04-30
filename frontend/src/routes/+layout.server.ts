@@ -67,8 +67,6 @@ export const load: LayoutServerLoad = async ({ cookies, url }) => {
         }
     }
 
-    console.debug(me);
-
     return {
         authenticated: true,
         isSuperuser,

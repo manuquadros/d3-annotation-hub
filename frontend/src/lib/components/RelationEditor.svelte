@@ -70,13 +70,11 @@
     let selectedCurie = $state<string | null>(null);
 
     $effect(() => {
-        console.debug('[RelationEditor] effect fired, mode =', editorState.mode);
         if (!dialog) return;
         if (editorState.mode === "create-relation") {
             selectedCurie = annotationState.recentPredicates[0] ?? null;
             query = "";
             view = "select";
-            console.debug('[RelationEditor] calling showModal()');
             dialog.showModal();
             // Focus search once the DOM settles
             requestAnimationFrame(() => searchInput?.focus());

@@ -43,9 +43,8 @@
     }
 
     function handleTextSelection(_event: MouseEvent): void {
-        console.debug('[ArticleBody] mouseup fired');
         const selection = window.getSelection();
-        if (!selection || selection.isCollapsed) { console.debug('[ArticleBody] no selection'); return; }
+        if (!selection || selection.isCollapsed) return;
 
         const anchorNode = selection.anchorNode;
         if (!anchorNode || !container?.contains(anchorNode.parentNode)) return;
@@ -57,14 +56,12 @@
         const offset = rangeToOffset(range, container);
         const length = selectedText.length;
 
-        // Extract plain text from the original HTML for sentence extraction
         const tempDiv = document.createElement("div");
         tempDiv.innerHTML = DOMPurify.sanitize(body);
         const plainText = tempDiv.textContent || "";
 
         const { start: sentenceStart } = extractSentence(plainText, offset);
 
-        console.debug('[ArticleBody] setting editorState to create, offset =', offset);
         editorStateCtx.value = { mode: 'create', offset, length, sentenceStart };
         window.getSelection()?.removeAllRanges();
     }

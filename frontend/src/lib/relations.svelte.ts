@@ -70,10 +70,7 @@ export class RelationStore extends SvelteSet<Triple> {
         if (subject && predicate && object) {
             this.delete({ subject, predicate, object });
         } else {
-            console.debug(this);
-
             const sub = this.subset(query);
-            console.debug(sub);
             sub.forEach((triple) => this.delete(triple));
         }
     }
