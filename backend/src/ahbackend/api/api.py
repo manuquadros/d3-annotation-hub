@@ -71,6 +71,7 @@ from d3textdb.schema import (
     Ontology,
     Pointer,
     Project,
+    Reference,
     ReferenceAnnotation,
     Relation,
     User,
@@ -87,6 +88,12 @@ from xmlparser import (
 )
 
 app = FastAPI()
+
+
+def reference_body_xml(ref: Reference) -> str:
+    """Wrap a body fragment with the minimal article envelope needed by the XSL."""
+    pmc_tag = f'<article-id pub-id-type="pmcid">PMC{ref.pmc_id}</article-id>' if ref.pmc_id else ""
+    return f"<article><front><article-meta>{pmc_tag}</article-meta></front>{ref.body or ''}</article>"
 
 origins = ["http://localhost:5173"]
 
@@ -144,21 +151,19 @@ def fetch_annotation(
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
 
+    ref = reference_annotation.reference
+
     try:
-        abstract = str(
-            transform_article(reference_annotation.reference.abstract)
-        )
+        abstract = str(transform_article(ref.abstract))
     except XMLSyntaxError:
-        abstract = reference_annotation.reference.abstract
+        abstract = ref.abstract
 
     return reference_annotation.model_copy(
         update={
-            "reference": reference_annotation.reference.model_copy(
+            "reference": ref.model_copy(
                 update={
                     "abstract": abstract,
-                    "body": transform_article(
-                        reference_annotation.reference.body
-                    ),
+                    "body": transform_article(reference_body_xml(ref)),
                 }
             )
         }
@@ -1067,7 +1072,7 @@ def curation_claims(
             body_html: str | None = None
             if ref.body:
                 try:
-                    body_html = transform_article(ref.body)
+                    body_html = transform_article(reference_body_xml(ref))
                 except Exception:
                     body_html = None
             evidence_items.append(
@@ -1252,7 +1257,7 @@ def annotator_snapshots(
     body_html: str | None = None
     if ref.body:
         try:
-            body_html = transform_article(ref.body)
+            body_html = transform_article(reference_body_xml(ref))
         except Exception:
             body_html = None
 
