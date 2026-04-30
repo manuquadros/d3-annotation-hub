@@ -541,6 +541,8 @@ export function extractSentence(
     return { text: raw.trim(), start: start + leadingSpaces };
 }
 
+const _sanitizeCache = new WeakMap<HTMLDivElement, { html: string; sanitized: string }>();
+
 /**
  * Returns an HTMLElement annotated according to the state parameters.
  */
@@ -550,8 +552,20 @@ export function annotateHTMLString(
     pointers: ImmutableMap<string, Pointer>,
     entities: ImmutableMap<string, Entity>,
 ): void {
+    const cached = _sanitizeCache.get(elem);
+    const sanitized =
+        cached?.html === html
+            ? cached.sanitized
+            : DOMPurify.sanitize(html, {
+                  ADD_TAGS: ["figure", "figcaption", "img"],
+                  ADD_ATTR: ["src", "alt"],
+              });
+    if (cached?.html !== html) {
+        _sanitizeCache.set(elem, { html, sanitized });
+    }
+
     elem.replaceChildren();
-    elem.innerHTML = DOMPurify.sanitize(html);
+    elem.innerHTML = sanitized;
 
     const ranges: Array<AnnotatedRange & { range: Range }> = pointers
         .entrySeq()
