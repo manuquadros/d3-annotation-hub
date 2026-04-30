@@ -395,15 +395,15 @@ def _parse_owl_rdflib(
 
 
 def parse_owl(
-    source: str | Path | BinaryIO,
+    source: str | Path | BinaryIO | bytes,
     prefix: str,
     base_iri: str,
 ) -> ParsedOntology:
     """Parse an OWL file and extract classes, names, synonyms, and triples.
 
-    :param source: Path to an OWL file or a file-like object.  Supported
-        serializations: OWL/XML (Functional Syntax in XML), RDF/XML, Turtle,
-        N-Triples, JSON-LD.
+    :param source: Path to an OWL file, a file-like object, or raw bytes.
+        Supported serializations: OWL/XML (Functional Syntax in XML), RDF/XML,
+        Turtle, N-Triples, JSON-LD.
     :param prefix: Short namespace prefix used for CURIE generation
         (e.g. ``"NCBITaxon"``).  Ignored for OBO Foundry IRIs.
     :param base_iri: Namespace IRI for non-OBO ontologies.  For OBO Foundry
@@ -416,7 +416,9 @@ def parse_owl(
     in the OWL hierarchy (``rdfs:subClassOf``).  Root classes (no named
     superclass other than ``owl:Thing``) get an empty ``kind``.
     """
-    if isinstance(source, (str, Path)):
+    if isinstance(source, bytes):
+        content = source
+    elif isinstance(source, (str, Path)):
         content = Path(source).read_bytes()
     else:
         content = source.read()
