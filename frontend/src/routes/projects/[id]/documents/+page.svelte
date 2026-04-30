@@ -1,6 +1,6 @@
 <script lang="ts">
     import { untrack } from "svelte";
-    import "$lib/management.css";
+    import "$lib/styles/management.css";
     interface Reference {
         reference_id: number;
         pubmed_id: number | null;

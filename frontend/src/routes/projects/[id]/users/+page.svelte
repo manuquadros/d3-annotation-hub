@@ -1,6 +1,6 @@
 <script lang="ts">
     import { untrack } from "svelte";
-    import "$lib/management.css";
+    import "$lib/styles/management.css";
     interface Member {
         user_id: string;
         email: string;

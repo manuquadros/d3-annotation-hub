@@ -68,7 +68,7 @@
 {/if}
 
 <style>
-    @import "../summary.css";
+    @import "./summary.css";
 
     h2 {
         margin-top: 0;

@@ -1,6 +1,6 @@
 <script lang="ts">
     import { untrack } from "svelte";
-    import "$lib/management.css";
+    import "$lib/styles/management.css";
 
     interface Ontology {
         ontology_id: number;
