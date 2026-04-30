@@ -96,10 +96,11 @@ export async function searchEntities(
     q: string,
     limit = 20,
     projectId?: number,
+    signal?: AbortSignal,
 ): Promise<EntitySearchResult[]> {
     const params = new URLSearchParams({ q, limit: String(limit) });
     if (projectId !== undefined) params.set("project_id", String(projectId));
-    const response = await fetch(`/api/entity?${params}`);
+    const response = await fetch(`/api/entity?${params}`, { signal });
     if (!response.ok) {
         throw new Error(`Entity search failed: ${response.statusText}`);
     }

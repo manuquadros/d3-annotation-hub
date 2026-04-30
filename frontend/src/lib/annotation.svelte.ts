@@ -235,7 +235,7 @@ export class AnnotationState {
         preferredName: string,
         synonyms?: globalThis.Set<string>,
     ): string {
-        const newEntityId = `entity_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+        const newEntityId = `entity_${crypto.randomUUID()}`;
         this.entities = this.entities.set(newEntityId, {
             entity_id: newEntityId,
             kind,

@@ -239,13 +239,17 @@
             return;
         }
         searchLoading = true;
+        const controller = new AbortController();
         const timer = setTimeout(() => {
-            searchEntities(q).then((results) => {
+            searchEntities(q, 20, undefined, controller.signal).then((results) => {
                 searchResults = results;
                 searchLoading = false;
-            });
+            }).catch(() => {});
         }, 300);
-        return () => clearTimeout(timer);
+        return () => {
+            clearTimeout(timer);
+            controller.abort();
+        };
     });
 
     function confirmCreate() {
@@ -634,7 +638,7 @@
                     ? "s"
                     : ""} in text
             </p>
-            {#each entityPointerEntries as [, p], i (p.entity_id)}
+            {#each entityPointerEntries as [key, p], i (key)}
                 <div class="mention">
                     <button
                         class="mention-toggle"
