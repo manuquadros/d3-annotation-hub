@@ -1256,13 +1256,19 @@ class D3TextDB:
         and flag disagreements.
         """
         with Session(self.engine) as session:
-            snapshots = list(
+            all_snaps = list(
                 session.scalars(
                     select(AnnotationSnapshot)
                     .where(AnnotationSnapshot.project_id == project_id)
                     .where(AnnotationSnapshot.reference_id == reference_id)
+                    .order_by(AnnotationSnapshot.snapshot_id)
                 ).all()
             )
+            # Keep only the latest snapshot per user (highest snapshot_id).
+            latest: dict[UUID, AnnotationSnapshot] = {}
+            for s in all_snaps:
+                latest[s.user_id] = s
+            snapshots = list(latest.values())
             result = []
             for snap in snapshots:
                 user = session.get(User, snap.user_id)

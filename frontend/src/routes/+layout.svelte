@@ -207,9 +207,10 @@
                         </div>
                     {/if}
 
-                    <nav>
-                        <p class="title">Management</p>
-                        {#if data.isAdmin && data.currentProjectId !== null}
+                    {#if data.isAdmin && data.currentProjectId !== null}
+                        <nav>
+                            <p class="title">Management</p>
+
                             <a
                                 class="with-icon"
                                 href="/projects/{data.currentProjectId}/documents"
@@ -231,14 +232,14 @@
                                 <i class="ph ph-users"></i>
                                 Users
                             </a>
-                        {/if}
-                        {#if data.isSuperuser}
-                            <a class="with-icon" href="/admin">
-                                <i class="ph ph-gear"></i>
-                                Admin
-                            </a>
-                        {/if}
-                    </nav>
+                            {#if data.isSuperuser}
+                                <a class="with-icon" href="/admin">
+                                    <i class="ph ph-gear"></i>
+                                    Admin
+                                </a>
+                            {/if}
+                        </nav>
+                    {/if}
                 </div>
             </div>
             <!-- Sidebar end -->
