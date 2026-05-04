@@ -1,0 +1,21 @@
+# Project management
+
+Managers set up projects, populate the annotation queue, and control who has
+access.
+
+## Adding articles
+
+Go to **Documents** in the sidebar. Enter one or more PubMed IDs or DOIs and click
+**Add**. If an article is available on PubMed Central it is fetched automatically
+and added to the project queue.
+
+## Managing ontologies
+
+Under **Ontologies** you can import OWL files that define the entity types and
+relations allowed in the project. Imported ontologies determine which classes
+annotators can choose from.
+
+## Managing users
+
+Under **Users** you can add members to the project and assign them the
+**annotator**, **curator**, or **manager** role.
