@@ -421,7 +421,7 @@
         <div class="curate-body">
             <div class="curate-tables">
                 <div class="annotators-legend">
-                    {#each snapshots as snap, i (snap.email)}
+                    {#each snapshots as snap, i (snap.user_id)}
                         <span class="annotator-badge annotator-{i % 6}"
                             >{snap.email}</span
                         >
