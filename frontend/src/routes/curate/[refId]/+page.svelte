@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { invalidateAll } from "$app/navigation";
+    import { invalidateAll, goto } from "$app/navigation";
     import { browser } from "$app/environment";
     import { untrack } from "svelte";
     import type { PageData } from "./$types";
@@ -23,7 +23,10 @@
 
     function toPlainText(html: string | null): string {
         if (!browser || !html) return "";
-        return new DOMParser().parseFromString(html, "text/html").body.textContent ?? "";
+        return (
+            new DOMParser().parseFromString(html, "text/html").body
+                .textContent ?? ""
+        );
     }
 
     const abstractPlainText = $derived(toPlainText(reference.abstract));
@@ -86,7 +89,10 @@
         }
     }
 
-    interface SpanEntry { key: PointerKey; p: PointerOut }
+    interface SpanEntry {
+        key: PointerKey;
+        p: PointerOut;
+    }
 
     const abstractSpansByOffset: SpanEntry[] = [...pointerAnnotators.keys()]
         .filter((k) => pointerData.get(k)!.field === "abstract")
@@ -98,7 +104,10 @@
         .map((k) => ({ key: k, p: pointerData.get(k)! }))
         .sort((a, b) => a.p.offset - b.p.offset || b.p.length - a.p.length);
 
-    const spansByOffset: SpanEntry[] = [...abstractSpansByOffset, ...bodySpansByOffset];
+    const spansByOffset: SpanEntry[] = [
+        ...abstractSpansByOffset,
+        ...bodySpansByOffset,
+    ];
     const spanIndexByKey = new Map(spansByOffset.map((s, i) => [s.key, i]));
 
     interface TextSeg {
@@ -113,8 +122,15 @@
 
         const resolved = spans
             .map(({ key, p }) => {
-                const r = resolvePointerOffset(p as unknown as Pointer, plainText);
-                return { key, offset: r?.offset ?? p.offset, length: r?.length ?? p.length };
+                const r = resolvePointerOffset(
+                    p as unknown as Pointer,
+                    plainText,
+                );
+                return {
+                    key,
+                    offset: r?.offset ?? p.offset,
+                    length: r?.length ?? p.length,
+                };
             })
             .sort((a, b) => a.offset - b.offset || b.length - a.length);
 
@@ -122,11 +138,19 @@
         for (const { key, offset, length } of resolved) {
             if (offset >= plainText.length) break;
             if (offset > pos) {
-                segs.push({ text: plainText.slice(pos, offset), key: null, idx: -1 });
+                segs.push({
+                    text: plainText.slice(pos, offset),
+                    key: null,
+                    idx: -1,
+                });
             }
             if (offset >= pos) {
                 const end = Math.min(offset + length, plainText.length);
-                segs.push({ text: plainText.slice(offset, end), key, idx: spanIndexByKey.get(key)! });
+                segs.push({
+                    text: plainText.slice(offset, end),
+                    key,
+                    idx: spanIndexByKey.get(key)!,
+                });
                 pos = end;
             }
         }
@@ -136,19 +160,53 @@
         return segs;
     }
 
-    const abstractSegments = $derived(buildSegments(abstractPlainText, abstractSpansByOffset));
-    const bodySegments = $derived(buildSegments(bodyPlainText, bodySpansByOffset));
+    const abstractSegments = $derived(
+        buildSegments(abstractPlainText, abstractSpansByOffset),
+    );
+    const bodySegments = $derived(
+        buildSegments(bodyPlainText, bodySpansByOffset),
+    );
 
     let activePointerKey = $state<PointerKey | null>(null);
+    let activeEntityId = $state<string | null>(null);
+
+    function getMentionContext(
+        p: PointerOut,
+        window = 60,
+    ): { before: string; match: string; after: string } {
+        const pt =
+            p.field === "abstract" ? abstractPlainText : bodyPlainText;
+        const start = p.offset;
+        const end = p.offset + p.length;
+        const beforeStart = Math.max(0, start - window);
+        const afterEnd = Math.min(pt.length, end + window);
+        return {
+            before:
+                (beforeStart > 0 ? "…" : "") + pt.slice(beforeStart, start),
+            match: pt.slice(start, end) || p.exact_text || "",
+            after:
+                pt.slice(end, afterEnd) + (afterEnd < pt.length ? "…" : ""),
+        };
+    }
 
     function focusPointer(k: PointerKey) {
         activePointerKey = k;
+        const p = pointerData.get(k);
+        if (p) activeEntityId = p.entity_id;
         const idx = spanIndexByKey.get(k);
         if (idx !== undefined) {
             document
                 .getElementById(`pspan-${idx}`)
                 ?.scrollIntoView({ behavior: "smooth", block: "center" });
         }
+        // Double rAF: wait for entity expansion to render before scrolling mention into view
+        requestAnimationFrame(() =>
+            requestAnimationFrame(() => {
+                document
+                    .querySelector(`[data-mention-key="${CSS.escape(k)}"]`)
+                    ?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+            }),
+        );
     }
 
     $effect(() => {
@@ -159,7 +217,10 @@
 
             if (e.key === " " && activePointerKey !== null) {
                 e.preventDefault();
-                togglePointer(activePointerKey);
+                setMentionAccepted(
+                    activePointerKey,
+                    !selectedPointers.has(activePointerKey),
+                );
                 return;
             }
 
@@ -183,14 +244,6 @@
                 : Math.max(idx - 1, 0);
 
             focusPointer(keys[idx]);
-
-            // Scroll the focused table row into view after Svelte updates the DOM
-            const key = keys[idx];
-            requestAnimationFrame(() => {
-                document
-                    .querySelector(`tr[data-pkey="${CSS.escape(key)}"]`)
-                    ?.scrollIntoView({ behavior: "smooth", block: "nearest" });
-            });
         }
         document.addEventListener("keydown", onKeydown);
         return () => document.removeEventListener("keydown", onKeydown);
@@ -222,6 +275,54 @@
         return nameA.localeCompare(nameB);
     });
 
+    const pointerKeysByEntity = new Map<string, PointerKey[]>();
+    for (const k of sortedPointerKeys) {
+        const eid = pointerData.get(k)!.entity_id;
+        const list = pointerKeysByEntity.get(eid);
+        if (list) list.push(k);
+        else pointerKeysByEntity.set(eid, [k]);
+    }
+
+    interface MentionGroup {
+        displayText: string;
+        keys: PointerKey[];
+    }
+
+    const mentionGroupsByEntity = $derived(
+        (() => {
+            const result = new Map<string, MentionGroup[]>();
+            for (const [entityId, keys] of pointerKeysByEntity) {
+                const groups = new Map<string, MentionGroup>();
+                for (const k of keys) {
+                    const p = pointerData.get(k)!;
+                    const text =
+                        getAnnotatedText(p) ||
+                        `@${p.field}:${p.offset}+${p.length}`;
+                    const caseKey = text.toLowerCase();
+                    if (!groups.has(caseKey)) {
+                        groups.set(caseKey, { displayText: text, keys: [] });
+                    }
+                    groups.get(caseKey)!.keys.push(k);
+                }
+                result.set(entityId, [...groups.values()]);
+            }
+            return result;
+        })(),
+    );
+
+    const pointerGroupKeys = $derived(
+        (() => {
+            const map = new Map<PointerKey, string>();
+            for (const [entityId, groups] of mentionGroupsByEntity) {
+                for (const group of groups) {
+                    const gk = `${entityId}|${group.displayText.toLowerCase()}`;
+                    for (const k of group.keys) map.set(k, gk);
+                }
+            }
+            return map;
+        })(),
+    );
+
     const sortedEntityIds = [...entityAnnotators.keys()].sort((a, b) => {
         const aAccepted = acceptedEntityIds.has(a) ? 1 : 0;
         const bAccepted = acceptedEntityIds.has(b) ? 1 : 0;
@@ -243,21 +344,39 @@
         );
     });
 
-    // pre-select from saved curation if any, else unanimous agreement
     const hasSavedCuration =
         acceptedPointerKeys.size > 0 || acceptedRelationKeys.size > 0;
 
-    let selectedPointers = $state<Set<PointerKey>>(
-        new Set(
-            hasSavedCuration
-                ? sortedPointerKeys.filter((k) => acceptedPointerKeys.has(k))
-                : sortedPointerKeys.filter(
-                      (k) =>
-                          pointerAnnotators.get(k)!.size === snapshots.length &&
-                          snapshots.length > 0,
-                  ),
-        ),
+    let entityStatus = $state(new Map<string, boolean>());
+    let groupStatus = $state(new Map<string, boolean>());
+    const initialMentionOverrides = new Map<PointerKey, boolean>();
+    if (hasSavedCuration) {
+        for (const k of sortedPointerKeys) {
+            if (!acceptedPointerKeys.has(k)) {
+                initialMentionOverrides.set(k, false);
+            }
+        }
+    }
+    let mentionOverrides = $state(initialMentionOverrides);
+
+    const selectedPointers = $derived(
+        (() => {
+            const set = new Set<PointerKey>();
+            for (const k of sortedPointerKeys) {
+                const gk = pointerGroupKeys.get(k);
+                const eid = pointerData.get(k)!.entity_id;
+                if (
+                    entityStatus.get(eid) !== false &&
+                    groupStatus.get(gk ?? "") !== false &&
+                    mentionOverrides.get(k) !== false
+                ) {
+                    set.add(k);
+                }
+            }
+            return set;
+        })(),
     );
+
     let selectedRelations = $state<Set<RelationKey>>(
         new Set(
             hasSavedCuration
@@ -270,11 +389,11 @@
         ),
     );
 
-    function togglePointer(k: PointerKey) {
-        const next = new Set(selectedPointers);
-        if (next.has(k)) next.delete(k);
-        else next.add(k);
-        selectedPointers = next;
+    function setMentionAccepted(k: PointerKey, accepted: boolean) {
+        const next = new Map(mentionOverrides);
+        if (accepted) next.delete(k);
+        else next.set(k, false);
+        mentionOverrides = next;
     }
 
     function toggleRelation(k: RelationKey) {
@@ -285,29 +404,33 @@
     }
 
     function isEntityAccepted(entityId: string): boolean {
-        const keys = sortedPointerKeys.filter(
-            (k) => pointerData.get(k)!.entity_id === entityId,
-        );
-        return keys.length > 0 && keys.every((k) => selectedPointers.has(k));
+        const keys = pointerKeysByEntity.get(entityId) ?? [];
+        return keys.some((k) => selectedPointers.has(k));
     }
 
     function toggleEntity(entityId: string) {
-        const keys = sortedPointerKeys.filter(
-            (k) => pointerData.get(k)!.entity_id === entityId,
-        );
-        const accepted = isEntityAccepted(entityId);
-        const next = new Set(selectedPointers);
-        if (accepted) {
-            keys.forEach((k) => next.delete(k));
-        } else {
-            keys.forEach((k) => next.add(k));
-        }
-        selectedPointers = next;
+        const next = new Map(entityStatus);
+        if (isEntityAccepted(entityId)) next.set(entityId, false);
+        else next.delete(entityId);
+        entityStatus = next;
+    }
+
+    function setGroupAccepted(
+        entityId: string,
+        displayText: string,
+        accepted: boolean,
+    ) {
+        const gk = `${entityId}|${displayText.toLowerCase()}`;
+        const next = new Map(groupStatus);
+        if (accepted) next.delete(gk);
+        else next.set(gk, false);
+        groupStatus = next;
     }
 
     let curieEdits = $state(new Map<string, string>());
     let curieErrors = $state(new Map<string, string>());
     let curieSaving = $state(new Set<string>());
+    let locallyConfirmed = $state(new Set<string>());
 
     function startCurieEdit(entityId: string) {
         if (!curieEdits.has(entityId)) {
@@ -317,7 +440,9 @@
 
     async function applyCurieEdit(entityId: string) {
         const newCurie = curieEdits.get(entityId)?.trim();
+
         if (!newCurie || newCurie === entityId) {
+            locallyConfirmed = new Set(locallyConfirmed).add(entityId);
             curieEdits = new Map(curieEdits);
             curieEdits.delete(entityId);
             return;
@@ -343,6 +468,9 @@
                     text || "Failed",
                 );
             } else {
+                locallyConfirmed = new Set(locallyConfirmed).add(entityId);
+                curieEdits = new Map(curieEdits);
+                curieEdits.delete(entityId);
                 await invalidateAll();
             }
         } catch (e) {
@@ -353,40 +481,97 @@
         }
     }
 
-    let saving = $state(false);
-    let saveError = $state<string | null>(null);
-    let saved = $state(false);
+    let autosaving = $state(false);
+    let autosaveError = $state<string | null>(null);
+    let autosaved = $state(false);
 
-    async function saveCuration() {
-        saving = true;
-        saveError = null;
-        saved = false;
-
-        const pointers: PointerOut[] = [...selectedPointers].map(
-            (k) => pointerData.get(k)!,
+    function buildCurationPayload() {
+        const pointers: PointerOut[] = [...selectedPointers].map((k) =>
+            pointerData.get(k)!,
         );
         const relations: RelationOut[] = [...selectedRelations].map(
             (k) => relationData.get(k)!,
         );
+        return { pointers, relations };
+    }
 
+    async function save() {
+        autosaving = true;
+        autosaveError = null;
         try {
             const res = await fetch(
                 `/api/projects/${data.projectId}/curation/${data.referenceId}`,
                 {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ pointers, relations }),
+                    body: JSON.stringify(buildCurationPayload()),
                 },
             );
             if (!res.ok) {
-                saveError = `Save failed: ${await res.text()}`;
+                autosaveError = await res.text();
             } else {
-                saved = true;
+                autosaved = true;
             }
         } catch (e) {
-            saveError = String(e);
+            autosaveError = String(e);
         } finally {
-            saving = false;
+            autosaving = false;
+        }
+    }
+
+    let autosaveInitialized = false;
+    $effect(() => {
+        const _ = [selectedPointers, selectedRelations];
+        if (!autosaveInitialized) {
+            autosaveInitialized = true;
+            return;
+        }
+        autosaved = false;
+        const timer = setTimeout(save, 1500);
+        return () => clearTimeout(timer);
+    });
+
+    function completionBlockers(): string[] {
+        const msgs: string[] = [];
+        if (
+            sortedEntityIds.some(
+                (id) =>
+                    entities[id] &&
+                    !entities[id].confirmed &&
+                    !locallyConfirmed.has(id),
+            )
+        ) {
+            msgs.push(
+                "Proposed entities have not been assigned a confirmed identifier.",
+            );
+        }
+        if (
+            snapshots.length > 1 &&
+            sortedPointerKeys.some(
+                (k) =>
+                    selectedPointers.has(k) &&
+                    pointerAnnotators.get(k)!.size < snapshots.length,
+            )
+        ) {
+            msgs.push(
+                "Some accepted mentions have annotator disagreements that have not been reviewed.",
+            );
+        }
+        return msgs;
+    }
+
+    async function markAsComplete() {
+        const blockers = completionBlockers();
+        if (blockers.length > 0) {
+            const msg =
+                "Please resolve the following before marking as complete:\n\n" +
+                blockers.map((b) => "• " + b).join("\n") +
+                "\n\nProceed anyway?";
+            if (!confirm(msg)) return;
+        }
+        await save();
+        if (!autosaveError) {
+            goto(`/curate?project=${data.projectId}`);
         }
     }
 
@@ -431,8 +616,9 @@
                 <section class="curate-section">
                     <h3>Entities</h3>
                     <p class="section-hint">
-                        Overview of all annotated entities. Edit the identifier
-                        of proposed entities (marked <span
+                        Click an entity to see its mentions. Mentions are
+                        accepted by default — remove or reassign them as needed.
+                        Edit the identifier of proposed entities (marked <span
                             class="proposed-badge">proposed</span
                         >) before saving.
                     </p>
@@ -452,19 +638,28 @@
                                 {@const count =
                                     entityAnnotators.get(entityId)!.size}
                                 {@const accepted = isEntityAccepted(entityId)}
+                                {@const isExpanded =
+                                    activeEntityId === entityId}
                                 <tr
-                                    class={rowClass(
+                                    class="entity-row {rowClass(
                                         count,
                                         acceptedEntityIds.has(entityId),
-                                    )}
+                                    )} {isExpanded ? 'expanded' : ''}"
+                                    onclick={() => {
+                                        activeEntityId = isExpanded
+                                            ? null
+                                            : entityId;
+                                    }}
                                 >
                                     <td class="td-accept">
                                         <button
                                             class="accept-btn {accepted
                                                 ? 'accepted'
                                                 : ''}"
-                                            onclick={() =>
-                                                toggleEntity(entityId)}
+                                            onclick={(e) => {
+                                                e.stopPropagation();
+                                                toggleEntity(entityId);
+                                            }}
                                             title={accepted
                                                 ? "Remove entity"
                                                 : "Accept entity (all its spans)"}
@@ -482,50 +677,99 @@
                                             >
                                         {/if}
                                     </td>
-                                    <td class="curie-cell">
+                                    <td
+                                        class="curie-cell"
+                                        onclick={(e) => e.stopPropagation()}
+                                    >
                                         {#if entity && !entity.confirmed}
-                                            <input
-                                                class="curie-input"
-                                                type="text"
-                                                value={curieEdits.get(
-                                                    entityId,
-                                                ) ?? entityId}
-                                                onfocus={() =>
-                                                    startCurieEdit(entityId)}
-                                                oninput={(e) => {
-                                                    curieEdits = new Map(
-                                                        curieEdits,
-                                                    ).set(
+                                            {#if curieEdits.has(entityId)}
+                                                <input
+                                                    class="curie-input"
+                                                    type="text"
+                                                    value={curieEdits.get(
                                                         entityId,
-                                                        (
-                                                            e.target as HTMLInputElement
-                                                        ).value,
-                                                    );
-                                                }}
-                                                onblur={() =>
-                                                    applyCurieEdit(entityId)}
-                                                onkeydown={(e) => {
-                                                    if (e.key === "Enter")
-                                                        (
-                                                            e.target as HTMLElement
-                                                        ).blur();
-                                                    if (e.key === "Escape") {
+                                                    ) ?? entityId}
+                                                    {@attach (el) => {
+                                                        el.focus();
+                                                        el.select();
+                                                    }}
+                                                    oninput={(e) => {
                                                         curieEdits = new Map(
                                                             curieEdits,
-                                                        );
-                                                        curieEdits.delete(
+                                                        ).set(
                                                             entityId,
+                                                            (
+                                                                e.target as HTMLInputElement
+                                                            ).value,
                                                         );
-                                                        (
-                                                            e.target as HTMLElement
-                                                        ).blur();
-                                                    }
-                                                }}
-                                                disabled={curieSaving.has(
-                                                    entityId,
-                                                )}
-                                                title="Edit CURIE — press Enter to confirm, Escape to cancel"
-                                            />
+                                                    }}
+                                                    onblur={() => {
+                                                        if (
+                                                            !curieSaving.has(
+                                                                entityId,
+                                                            )
+                                                        ) {
+                                                            curieEdits =
+                                                                new Map(
+                                                                    curieEdits,
+                                                                );
+                                                            curieEdits.delete(
+                                                                entityId,
+                                                            );
+                                                        }
+                                                    }}
+                                                    onkeydown={(e) => {
+                                                        if (e.key === "Enter")
+                                                            applyCurieEdit(
+                                                                entityId,
+                                                            );
+                                                        if (
+                                                            e.key === "Escape"
+                                                        ) {
+                                                            curieEdits =
+                                                                new Map(
+                                                                    curieEdits,
+                                                                );
+                                                            curieEdits.delete(
+                                                                entityId,
+                                                            );
+                                                        }
+                                                    }}
+                                                    disabled={curieSaving.has(
+                                                        entityId,
+                                                    )}
+                                                    title="Edit CURIE — press Enter to confirm, Escape to cancel"
+                                                />
+                                            {:else}
+                                                <div class="curie-with-status">
+                                                    <code
+                                                        class="entity-curie proposed-editable"
+                                                        onclick={() =>
+                                                            startCurieEdit(
+                                                                entityId,
+                                                            )}
+                                                        title="Click to edit CURIE"
+                                                        >{entityId}</code
+                                                    >
+                                                    {#if locallyConfirmed.has(entityId)}
+                                                        <span
+                                                            class="curie-status confirmed"
+                                                            title="Identifier confirmed"
+                                                            >✓</span
+                                                        >
+                                                    {:else}
+                                                        <button
+                                                            class="curie-status unconfirmed"
+                                                            onclick={() =>
+                                                                startCurieEdit(
+                                                                    entityId,
+                                                                )}
+                                                            title="Identifier not yet confirmed — click to edit"
+                                                            >?</button
+                                                        >
+                                                    {/if}
+                                                </div>
+                                            {/if}
                                             {#if curieErrors.get(entityId)}
                                                 <span class="curie-error"
                                                     >{curieErrors.get(
@@ -544,90 +788,139 @@
                                             >{entity?.kind ?? "?"}</span
                                         >
                                     </td>
-                                    <td>
+                                    <td class="agreement-expand-cell">
                                         <span class="agreement-count"
                                             >{count}/{snapshots.length}</span
                                         >
+                                        <span class="expand-chevron"
+                                            >{isExpanded ? "▲" : "▼"}</span
+                                        >
                                     </td>
                                 </tr>
-                            {/each}
-                        </tbody>
-                    </table>
-                </section>
-
-                <section class="curate-section">
-                    <h3>Pointers</h3>
-                    <p class="section-hint">
-                        Pre-selected: spans all {snapshots.length} annotator{snapshots.length !==
-                        1
-                            ? "s"
-                            : ""} agree on. Toggle to adjust.
-                    </p>
-                    <table class="table curate-table">
-                        <thead>
-                            <tr>
-                                <th class="th-accept"></th>
-                                <th>Entity</th>
-                                <th>Annotated text</th>
-                                <th>Agreement</th>
-                                <th>Annotators</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {#each sortedPointerKeys as k (k)}
-                                {@const p = pointerData.get(k)!}
-                                {@const entity = entities[p.entity_id]}
-                                {@const count = pointerAnnotators.get(k)!.size}
-                                {@const accepted = selectedPointers.has(k)}
-                                <tr
-                                    class="pointer-row {rowClass(
-                                        count,
-                                        acceptedPointerKeys.has(k),
-                                    )} {activePointerKey === k
-                                        ? 'focused'
-                                        : ''}"
-                                    data-pkey={k}
-                                    onclick={() => focusPointer(k)}
-                                >
-                                    <td class="td-accept">
-                                        <button
-                                            class="accept-btn {accepted
-                                                ? 'accepted'
-                                                : ''}"
-                                            onclick={(e) => {
-                                                e.stopPropagation();
-                                                togglePointer(k);
-                                            }}
-                                            title={accepted
-                                                ? "Remove span"
-                                                : "Accept span"}
+                                {#if isExpanded}
+                                    <tr class="mention-expansion-row">
+                                        <td
+                                            colspan="5"
+                                            class="mention-expansion-cell"
                                         >
-                                            {accepted ? "✓" : ""}
-                                        </button>
-                                    </td>
-                                    <td>
-                                        <span class="entity-name">
-                                            {entity?.preferred_name ??
-                                                p.entity_id}
-                                        </span>
-                                        <code class="entity-curie"
-                                            >{p.entity_id}</code
-                                        >
-                                    </td>
-                                    <td class="span-cell">
-                                        {getAnnotatedText(p) || `@${p.field}:${p.offset}+${p.length}`}
-                                    </td>
-                                    <td>
-                                        <span class="agreement-count"
-                                            >{count}/{snapshots.length}</span
-                                        >
-                                    </td>
-                                    <td class="annotators-cell">
-                                        {[...pointerAnnotators.get(k)!].join(
-                                            ", ",
-                                        )}
-                                    </td>
-                                </tr>
+                                            <ul class="mention-list">
+                                                {#each mentionGroupsByEntity.get(entityId) ?? [] as group (group.displayText)}
+                                                    {@const gAccepted =
+                                                        group.keys.some(
+                                                            (k) =>
+                                                                selectedPointers.has(
+                                                                    k,
+                                                                ),
+                                                        )}
+                                                    <li class="mention-group">
+                                                        <div
+                                                            class="mention-group-header"
+                                                        >
+                                                            <button
+                                                                class="accept-btn {gAccepted
+                                                                    ? 'accepted'
+                                                                    : ''}"
+                                                                onclick={() =>
+                                                                    setGroupAccepted(
+                                                                        entityId,
+                                                                        group.displayText,
+                                                                        !gAccepted,
+                                                                    )}
+                                                                title={gAccepted
+                                                                    ? "Reject all occurrences"
+                                                                    : "Accept all occurrences"}
+                                                                >✓</button
+                                                            >
+                                                            <span
+                                                                class="mention-group-text"
+                                                                >{group.displayText}</span
+                                                            >
+                                                        </div>
+                                                        <ul
+                                                            class="mention-sublist"
+                                                        >
+                                                            {#each group.keys as k (k)}
+                                                                {@const p =
+                                                                    pointerData.get(
+                                                                        k,
+                                                                    )!}
+                                                                {@const pAccepted =
+                                                                    selectedPointers.has(
+                                                                        k,
+                                                                    )}
+                                                                {@const pCount =
+                                                                    pointerAnnotators.get(
+                                                                        k,
+                                                                    )!.size}
+                                                                {@const ctx =
+                                                                    getMentionContext(
+                                                                        p,
+                                                                    )}
+                                                                <li
+                                                                    class="mention-item {activePointerKey ===
+                                                                    k
+                                                                        ? 'active'
+                                                                        : ''} {!pAccepted
+                                                                        ? 'removed'
+                                                                        : ''}"
+                                                                    data-mention-key={k}
+                                                                    onclick={() =>
+                                                                        focusPointer(
+                                                                            k,
+                                                                        )}
+                                                                >
+                                                                    <span
+                                                                        class="mention-field-badge"
+                                                                        >{p.field}</span
+                                                                    >
+                                                                    <span
+                                                                        class="mention-kwic-group"
+                                                                        ><span
+                                                                            class="mention-kwic"
+                                                                            ><span
+                                                                                class="kwic-context"
+                                                                                >{ctx.before}</span
+                                                                            ><mark
+                                                                                class="kwic-match"
+                                                                                >{ctx.match}</mark
+                                                                            ><span
+                                                                                class="kwic-context"
+                                                                                >{ctx.after}</span
+                                                                            ></span
+                                                                        ><button
+                                                                            class="mention-toggle-btn {pAccepted
+                                                                                ? 'reject'
+                                                                                : 'accept'}"
+                                                                            onclick={(
+                                                                                e,
+                                                                            ) => {
+                                                                                e.stopPropagation();
+                                                                                setMentionAccepted(
+                                                                                    k,
+                                                                                    !pAccepted,
+                                                                                );
+                                                                            }}
+                                                                            title={pAccepted
+                                                                                ? "Reject this mention"
+                                                                                : "Accept this mention"}
+                                                                            >{pAccepted
+                                                                                ? "×"
+                                                                                : "✓"}</button
+                                                                        ></span
+                                                                    >
+                                                                    <span
+                                                                        class="mention-agreement"
+                                                                        >{pCount}/{snapshots.length}</span
+                                                                    >
+                                                                </li>
+                                                            {/each}
+                                                        </ul>
+                                                    </li>
+                                                {/each}
+                                            </ul>
+                                        </td>
+                                    </tr>
+                                {/if}
                             {/each}
                         </tbody>
                     </table>
@@ -706,19 +999,25 @@
                 {/if}
 
                 <div class="curate-actions">
-                    {#if saveError}
-                        <p class="error-msg">{saveError}</p>
-                    {/if}
-                    {#if saved}
-                        <p class="success-msg">Curated annotation saved.</p>
-                    {/if}
                     <button
                         class="btn primary"
-                        onclick={saveCuration}
-                        disabled={saving}
+                        onclick={markAsComplete}
+                        disabled={autosaving}
                     >
-                        {saving ? "Saving…" : "Save curated annotation"}
+                        Mark as complete
                     </button>
+
+                    <div class="autosave-status">
+                        {#if autosaving}
+                            <span class="autosave-msg saving">Saving…</span>
+                        {:else if autosaveError}
+                            <span class="autosave-msg error"
+                                >Autosave failed: {autosaveError}</span
+                            >
+                        {:else if autosaved}
+                            <span class="autosave-msg saved">Saved</span>
+                        {/if}
+                    </div>
                 </div>
             </div>
 
@@ -730,9 +1029,12 @@
                                 id="pspan-{seg.idx}"
                                 class="pointer-mark"
                                 class:active={activePointerKey === seg.key}
-                                title={entities[pointerData.get(seg.key)!.entity_id]?.preferred_name ?? seg.key}
+                                title={entities[
+                                    pointerData.get(seg.key)!.entity_id
+                                ]?.preferred_name ?? seg.key}
                                 onclick={() => focusPointer(seg.key!)}
-                            >{seg.text}</mark>
+                                >{seg.text}</mark
+                            >
                         {:else}
                             {seg.text}
                         {/if}
@@ -836,15 +1138,6 @@
         margin: 0;
     }
 
-    .pointer-row {
-        cursor: pointer;
-    }
-
-    tr.focused {
-        outline: 2px solid var(--primary-color, #4a90e2);
-        outline-offset: -2px;
-    }
-
     .curate-header {
         display: flex;
         flex-direction: column;
@@ -920,6 +1213,17 @@
         color: var(--text-muted, #888);
     }
 
+    .entity-curie.proposed-editable {
+        cursor: pointer;
+        text-decoration: underline;
+        text-decoration-style: dashed;
+        text-decoration-color: #f59e0b;
+    }
+
+    .entity-curie.proposed-editable:hover {
+        color: #92400e;
+    }
+
     .kind-badge {
         font-size: 0.75rem;
         padding: 0.15rem 0.4rem;
@@ -936,6 +1240,43 @@
         border-radius: 3px;
         margin-left: 0.35rem;
         vertical-align: middle;
+    }
+
+    .curie-with-status {
+        display: flex;
+        align-items: center;
+        gap: 0.3rem;
+    }
+
+    .curie-status {
+        flex-shrink: 0;
+        width: 1.1rem;
+        height: 1.1rem;
+        border-radius: 50%;
+        font-size: 0.65rem;
+        font-weight: 700;
+        line-height: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0;
+    }
+
+    .curie-status.unconfirmed {
+        border: 1px solid #f59e0b;
+        color: #b45309;
+        background: transparent;
+        cursor: pointer;
+    }
+
+    .curie-status.unconfirmed:hover {
+        background: #fef3c7;
+    }
+
+    .curie-status.confirmed {
+        border: 1px solid #16a34a;
+        color: #16a34a;
+        background: #f0fdf4;
     }
 
     .curie-cell {
@@ -1041,21 +1382,212 @@
 
     .curate-actions {
         display: flex;
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 0.5rem;
+        flex-direction: row;
+        align-items: center;
+        gap: 1rem;
         padding-top: 0.5rem;
     }
 
-    .error-msg {
-        color: var(--danger, #dc2626);
-        margin: 0;
-        font-size: 0.875rem;
+    .autosave-status {
+        font-size: 0.8rem;
+        min-width: 6rem;
     }
 
-    .success-msg {
-        color: var(--success, #16a34a);
-        margin: 0;
-        font-size: 0.875rem;
+    .autosave-msg.saving {
+        color: var(--text-muted, #6b7280);
     }
+
+    .autosave-msg.saved {
+        color: var(--success, #16a34a);
+    }
+
+    .autosave-msg.error {
+        color: var(--danger, #dc2626);
+    }
+
+    .entity-row {
+        cursor: pointer;
+        user-select: none;
+    }
+
+    .entity-row.expanded td:first-child {
+        box-shadow: inset 3px 0 0 var(--primary-color, #4a90e2);
+    }
+
+    .agreement-expand-cell {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        white-space: nowrap;
+    }
+
+    .expand-chevron {
+        font-size: 0.65rem;
+        color: var(--text-muted, #888);
+    }
+
+    .mention-expansion-row td {
+        padding: 0;
+        border-top: none;
+    }
+
+    .mention-expansion-cell {
+        padding: 0 0 0.5rem 2.5rem !important;
+        background: var(--bg-subtle, #f3f4f6);
+    }
+
+    .mention-list {
+        list-style: none;
+        margin: 0;
+        padding: 0.25rem 0;
+        display: flex;
+        flex-direction: column;
+        gap: 0.35rem;
+    }
+
+    .mention-group {
+        list-style: none;
+        display: flex;
+        flex-direction: column;
+        gap: 0.1rem;
+    }
+
+    .mention-group-header {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.25rem 0.5rem;
+        cursor: default;
+    }
+
+    .mention-toggle-btn {
+        flex-shrink: 0;
+        width: 1.3rem;
+        height: 1.3rem;
+        border-radius: 50%;
+        border: 1px solid currentColor;
+        background: transparent;
+        cursor: pointer;
+        font-size: 0.7rem;
+        line-height: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0;
+        transition: background 0.1s;
+    }
+
+    .mention-toggle-btn.reject {
+        color: #dc2626;
+        border-color: #fca5a5;
+    }
+
+    .mention-toggle-btn.reject:hover {
+        background: #fee2e2;
+    }
+
+    .mention-toggle-btn.accept {
+        color: #16a34a;
+        border-color: #86efac;
+    }
+
+    .mention-toggle-btn.accept:hover {
+        background: #dcfce7;
+    }
+
+    .mention-group-text {
+        font-family: monospace;
+        font-size: 0.83rem;
+        font-weight: 600;
+        flex: 1;
+        min-width: 0;
+        word-break: break-word;
+    }
+
+    .mention-sublist {
+        list-style: none;
+        margin: 0;
+        padding: 0 0 0 0.75rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.15rem;
+    }
+
+    .mention-item {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.25rem 0.5rem;
+        border-radius: 4px;
+        border-left: 3px solid transparent;
+        cursor: pointer;
+        transition: background 0.1s;
+    }
+
+    .mention-item:hover {
+        background: #e5e7eb;
+    }
+
+    .mention-item.active {
+        border-left-color: #f97316;
+        background: #fff7ed;
+    }
+
+    .mention-item.removed {
+        opacity: 0.5;
+        text-decoration: line-through;
+    }
+
+    .mention-kwic-group {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        gap: 1em;
+        min-width: 0;
+        overflow: hidden;
+    }
+
+    .mention-kwic {
+        flex-shrink: 1;
+        min-width: 0;
+        font-family: monospace;
+        font-size: 0.8rem;
+        white-space: nowrap;
+        overflow: hidden;
+    }
+
+    .kwic-context {
+        color: var(--text-muted, #6b7280);
+    }
+
+    .kwic-match {
+        background: #fef08a;
+        border-radius: 2px;
+        padding: 0 1px;
+        font-weight: 600;
+    }
+
+    .mention-item.active .kwic-match {
+        background: #f97316;
+        color: white;
+    }
+
+    .mention-item.removed .kwic-match {
+        background: none;
+    }
+
+    .mention-field-badge {
+        font-size: 0.7rem;
+        padding: 0.1rem 0.3rem;
+        background: #e5e7eb;
+        border-radius: 3px;
+        color: #374151;
+    }
+
+    .mention-agreement {
+        font-size: 0.75rem;
+        color: var(--text-muted, #888);
+        margin-left: auto;
+    }
+
 </style>
