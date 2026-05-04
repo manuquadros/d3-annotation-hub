@@ -1,25 +1,87 @@
 # Curating annotations
 
-Curators review the annotations submitted by all annotators for an article, to
+Curators review the annotations submitted by all annotators for an article and
 produce a single, authoritative annotation.
 
 ## Opening the curation view
 
 Navigate to **Curation Queue** in the sidebar. Each article shows how many
-annotators have submitted their work. Click on an article to open the curation view.
+annotators have submitted their work. Click an article to open the curation view.
 
-## Reviewing entities and entity mentions
+## Layout
 
-The curation view shows the list of entities that have been annotated for the current document.
-Entities marked as "proposed" are not yet part of the project's knowledge graph and need to be
-reviewed for inclusion.
+The curation view is split into two panels:
 
-Clicking on a entity opens a list of all the mentions that have been annotated for it in the current text and highlights those mentions in the text itself, which is shown on the right.
-If you click on a list item, the corresponding highlight will be focused on the text, and vice-versa: if you click on a highlight, its corresponding list item will be focused.
+- **Left** — the decision tables where you accept or reject entities, mentions, and relations.
+- **Right** — the article text (abstract and full text) with all annotated spans highlighted. Clicking a highlight focuses the corresponding mention in the left panel, and vice versa.
 
-You can edit each mention or remove it. If you don't do anything, the mention is automatically accepted when you save the curated annotation.  
+## Reviewing entities and mentions
 
-## Finalising
+The **Entities** table lists every entity that at least one annotator tagged.
+Click a row to expand it and see that entity's individual mentions grouped by
+the surface text they match.
 
-Once you are satisfied with the curated annotation, save it. The article is then
-marked as curated and removed from the active queue.
+Each mention shows a short excerpt of surrounding context and a badge indicating
+whether it appears in the abstract or the full text.
+
+**Accepting and rejecting** works at three levels:
+
+- **Entity row** — the `✓` button on the left accepts or removes the entity and
+  all its mentions at once.
+- **Mention group header** — the `✓` button next to a surface-text group accepts
+  or rejects every occurrence of that exact phrasing.
+- **Individual mention** — the `×` / `✓` button on a single mention item overrides
+  it independently.
+
+By default, all mentions are accepted. Start from the entity level and drill down
+only where you need finer control.
+
+### Agreement colours
+
+Row backgrounds give a quick signal of annotator agreement:
+
+- **Green** — all annotators tagged this entity or mention.
+- **Yellow** — a majority did.
+- **Red** — only a minority did.
+- **Teal** — this entry was accepted in a previously saved curation for this article.
+
+## Proposed entities
+
+Entities not yet part of the project's knowledge graph are marked **proposed**.
+Before saving, each proposed entity needs a confirmed identifier (CURIE):
+
+1. Click the identifier shown in the **Identifier** column to open an inline editor.
+2. Type the correct CURIE and press **Enter** to save, or **Escape** to cancel.
+3. Once confirmed, a `✓` badge replaces the `?` badge next to the identifier.
+
+If you want to keep the proposed identifier as-is, click the `?` badge and press
+**Enter** without changing the text — this marks it as reviewed.
+
+## Keyboard shortcuts
+
+| Key | Action |
+|---|---|
+| `↓` or `j` | Move to the next mention |
+| `↑` or `k` | Move to the previous mention |
+| `Space` | Accept or reject the focused mention |
+
+## Relations
+
+If annotators have recorded relations between entities they appear in a
+**Relations** table below the entity list. Use the `✓` button to include or
+exclude each relation from the curated annotation.
+
+## Saving and completing
+
+Changes are **saved automatically** a moment after each edit — no manual save
+needed. A status indicator in the bottom-left of the decision panel confirms
+when the last save completed.
+
+When you are satisfied with all decisions, click **Mark as complete**. The tool
+will warn you if:
+
+- Any proposed entity still has an unconfirmed identifier.
+- Any accepted mention has annotator disagreements that you have not reviewed.
+
+Both are soft warnings — you can proceed anyway. After confirming, the article is
+marked as curated and you are returned to the curation queue.

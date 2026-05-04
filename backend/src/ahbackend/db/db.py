@@ -745,7 +745,7 @@ def mark_annotation_incomplete(
 
 def get_curated_annotation(
     project_id: int, reference_id: int, curator_id: uuid.UUID
-) -> tuple[list[CuratedAnnotationPointer], list[Relation]]:
+) -> tuple[list[Pointer], list[Relation]]:
     """Return the accepted pointers and relations from this curator's saved
     curated annotation for (project, reference), or empty lists if none."""
     with Session(annodb.engine) as session:
@@ -760,9 +760,16 @@ def get_curated_annotation(
 
         pointers = list(
             session.scalars(
-                select(CuratedAnnotationPointer).where(
-                    CuratedAnnotationPointer.curated_id == curated.curated_id
+                select(Pointer)
+                .join(
+                    CuratedAnnotationPointer,
+                    (Pointer.reference_id == CuratedAnnotationPointer.reference_id)
+                    & (Pointer.entity_id == CuratedAnnotationPointer.entity_id)
+                    & (Pointer.offset == CuratedAnnotationPointer.offset)
+                    & (Pointer.length == CuratedAnnotationPointer.length)
+                    & (Pointer.field == CuratedAnnotationPointer.field),
                 )
+                .where(CuratedAnnotationPointer.curated_id == curated.curated_id)
             ).all()
         )
 
