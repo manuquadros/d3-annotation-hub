@@ -1,0 +1,36 @@
+# Annotating articles
+
+When an article is assigned to you it appears in your **Annotation Queue** in
+the sidebar. Click it to open the annotation view.
+
+## Selecting text
+
+Click and drag over any span of text in the abstract or body to open the
+annotation editor. The selected sentence is shown for context.
+
+## Creating an entity
+
+After selecting text you can either:
+
+- **Create a new entity** — choose a kind (Enzyme, Bacteria, Strain…), enter a
+  preferred name, and confirm.
+- **Add to an existing entity** — search for an entity already in the project and
+  attach the selected text as an additional mention.
+
+Confirmed entities appear in the **Summary** panel on the right.
+
+## Editing a mention
+
+Click any highlighted span to reopen the editor for that mention. You can change
+the linked entity or adjust the text boundaries.
+
+## Adding relations
+
+Switch to the **Relations** panel and click **Add relation**. Select a subject
+entity, a predicate, and an object entity. Relations are saved alongside the
+entity annotations.
+
+## Completion
+
+When you have finished annotating an article, mark it as **Complete** in the
+Summary panel. It then moves to the curation queue.

@@ -34,17 +34,26 @@
             const doi = pd.data?.reference?.doi;
             const projectId = pd.projectId ?? pd.currentProjectId;
             return [
-                { label: "Curation Queue", href: `/curate?project=${projectId}` },
+                {
+                    label: "Curation Queue",
+                    href: `/curate?project=${projectId}`,
+                },
                 { label: doi ?? `Reference ${$page.params.refId}` },
             ];
         }
         if (path.includes("/documents")) return [{ label: "Documents" }];
-        const ontologyDetailMatch = path.match(/^\/projects\/(\d+)\/ontologies\/(\d+)$/);
+        const ontologyDetailMatch = path.match(
+            /^\/projects\/(\d+)\/ontologies\/(\d+)$/,
+        );
         if (ontologyDetailMatch) {
             const projectId = ontologyDetailMatch[1];
-            const ontologyName = pd.ontology?.name ?? `Ontology ${ontologyDetailMatch[2]}`;
+            const ontologyName =
+                pd.ontology?.name ?? `Ontology ${ontologyDetailMatch[2]}`;
             return [
-                { label: "Ontologies", href: `/projects/${projectId}/ontologies` },
+                {
+                    label: "Ontologies",
+                    href: `/projects/${projectId}/ontologies`,
+                },
                 { label: ontologyName },
             ];
         }
@@ -107,7 +116,10 @@
                         <ul class="breadcrumb navbar-breadcrumb">
                             {#each breadcrumbs as crumb, i (crumb.label)}
                                 {@const isLast = i === breadcrumbs.length - 1}
-                                <li class:active={isLast} aria-current={isLast ? "page" : undefined}>
+                                <li
+                                    class:active={isLast}
+                                    aria-current={isLast ? "page" : undefined}
+                                >
                                     {#if crumb.href}
                                         <a href={crumb.href}>{crumb.label}</a>
                                     {:else}
@@ -145,6 +157,19 @@
 
             <!-- Sidebar start -->
             <div class="sidebar">
+                <nav class="sidebar-topnav">
+                    <ul>
+                        <li>
+                            <a href="/docs"><i class="ph ph-book"></i>Manual</a>
+                        </li>
+                        <li>
+                            <a class="with-icon" onclick={() => auth.logout()}>
+                                <i class="ph ph-sign-out"></i>
+                                Log out
+                            </a>
+                        </li>
+                    </ul>
+                </nav>
                 <div class="sidebar-menu">
                     {#if data.projects.length > 0 && data.currentProjectId !== null}
                         <div class="sidebar-section">
@@ -213,10 +238,6 @@
                                 Admin
                             </a>
                         {/if}
-                        <a class="with-icon" onclick={() => auth.logout()}>
-                            <i class="ph ph-sign-out"></i>
-                            Log out
-                        </a>
                     </nav>
                 </div>
             </div>
@@ -233,37 +254,6 @@
         <!-- Content wrapper end -->
 
         <div class="page-footer">
-            <div class="link-parade">
-                <div class="row">
-                    <div class="col">
-                        <h3>Annotation Hub</h3>
-                        <a href="#">About</a>
-                        <a href="#">News</a>
-                        <a href="#">Subscribe</a>
-                    </div>
-                    <div class="col">
-                        <h3>Help</h3>
-                        <a href="#">Q&amp;A</a>
-                        <a href="#">Tutorials</a>
-                        <a href="#">Contact</a>
-                    </div>
-                    <div class="col">
-                        <h3>Social Media</h3>
-                        <a href="#">
-                            <span class="icon"
-                                ><i class="ph ph-twitter-logo"></i></span
-                            >
-                            Twitter
-                        </a>
-                        <a href="#">
-                            <span class="icon"
-                                ><i class="ph ph-youtube-logo"></i></span
-                            >
-                            YouTube
-                        </a>
-                    </div>
-                </div>
-            </div>
             <div class="logo-parade">
                 <a href="#"><img src="???" alt="???" /></a>
                 <a href="#"><img src="???" alt="???" /></a>

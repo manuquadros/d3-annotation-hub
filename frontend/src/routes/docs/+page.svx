@@ -1,0 +1,15 @@
+# Introduction
+
+The **Annotation Hub** is a collaborative tool for annotating research literature.
+It lets teams mark up entities in scientific articles and record relationships between them.
+
+## Who is this guide for?
+
+This guide is for everyone who uses the Annotation Hub:
+
+- **Annotators** read assigned articles and tag entities and relations in the text.
+- **Curators** review the annotations submitted by annotators and produce a final,
+  agreed-upon annotation for each article.
+- **Managers** configure projects, assign articles to the queue, and manage users.
+
+Use the sidebar to navigate to the section that matches your role.

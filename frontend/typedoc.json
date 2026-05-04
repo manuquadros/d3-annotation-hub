@@ -1,0 +1,21 @@
+{
+    "entryPointStrategy": "expand",
+    "entryPoints": ["src/lib"],
+    "exclude": [
+        "**/*.spec.ts",
+        "**/*.test.ts",
+        "**/test_utils.ts",
+        "**/tests/**",
+        "**/pointers.ts"
+    ],
+    "out": "../docs/frontend/reference",
+    "plugin": ["typedoc-plugin-markdown"],
+    "readme": "none",
+    "tsconfig": "./tsconfig.docs.json",
+    "hideGenerator": true,
+    "excludePrivate": true,
+    "excludeInternal": true,
+    "excludeProtected": false,
+    "categorizeByGroup": true,
+    "sort": ["source-order"]
+}

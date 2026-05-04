@@ -1,0 +1,25 @@
+# Curating annotations
+
+Curators review the annotations submitted by all annotators for an article, to
+produce a single, authoritative annotation.
+
+## Opening the curation view
+
+Navigate to **Curation Queue** in the sidebar. Each article shows how many
+annotators have submitted their work. Click on an article to open the curation view.
+
+## Reviewing entities and entity mentions
+
+The curation view shows the list of entities that have been annotated for the current document.
+Entities marked as "proposed" are not yet part of the project's knowledge graph and need to be
+reviewed for inclusion.
+
+Clicking on a entity opens a list of all the mentions that have been annotated for it in the current text and highlights those mentions in the text itself, which is shown on the right.
+If you click on a list item, the corresponding highlight will be focused on the text, and vice-versa: if you click on a highlight, its corresponding list item will be focused.
+
+You can edit each mention or remove it. If you don't do anything, the mention is automatically accepted when you save the curated annotation.  
+
+## Finalising
+
+Once you are satisfied with the curated annotation, save it. The article is then
+marked as curated and removed from the active queue.
