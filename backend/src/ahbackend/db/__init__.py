@@ -42,6 +42,7 @@ from .db import (
     get_reference_by_doi,
     get_reference_by_id,
     get_reference_by_pubmed_id,
+    store_reference,
     get_user,
     get_user_auth,
     get_user_last_project,

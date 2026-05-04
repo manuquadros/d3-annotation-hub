@@ -44,6 +44,7 @@ from ahbackend.db import (
     get_reference_annotation,
     get_reference_by_id,
     get_reference_by_pubmed_id,
+    store_reference,
     get_user,
     get_user_last_project,
     get_user_project_roles,
@@ -65,6 +66,7 @@ from ahbackend.db import (
     update_entity_curie,
     upsert_annotation,
 )
+from ahbackend.pmc import fetch_reference_from_pmc
 from d3textdb.owl import parse_owl
 from d3textdb.schema import (
     EntityAnnotation,
@@ -860,11 +862,22 @@ def add_references(
             continue
         if _is_doi(identifier):
             ref = get_reference_by_doi(identifier)
+            pubmed_id = None
         else:
             try:
-                ref = get_reference_by_pubmed_id(int(identifier))
+                pubmed_id = int(identifier)
             except ValueError:
                 not_found.append(identifier)
+                continue
+            ref = get_reference_by_pubmed_id(pubmed_id)
+
+        if ref is None and pubmed_id is not None:
+            fetched = fetch_reference_from_pmc(pubmed_id)
+            if fetched is not None:
+                ref_id = store_reference(fetched)
+                add_reference_to_project(project_id, ref_id)
+                existing_ids.add(ref_id)
+                imported += 1
                 continue
 
         if ref is None:

@@ -60,6 +60,10 @@ def get_reference_by_pubmed_id(pubmed_id: int) -> Reference | None:
     return annodb.get_article_by_pubmed_id(pubmed_id)
 
 
+def store_reference(reference: Reference) -> int:
+    return annodb.store_reference(reference)
+
+
 def get_reference_by_doi(doi: str) -> Reference | None:
     return annodb.get_reference_by_doi(doi)
 
