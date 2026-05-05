@@ -827,6 +827,7 @@ class ReferenceInfo(BaseModel):
     title: str
     authors: str
     year: int
+    abstract: str | None = None
     body: str | None = None
 
 
@@ -1273,6 +1274,13 @@ def annotator_snapshots(
         )
         for s in snapshots
     ]
+    abstract_html: str | None = None
+    if ref.abstract:
+        try:
+            abstract_html = str(transform_article(ref.abstract))
+        except XMLSyntaxError:
+            abstract_html = ref.abstract
+
     body_html: str | None = None
     if ref.body:
         try:
@@ -1314,6 +1322,7 @@ def annotator_snapshots(
             title=ref.title,
             authors=ref.authors,
             year=ref.year,
+            abstract=abstract_html,
             body=body_html,
         ),
         entities=entities,

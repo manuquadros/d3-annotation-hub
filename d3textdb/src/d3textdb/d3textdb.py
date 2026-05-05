@@ -557,7 +557,7 @@ class D3TextDB:
         content_hash = _content_hash(ann.pointers, ann.relations)
         now = datetime.now(timezone.utc)
 
-        with Session(self.engine) as session:
+        with Session(self.engine, autoflush=False) as session:
             # Upsert entities before inserting pointers.
             for entity in ann.entities:
                 if not entity.confirmed:
@@ -657,6 +657,8 @@ class D3TextDB:
                         )
                     )
 
+            session.flush()
+
             # Store pointers.
             for pointer in ann.pointers:
                 session.execute(
@@ -680,6 +682,8 @@ class D3TextDB:
                         },
                     )
                 )
+
+            session.flush()
 
             # Store relations and UserRelationReference entries.
             relation_ids: list[int] = []

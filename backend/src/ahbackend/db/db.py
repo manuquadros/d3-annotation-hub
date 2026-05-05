@@ -682,6 +682,7 @@ def mark_annotation_complete(
                         entity_id=sp.entity_id,
                         offset=sp.offset,
                         length=sp.length,
+                        field=sp.field,
                     )
                 )
             state_relations = session.scalars(
