@@ -4,7 +4,8 @@
     import { untrack } from "svelte";
     import type { PageData } from "./$types";
     import type { PointerOut, RelationOut } from "./+page.server";
-    import { resolvePointerOffset } from "$lib/annotation.svelte";
+    import { resolvePointerOffset, createRangeFromOffsets } from "$lib/annotation.svelte";
+    import DOMPurify from "dompurify";
     import type { Pointer } from "$lib/types.ts";
 
     interface Props {
@@ -110,62 +111,40 @@
     ];
     const spanIndexByKey = new Map(spansByOffset.map((s, i) => [s.key, i]));
 
-    interface TextSeg {
-        text: string;
-        key: PointerKey | null;
-        idx: number;
-    }
-
-    function buildSegments(plainText: string, spans: SpanEntry[]): TextSeg[] {
-        if (!plainText) return [];
-        const segs: TextSeg[] = [];
-
-        const resolved = spans
-            .map(({ key, p }) => {
-                const r = resolvePointerOffset(
-                    p as unknown as Pointer,
-                    plainText,
-                );
-                return {
-                    key,
-                    offset: r?.offset ?? p.offset,
-                    length: r?.length ?? p.length,
-                };
-            })
-            .sort((a, b) => a.offset - b.offset || b.length - a.length);
-
-        let pos = 0;
-        for (const { key, offset, length } of resolved) {
-            if (offset >= plainText.length) break;
-            if (offset > pos) {
-                segs.push({
-                    text: plainText.slice(pos, offset),
-                    key: null,
-                    idx: -1,
-                });
-            }
-            if (offset >= pos) {
-                const end = Math.min(offset + length, plainText.length);
-                segs.push({
-                    text: plainText.slice(offset, end),
-                    key,
-                    idx: spanIndexByKey.get(key)!,
-                });
-                pos = end;
-            }
+    function renderField(
+        element: HTMLDivElement,
+        html: string | null,
+        spans: SpanEntry[],
+    ) {
+        if (!html) {
+            element.replaceChildren();
+            return;
         }
-        if (pos < plainText.length) {
-            segs.push({ text: plainText.slice(pos), key: null, idx: -1 });
-        }
-        return segs;
-    }
+        element.innerHTML = DOMPurify.sanitize(html);
+        const pt = element.textContent || "";
 
-    const abstractSegments = $derived(
-        buildSegments(abstractPlainText, abstractSpansByOffset),
-    );
-    const bodySegments = $derived(
-        buildSegments(bodyPlainText, bodySpansByOffset),
-    );
+        for (const { key, p } of spans) {
+            const resolved = resolvePointerOffset(p as unknown as Pointer, pt);
+            if (!resolved) continue;
+            const range = createRangeFromOffsets(
+                element,
+                resolved.offset,
+                resolved.offset + resolved.length,
+            );
+            if (!range) continue;
+
+            const idx = spanIndexByKey.get(key)!;
+            const mark = document.createElement("mark");
+            mark.id = `pspan-${idx}`;
+            mark.className = "pointer-mark";
+            mark.dataset.pointerKey = key;
+            mark.title = entities[p.entity_id]?.preferred_name ?? key;
+            mark.addEventListener("click", () => focusPointer(key));
+
+            mark.appendChild(range.extractContents());
+            range.insertNode(mark);
+        }
+    }
 
     let activePointerKey = $state<PointerKey | null>(null);
     let activeEntityId = $state<string | null>(null);
@@ -247,6 +226,21 @@
         }
         document.addEventListener("keydown", onKeydown);
         return () => document.removeEventListener("keydown", onKeydown);
+    });
+
+    $effect(() => {
+        const active = activePointerKey;
+        document
+            .querySelectorAll(".curate-text-panel .pointer-mark.active")
+            .forEach((el) => el.classList.remove("active"));
+        if (active !== null) {
+            const idx = spanIndexByKey.get(active);
+            if (idx !== undefined) {
+                document
+                    .getElementById(`pspan-${idx}`)
+                    ?.classList.add("active");
+            }
+        }
     });
 
     const acceptedPointerKeys = new Set<PointerKey>(
@@ -1022,40 +1016,33 @@
             </div>
 
             <aside class="curate-text-panel">
-                {#snippet segmentList(segs: TextSeg[])}
-                    {#each segs as seg, i (i)}
-                        {#if seg.key !== null}
-                            <mark
-                                id="pspan-{seg.idx}"
-                                class="pointer-mark"
-                                class:active={activePointerKey === seg.key}
-                                title={entities[
-                                    pointerData.get(seg.key)!.entity_id
-                                ]?.preferred_name ?? seg.key}
-                                onclick={() => focusPointer(seg.key!)}
-                                >{seg.text}</mark
-                            >
-                        {:else}
-                            {seg.text}
-                        {/if}
-                    {/each}
-                {/snippet}
-
-                {#if abstractSegments.length > 0}
+                {#if reference.abstract}
                     <p class="text-panel-title">Abstract</p>
-                    <div class="article-text">
-                        {@render segmentList(abstractSegments)}
-                    </div>
+                    <div
+                        class="article-text"
+                        {@attach (el) =>
+                            renderField(
+                                el,
+                                reference.abstract,
+                                abstractSpansByOffset,
+                            )}
+                    ></div>
                 {/if}
 
-                {#if bodySegments.length > 0}
+                {#if reference.body}
                     <p class="text-panel-title">Full text</p>
-                    <div class="article-text">
-                        {@render segmentList(bodySegments)}
-                    </div>
+                    <div
+                        class="article-text"
+                        {@attach (el) =>
+                            renderField(
+                                el,
+                                reference.body,
+                                bodySpansByOffset,
+                            )}
+                    ></div>
                 {/if}
 
-                {#if abstractSegments.length === 0 && bodySegments.length === 0}
+                {#if !reference.abstract && !reference.body}
                     <p class="no-text">No article text available.</p>
                 {/if}
             </aside>
@@ -1106,13 +1093,28 @@
     }
 
     .article-text {
-        font-size: 1rem;
-        line-height: 1.7;
-        white-space: pre-wrap;
+        font-size: 0.9rem;
+        line-height: 1.65;
         word-break: break-word;
     }
 
-    .pointer-mark {
+    .article-text :global(h1),
+    .article-text :global(h2),
+    .article-text :global(h3),
+    .article-text :global(h4) {
+        font-size: 0.85rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: #374151;
+        margin: 1rem 0 0.25rem;
+    }
+
+    .article-text :global(p) {
+        margin: 0 0 0.5rem;
+    }
+
+    :global(.pointer-mark) {
         background: #fef08a;
         border-radius: 2px;
         padding: 0 1px;
@@ -1120,11 +1122,11 @@
         transition: background 0.1s;
     }
 
-    .pointer-mark:hover {
+    :global(.pointer-mark:hover) {
         background: #fde047;
     }
 
-    .pointer-mark.active {
+    :global(.pointer-mark.active) {
         background: #f97316;
         color: white;
         border-radius: 3px;

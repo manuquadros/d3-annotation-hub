@@ -714,7 +714,7 @@ function getTextNodes(element: HTMLElement): Text[] {
     return textNodes;
 }
 
-function createRangeFromOffsets(
+export function createRangeFromOffsets(
     element: HTMLElement,
     startOffset: number,
     endOffset: number,
