@@ -16,6 +16,7 @@ declare global {
     }
 
     const digidive: NonNullable<Window["digidive"]>;
+    const __APP_VERSION__: string;
 }
 
 export {};

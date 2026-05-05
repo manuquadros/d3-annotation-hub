@@ -261,11 +261,11 @@
             </div>
             <hr />
             <div class="footer">
-                <span> &copy; DSMZ 2023 </span>
-                <a href="#">Imprint</a>
-                <a href="#">Privacy Statement</a>
-                <a href="#">Copyright &amp; License</a>
-                <a href="#">Sitemap</a>
+                <span> &copy; DSMZ 2026 </span>
+                <span class="version">Version: {__APP_VERSION__}</span>
+                {#if data.email}
+                    <span class="ml-auto">Logged as: {data.email}</span>
+                {/if}
             </div>
         </div>
     </div>
