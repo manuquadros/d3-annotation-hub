@@ -24,6 +24,8 @@ the surface text they match.
 Each mention shows a short excerpt of surrounding context and a badge indicating
 whether it appears in the abstract or the full text.
 
+![As a curator, you can review proposed entities and mentions](/screenshots/entity_review.png)
+
 **Accepting and rejecting** works at three levels:
 
 - **Entity row** — the `✓` button on the left accepts or removes the entity and

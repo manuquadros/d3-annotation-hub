@@ -12,7 +12,26 @@
         { href: "/docs/curation", label: "Curating annotations" },
         { href: "/docs/management", label: "Project management" },
     ];
+
+    let lightboxSrc = $state<string | null>(null);
+
+    function handleContentClick(e: MouseEvent) {
+        const target = e.target as HTMLElement;
+        if (target.tagName === "IMG") {
+            lightboxSrc = (target as HTMLImageElement).src;
+        }
+    }
+
+    function closeLightbox() {
+        lightboxSrc = null;
+    }
+
+    function handleKeydown(e: KeyboardEvent) {
+        if (e.key === "Escape") closeLightbox();
+    }
 </script>
+
+<svelte:window onkeydown={handleKeydown} />
 
 <div class="docs-layout">
     <aside class="docs-nav">
@@ -29,10 +48,17 @@
         </nav>
     </aside>
 
-    <article class="docs-content">
+    <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_noninteractive_element_interactions -->
+    <article class="docs-content" onclick={handleContentClick}>
         {@render children()}
     </article>
 </div>
+
+{#if lightboxSrc}
+    <button class="lightbox" onclick={closeLightbox} aria-label="Close image">
+        <img src={lightboxSrc} alt="" />
+    </button>
+{/if}
 
 <style>
     .docs-layout {
@@ -96,4 +122,25 @@
     .docs-content :global(code) { font-size: 0.875em; background: var(--color-bg-code, #f4f4f4); padding: 0.15em 0.35em; border-radius: 3px; }
     .docs-content :global(pre) { background: var(--color-bg-code, #f4f4f4); padding: 1rem; border-radius: 6px; overflow-x: auto; margin-bottom: 1rem; }
     .docs-content :global(pre code) { background: none; padding: 0; }
+    .docs-content :global(img) { display: block; width: 80%; margin: 1rem auto; cursor: zoom-in; }
+
+    .lightbox {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.8);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+        cursor: zoom-out;
+        border: none;
+        padding: 2rem;
+    }
+
+    .lightbox img {
+        max-width: 100%;
+        max-height: 90vh;
+        object-fit: contain;
+        border-radius: 4px;
+    }
 </style>
