@@ -17,6 +17,8 @@ After selecting text you can either:
 - **Add to an existing entity** — search for an entity already in the project and
   attach the selected text as an additional mention.
 
+![You can propose a new entity or add to an existing one](/screenshots/add_to_entity.png)
+
 Confirmed entities appear in the **Summary** panel on the right.
 
 ## Editing a mention
@@ -26,11 +28,13 @@ the linked entity or adjust the text boundaries.
 
 ## Adding relations
 
-Switch to the **Relations** panel and click **Add relation**. Select a subject
-entity, a predicate, and an object entity. Relations are saved alongside the
-entity annotations.
+In the **Entities** section of the right sidebar, drag one entity button onto
+another to create a relation. The resulting relations appear in the **Relations**
+section below. Relations are saved alongside the entity annotations.
+
+![You can add a new relation by dragging one entity on top of another](/screenshots/new_relation.png)
 
 ## Completion
 
-When you have finished annotating an article, mark it as **Complete** in the
-Summary panel. It then moves to the curation queue.
+When you have finished annotating an article, click the checkmark next to it in
+the **Annotation Queue** in the left sidebar to mark it as complete.
