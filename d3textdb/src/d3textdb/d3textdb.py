@@ -12,7 +12,7 @@ import bcrypt
 from pydantic import EmailStr
 from sqlalchemy import create_engine
 from sqlalchemy import delete as sa_delete
-from sqlalchemy import event, func, literal_column, or_, select, text
+from sqlalchemy import event, func, literal_column, or_, select, text, update
 from sqlalchemy.dialects.sqlite import insert
 from sqlalchemy.orm import Session, aliased
 from sqlalchemy.pool import StaticPool
@@ -139,6 +139,13 @@ class D3TextDB:
                 )
             )
 
+    def _clear_preferred_flags(self, session: Session, entity_id: int) -> None:
+        session.execute(
+            update(EntityName)
+            .where(EntityName.entity_id == entity_id)
+            .values(is_preferred=False)
+        )
+
     def search_entities(
         self,
         query: str,
@@ -168,7 +175,7 @@ class D3TextDB:
                 Entity.curie,
                 Entity.type,
                 Entity.confirmed,
-                pref_name.label.label("preferred_name"),
+                func.max(pref_name.label).label("preferred_name"),  # MAX collapses the group; each entity has one preferred name
                 func.min(func.length(match_name.label)).label("best_len"),
             )
             .join(EntityName, EntityName.entity_id == Entity.entity_id)
@@ -180,7 +187,7 @@ class D3TextDB:
             .outerjoin(pref_name, pref_name.id == pref_en.name_id)
             .where(match_name.label.ilike(pattern))
             .where(Entity.is_class == is_class)
-            .group_by(Entity.curie, Entity.type, Entity.confirmed, pref_name.label)
+            .group_by(Entity.curie, Entity.type, Entity.confirmed)
             .order_by(func.min(func.length(match_name.label)))
             .limit(limit)
         )
@@ -634,6 +641,8 @@ class D3TextDB:
                     for s in entity.synonyms
                     if s != entity.preferred_name
                 ]
+                # Clears stale flags when a preferred name changes across imports.
+                self._clear_preferred_flags(session, int_entity_id)
                 for label, is_preferred in all_names:
                     name_id = session.execute(
                         insert(Name)
@@ -1715,6 +1724,7 @@ class D3TextDB:
                     (entity.preferred_name, True)
                 ] + [(s, False) for s in entity.synonyms]
 
+                self._clear_preferred_flags(session, int_entity_id)
                 for label, is_preferred in all_names:
                     name_id: int = session.execute(
                         insert(Name)
