@@ -266,6 +266,7 @@
                 <a href="#">Privacy Statement</a>
                 <a href="#">Copyright &amp; License</a>
                 <a href="#">Sitemap</a>
+                <span class="version">{__APP_VERSION__}</span>
             </div>
         </div>
     </div>
