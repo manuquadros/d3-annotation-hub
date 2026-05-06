@@ -4,9 +4,11 @@ import type { LayoutServerLoad } from "./$types";
 
 export const load: LayoutServerLoad = async ({ cookies, url }) => {
     const token = cookies.get("auth_token");
+
     if (!token && url.pathname !== "/login") {
         redirect(302, "/login");
     }
+
     if (!token)
         return {
             authenticated: false,
@@ -26,6 +28,7 @@ export const load: LayoutServerLoad = async ({ cookies, url }) => {
     ]);
 
     if (meRes.status === 401) {
+        cookies.delete("auth_token", { path: "/" });
         redirect(302, "/login");
     }
 
