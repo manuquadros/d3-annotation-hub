@@ -1,12 +1,15 @@
 from datetime import datetime, timedelta, timezone
-from unittest.mock import MagicMock
+from uuid import UUID
 
 import bcrypt
 import jwt
 import pytest
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+from d3textdb.schema import UserAuth
 
 from ahbackend.users.users import create_access_token, is_valid_credentials
+
+_DUMMY_UUID = UUID("00000000-0000-0000-0000-000000000000")
 
 
 @pytest.fixture
@@ -68,11 +71,12 @@ def hashed_password():
     return bcrypt.hashpw(_PLAIN_PASSWORD.encode(), bcrypt.gensalt()).decode()
 
 
-def _make_user_auth(hashed_password: str, disabled: bool = False) -> MagicMock:
-    auth = MagicMock()
-    auth.hashed_password = hashed_password
-    auth.disabled = disabled
-    return auth
+def _make_user_auth(hashed_password: str, disabled: bool = False) -> UserAuth:
+    return UserAuth(
+        user_id=_DUMMY_UUID,
+        hashed_password=hashed_password,
+        disabled=disabled,
+    )
 
 
 class TestIsValidCredentials:

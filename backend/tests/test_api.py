@@ -1,13 +1,19 @@
-from unittest.mock import MagicMock
+from uuid import UUID
+
+from d3textdb.schema import UserAuth
 
 from ahbackend.api.api import can_access_project, can_curate_project
 
+_DUMMY_UUID = UUID("00000000-0000-0000-0000-000000000000")
 
-def make_user_auth(*, is_super_user: bool = False, can_manage: bool = False) -> MagicMock:
-    auth = MagicMock()
-    auth.is_super_user = is_super_user
-    auth.can_manage = can_manage
-    return auth
+
+def make_user_auth(*, is_super_user: bool = False, can_manage: bool = False) -> UserAuth:
+    return UserAuth(
+        user_id=_DUMMY_UUID,
+        hashed_password="",
+        is_super_user=is_super_user,
+        can_manage=can_manage,
+    )
 
 
 class TestCanAccessProject:
