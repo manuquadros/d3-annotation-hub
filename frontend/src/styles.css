@@ -107,7 +107,7 @@ button.entity {
     background-color: #9bd1e5;
 }
 
-span.entity::after :not(.entitySummary) {
+:not(.entitySummary) span.entity::after {
     position: relative;
     bottom: -8px;
     left: 0.5ex;
@@ -116,17 +116,17 @@ span.entity::after :not(.entitySummary) {
     padding-right: 0.25em;
 }
 
-span.entity[typeof="d3o:Strain"]::after :not(.entitySummary) {
+:not(.entitySummary) span.entity[typeof="d3o:Strain"]::after {
     content: "Strain";
     color: #36155d;
 }
 
-span.entity[typeof="d3o:Bacteria"]::after :not(.entitySummary) {
+:not(.entitySummary) span.entity[typeof="d3o:Bacteria"]::after {
     content: "Bacteria";
     color: #5a249b;
 }
 
-span.entity[typeof="d3o:Enzyme"]::after :not(.entitySummary) {
+:not(.entitySummary) span.entity[typeof="d3o:Enzyme"]::after {
     content: "Enzyme";
     color: #4b1e83;
 }
