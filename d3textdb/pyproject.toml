@@ -16,6 +16,8 @@ dependencies = [
   "sqlalchemy>=2.0.41",
   "sqlmodel~=0.0.24",
   "tqdm>=4.67.3",
+  "pysqlite3-binary>=0.5.4.post2",
+  "pysqlite3>=0.6.0",
 ]
 
 [build-system]
