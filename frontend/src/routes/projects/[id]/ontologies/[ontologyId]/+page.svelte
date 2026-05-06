@@ -34,7 +34,7 @@
 
     let { data } = $props();
 
-    const ontology: Ontology = data.ontology;
+    const ontology: Ontology = untrack(() => data.ontology);
 
     let entities = $state<Entity[]>(untrack(() => data.entities));
     let entitiesTotal = $state<number>(untrack(() => data.entitiesTotal));

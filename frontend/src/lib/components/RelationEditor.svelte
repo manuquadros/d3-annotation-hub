@@ -15,7 +15,7 @@
     const annotationState = getContext<AnnotationState>("annotationState");
 
     let dialog: HTMLDialogElement;
-    let searchInput: HTMLInputElement;
+    let searchInput: HTMLInputElement = $state()!;
 
     let allProperties = $state<PropertyOption[]>([]);
     let entityTypes = $state<KindOption[]>([]);

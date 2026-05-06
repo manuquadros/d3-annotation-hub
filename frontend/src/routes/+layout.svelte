@@ -101,7 +101,11 @@
             <!-- Sidebar overlay -->
             <div
                 class="sidebar-overlay"
+                role="button"
+                tabindex="-1"
+                aria-label="Close sidebar"
                 onclick={() => digidive.toggleSidebar()}
+                onkeydown={(e) => e.key === "Enter" && digidive.toggleSidebar()}
             ></div>
 
             <nav class="navbar navbar-bottom">
@@ -109,6 +113,7 @@
                     <button
                         class="btn btn-action active"
                         type="button"
+                        aria-label="Toggle sidebar"
                         onclick={(e) => digidive.toggleSidebar(e.currentTarget)}
                     ></button>
 
@@ -146,7 +151,10 @@
                                 placeholder="Search article"
                             />
                             <div class="input-group-append">
-                                <button class="btn primary">
+                                <button
+                                    class="btn primary"
+                                    aria-label="Search article"
+                                >
                                     <i class="ph ph-magnifying-glass"></i>
                                 </button>
                             </div>
@@ -163,10 +171,14 @@
                             <a href="/docs"><i class="ph ph-book"></i>Manual</a>
                         </li>
                         <li>
-                            <a class="with-icon" onclick={() => auth.logout()}>
+                            <button
+                                type="button"
+                                class="with-icon"
+                                onclick={() => auth.logout()}
+                            >
                                 <i class="ph ph-sign-out"></i>
                                 Log out
-                            </a>
+                            </button>
                         </li>
                     </ul>
                 </nav>
@@ -255,11 +267,6 @@
         <!-- Content wrapper end -->
 
         <div class="page-footer">
-            <div class="logo-parade">
-                <a href="#"><img src="???" alt="???" /></a>
-                <a href="#"><img src="???" alt="???" /></a>
-            </div>
-            <hr />
             <div class="footer">
                 <span> &copy; DSMZ 2026 </span>
                 <span class="version">Version: {__APP_VERSION__}</span>

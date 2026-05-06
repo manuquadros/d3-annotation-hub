@@ -15,7 +15,7 @@
 
     let lightboxSrc = $state<string | null>(null);
 
-    function handleContentClick(e: MouseEvent) {
+    function handleContentClick(e: Event) {
         const target = e.target as HTMLElement;
         if (target.tagName === "IMG") {
             lightboxSrc = (target as HTMLImageElement).src;
@@ -48,8 +48,8 @@
         </nav>
     </aside>
 
-    <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_noninteractive_element_interactions -->
-    <article class="docs-content" onclick={handleContentClick}>
+    <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+    <article class="docs-content" onclick={handleContentClick} onkeydown={handleContentClick}>
         {@render children()}
     </article>
 </div>

@@ -736,14 +736,14 @@
                                                 />
                                             {:else}
                                                 <div class="curie-with-status">
-                                                    <code
+                                                    <button
                                                         class="entity-curie proposed-editable"
                                                         onclick={() =>
                                                             startCurieEdit(
                                                                 entityId,
                                                             )}
                                                         title="Click to edit CURIE"
-                                                        >{entityId}</code
+                                                        >{entityId}</button
                                                     >
                                                     {#if locallyConfirmed.has(entityId)}
                                                         <span
@@ -858,53 +858,54 @@
                                                                         ? 'removed'
                                                                         : ''}"
                                                                     data-mention-key={k}
-                                                                    onclick={() =>
-                                                                        focusPointer(
-                                                                            k,
-                                                                        )}
                                                                 >
-                                                                    <span
-                                                                        class="mention-field-badge"
-                                                                        >{p.field}</span
+                                                                    <button
+                                                                        class="mention-focus-btn"
+                                                                        onclick={() =>
+                                                                            focusPointer(
+                                                                                k,
+                                                                            )}
                                                                     >
-                                                                    <span
-                                                                        class="mention-kwic-group"
-                                                                        ><span
-                                                                            class="mention-kwic"
+                                                                        <span
+                                                                            class="mention-field-badge"
+                                                                            >{p.field}</span
+                                                                        >
+                                                                        <span
+                                                                            class="mention-kwic-group"
                                                                             ><span
-                                                                                class="kwic-context"
-                                                                                >{ctx.before}</span
-                                                                            ><mark
-                                                                                class="kwic-match"
-                                                                                >{ctx.match}</mark
-                                                                            ><span
-                                                                                class="kwic-context"
-                                                                                >{ctx.after}</span
+                                                                                class="mention-kwic"
+                                                                                ><span
+                                                                                    class="kwic-context"
+                                                                                    >{ctx.before}</span
+                                                                                ><mark
+                                                                                    class="kwic-match"
+                                                                                    >{ctx.match}</mark
+                                                                                ><span
+                                                                                    class="kwic-context"
+                                                                                    >{ctx.after}</span
+                                                                                ></span
                                                                             ></span
-                                                                        ><button
-                                                                            class="mention-toggle-btn {pAccepted
-                                                                                ? 'reject'
-                                                                                : 'accept'}"
-                                                                            onclick={(
-                                                                                e,
-                                                                            ) => {
-                                                                                e.stopPropagation();
-                                                                                setMentionAccepted(
-                                                                                    k,
-                                                                                    !pAccepted,
-                                                                                );
-                                                                            }}
-                                                                            title={pAccepted
-                                                                                ? "Reject this mention"
-                                                                                : "Accept this mention"}
-                                                                            >{pAccepted
-                                                                                ? "×"
-                                                                                : "✓"}</button
-                                                                        ></span
-                                                                    >
-                                                                    <span
-                                                                        class="mention-agreement"
-                                                                        >{pCount}/{snapshots.length}</span
+                                                                        >
+                                                                        <span
+                                                                            class="mention-agreement"
+                                                                            >{pCount}/{snapshots.length}</span
+                                                                        >
+                                                                    </button>
+                                                                    <button
+                                                                        class="mention-toggle-btn {pAccepted
+                                                                            ? 'reject'
+                                                                            : 'accept'}"
+                                                                        onclick={() =>
+                                                                            setMentionAccepted(
+                                                                                k,
+                                                                                !pAccepted,
+                                                                            )}
+                                                                        title={pAccepted
+                                                                            ? "Reject this mention"
+                                                                            : "Accept this mention"}
+                                                                        >{pAccepted
+                                                                            ? "×"
+                                                                            : "✓"}</button
                                                                     >
                                                                 </li>
                                                             {/each}
@@ -1460,6 +1461,20 @@
         gap: 0.5rem;
         padding: 0.25rem 0.5rem;
         cursor: default;
+    }
+
+    .mention-focus-btn {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        background: none;
+        border: none;
+        padding: 0;
+        text-align: left;
+        cursor: pointer;
+        min-width: 0;
+        color: inherit;
     }
 
     .mention-toggle-btn {

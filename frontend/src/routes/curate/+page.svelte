@@ -1,5 +1,6 @@
 <script lang="ts">
     import { browser } from "$app/environment";
+    import { untrack } from "svelte";
     import type { PageData } from "./$types";
     import type { ClaimItem, EvidenceItem } from "./+page.server";
     import EntityBadge from "$lib/components/EntityBadge.svelte";
@@ -26,8 +27,10 @@
     let expandedParas = $state<Record<string, true>>({});
     let expandedRefs = $state<Record<string, true>>({});
     let verdicts = $state<Record<number, "accepted" | "rejected" | null>>(
-        Object.fromEntries(
-            data.claims.claims.map((c) => [c.relation_id, c.verdict]),
+        untrack(() =>
+            Object.fromEntries(
+                data.claims.claims.map((c) => [c.relation_id, c.verdict]),
+            ),
         ),
     );
 

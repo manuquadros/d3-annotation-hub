@@ -42,8 +42,14 @@
     </button>
 
     {#if open}
-        <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
-        <div class="backdrop" onclick={() => (open = false)}></div>
+        <div
+            class="backdrop"
+            role="button"
+            tabindex="-1"
+            aria-label="Close menu"
+            onclick={() => (open = false)}
+            onkeydown={(e) => e.key === "Enter" && (open = false)}
+        ></div>
         <div class="dropdown">
             {#each projects as p (p.project_id)}
                 <button

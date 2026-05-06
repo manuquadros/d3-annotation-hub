@@ -45,6 +45,7 @@
         <form onsubmit={handleSubmit}>
             <div class="field">
                 <label for="proj-name">Name</label>
+                <!-- svelte-ignore a11y_autofocus -->
                 <input
                     id="proj-name"
                     type="text"

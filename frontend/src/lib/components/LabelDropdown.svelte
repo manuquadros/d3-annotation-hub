@@ -98,6 +98,7 @@
         bind:this={dropdownElement}
         class="label-dropdown"
         role="listbox"
+        tabindex="-1"
         onkeydown={handleKeydown}
         style:top="{dropdownState.position.top}px"
         style:left="{dropdownState.position.left}px"
@@ -109,6 +110,7 @@
                         class="label-option custom-action"
                         onclick={() => handleCustomAction(action)}
                         role="option"
+                        aria-selected={false}
                     >
                         {action.label}
                     </button>
