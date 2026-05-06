@@ -6,6 +6,7 @@ TinyDB document database when tinydb_path is supplied.
 """
 
 import argparse
+import getpass
 import json
 import sys
 from pathlib import Path
@@ -40,12 +41,6 @@ def parse_args() -> argparse.Namespace:
         required=True,
         metavar="EMAIL",
         help="Email address for the initial admin user.",
-    )
-    parser.add_argument(
-        "--admin-password",
-        required=True,
-        metavar="PASSWORD",
-        help="Password for the initial admin user.",
     )
     return parser.parse_args()
 
@@ -94,11 +89,20 @@ def main() -> None:
         )
         sys.exit(1)
 
+    while True:
+        password = getpass.getpass(f"Password for {args.admin_email}: ")
+        confirm = getpass.getpass("Confirm password: ")
+        if password == confirm:
+            break
+        print("Passwords do not match. Try again.", file=sys.stderr)
+
     print(f"Creating SQLite database: {args.output_path}")
     db = D3TextDB(path=args.output_path)
     try:
         admin = User(email=args.admin_email, user_id=uuid4())
-        db.create_user(admin, password=args.admin_password, is_super_user=True, can_manage=True)
+        db.create_user(
+            admin, password=password, is_super_user=True, can_manage=True
+        )
         print(f"Created admin user: {args.admin_email}")
 
         if args.tinydb_path is not None:
