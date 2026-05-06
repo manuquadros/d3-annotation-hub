@@ -13,7 +13,7 @@ from d3textdb.schema import (
 _NOW = datetime(2025, 1, 1, tzinfo=timezone.utc)
 
 
-def ref_annotations():
+def ref_annotations(project_id: int):
     ref15117974 = Reference(
         authors=(
             "Bhakta, S.; Besra, G.S.; Upton, A.M.; Parish, T.; "
@@ -184,6 +184,7 @@ def ref_annotations():
             relations=[],
             completed=False,
             last_updated=_NOW,
+            project_id=project_id,
         ),
         ReferenceAnnotation(
             user=test_user,
@@ -192,6 +193,7 @@ def ref_annotations():
             relations=relations,
             completed=False,
             last_updated=_NOW,
+            project_id=project_id,
         ),
     ]
 
@@ -200,7 +202,8 @@ def ref_annotations():
 
 def test_db_schema() -> None:
     db = D3TextDB(echo=True)
-    refannotations, entities = ref_annotations()
+    project_id = db.create_project("Test Project")
+    refannotations, entities = ref_annotations(project_id)
     user_id = refannotations[1].user.user_id
 
     db.create_user(refannotations[0].user, "testpassword")
@@ -209,7 +212,7 @@ def test_db_schema() -> None:
     for ann in refannotations:
         db.store_annotation(ann)
 
-    fromdb = db.get_reference_annotation(pubmed_id=15117974, user_id=user_id)
+    fromdb = db.get_reference_annotation(pubmed_id=15117974, user_id=user_id, project_id=project_id)
     original = refannotations[1]
 
     # User
@@ -311,6 +314,7 @@ def _setup_from_payload(db: D3TextDB, payload: dict):
     pointers = [Pointer(**p) for p in payload["pointers"]]
     relations = [Relation(**r) for r in payload["relations"]]
 
+    project_id = db.create_project("Test Project")
     db.create_user(user, "testpassword")
     db.store_items(list(entities.values()))
 
@@ -321,6 +325,7 @@ def _setup_from_payload(db: D3TextDB, payload: dict):
         relations=relations,
         completed=False,
         last_updated=_NOW,
+        project_id=project_id,
     )
     return annotation, user, reference, entities
 
@@ -334,7 +339,7 @@ def test_store_annotation_with_existing_reference_id() -> None:
     db.store_annotation(annotation)
 
     fromdb = db.get_reference_annotation(
-        pubmed_id=15117974, user_id=user.user_id
+        pubmed_id=15117974, user_id=user.user_id, project_id=annotation.project_id
     )
 
     # Check that all pointers were stored
@@ -358,7 +363,7 @@ def test_get_reference_annotation() -> None:
     db.store_annotation(annotation)
 
     retrieved = db.get_reference_annotation(
-        pubmed_id=payload["reference"]["pubmed_id"], user_id=user.user_id
+        pubmed_id=payload["reference"]["pubmed_id"], user_id=user.user_id, project_id=annotation.project_id
     )
 
     # Verify user
@@ -423,6 +428,7 @@ def test_get_reference_annotation_user_not_found() -> None:
         db.get_reference_annotation(
             pubmed_id=payload["reference"]["pubmed_id"],
             user_id=non_existent_user_id,
+            project_id=annotation.project_id,
         )
 
 
@@ -442,12 +448,14 @@ def test_get_reference_annotation_reference_not_found() -> None:
 
     non_existent_pubmed_id = 99999999
 
+    project_id = db.create_project("Test Project")
+
     with pytest.raises(
         ValueError,
         match=f"Reference with pubmed_id {non_existent_pubmed_id} not found",
     ):
         db.get_reference_annotation(
-            pubmed_id=non_existent_pubmed_id, user_id=user.user_id
+            pubmed_id=non_existent_pubmed_id, user_id=user.user_id, project_id=project_id
         )
 
 
@@ -462,7 +470,7 @@ def test_store_annotation_idempotent() -> None:
     db.store_annotation(annotation)
 
     retrieved = db.get_reference_annotation(
-        pubmed_id=payload["reference"]["pubmed_id"], user_id=user.user_id
+        pubmed_id=payload["reference"]["pubmed_id"], user_id=user.user_id, project_id=annotation.project_id
     )
 
     assert len(retrieved.pointers) == 3
@@ -481,7 +489,7 @@ def test_store_annotation_new_state_supersedes_old() -> None:
 
     # Verify initial state
     retrieved = db.get_reference_annotation(
-        pubmed_id=payload["reference"]["pubmed_id"], user_id=user.user_id
+        pubmed_id=payload["reference"]["pubmed_id"], user_id=user.user_id, project_id=initial_annotation.project_id
     )
     assert len(retrieved.pointers) == 3
     assert len(retrieved.relations) == 1
@@ -517,12 +525,13 @@ def test_store_annotation_new_state_supersedes_old() -> None:
         ],
         completed=False,
         last_updated=_NOW,
+        project_id=initial_annotation.project_id,
     )
 
     db.store_annotation(updated_annotation)
 
     retrieved = db.get_reference_annotation(
-        pubmed_id=payload["reference"]["pubmed_id"], user_id=user.user_id
+        pubmed_id=payload["reference"]["pubmed_id"], user_id=user.user_id, project_id=initial_annotation.project_id
     )
 
     # Only the new pointers should be in the latest state
@@ -558,7 +567,7 @@ def test_store_annotation_transaction_rollback() -> None:
     db.store_annotation(initial_annotation)
 
     retrieved = db.get_reference_annotation(
-        pubmed_id=payload["reference"]["pubmed_id"], user_id=user.user_id
+        pubmed_id=payload["reference"]["pubmed_id"], user_id=user.user_id, project_id=initial_annotation.project_id
     )
     initial_pointer_count = len(retrieved.pointers)
     initial_relation_count = len(retrieved.relations)
@@ -580,14 +589,15 @@ def test_store_annotation_transaction_rollback() -> None:
         relations=[],
         completed=False,
         last_updated=_NOW,
+        project_id=initial_annotation.project_id,
     )
 
     with pytest.raises(Exception):  # IntegrityError
-        db.update_annotation(bad_annotation)
+        db.store_annotation(bad_annotation)
 
     # Old state must still be returned
     retrieved = db.get_reference_annotation(
-        pubmed_id=payload["reference"]["pubmed_id"], user_id=user.user_id
+        pubmed_id=payload["reference"]["pubmed_id"], user_id=user.user_id, project_id=initial_annotation.project_id
     )
     assert len(retrieved.pointers) == initial_pointer_count
     assert len(retrieved.relations) == initial_relation_count
