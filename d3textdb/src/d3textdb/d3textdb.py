@@ -982,13 +982,16 @@ class D3TextDB:
         can_manage: bool = False,
     ) -> UUID | None:
         with Session(self.engine) as session:
-            session.execute(
+            user_id: UUID | None = session.scalar(
                 insert(User)
                 .values(user.model_dump(exclude_none=True))
                 .on_conflict_do_nothing()
+                .returning(User.user_id)
             )
+            if user_id is None:
+                return None
             user_auth = UserAuth(
-                user_id=user.user_id,
+                user_id=user_id,
                 hashed_password=hash_password(password),
                 is_super_user=is_super_user,
                 can_manage=can_manage,
@@ -1000,7 +1003,7 @@ class D3TextDB:
             )
             session.commit()
 
-        return user.user_id
+        return user_id
 
     def update_password(self, user_id: UUID, new_password: str) -> None:
         with Session(self.engine) as session:
