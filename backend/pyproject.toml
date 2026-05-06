@@ -18,10 +18,11 @@ dependencies = [
   "sqlmodel>=0.0.24",
   "tokenizers>=0.21.1",
   "uvicorn>=0.34.2",
-  "xmlparser @ file:///${PROJECT_ROOT}/../xmlparser",
+  "xmlparser @ git+https://github.com/manuquadros/xmlparser.git@master",
   "d3textdb @ file:///${PROJECT_ROOT}/../d3textdb",
   "apiadapters @ file:///${PROJECT_ROOT}/../apiadapters",
   "gunicorn>=25.3.0",
+  "tomlkit>=0.14.0",
 ]
 
 [build-system]
