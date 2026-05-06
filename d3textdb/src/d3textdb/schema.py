@@ -35,7 +35,7 @@ class SqliteUUID(TypeDecorator):
         return value.bytes if isinstance(value, UUID) else UUID(value).bytes
 
     def process_result_value(self, value, dialect):
-        return None if value is None else UUID(bytes=value)
+        return None if value is None else UUID(bytes=bytes(value))
 
 
 class SqliteDatetime(TypeDecorator):

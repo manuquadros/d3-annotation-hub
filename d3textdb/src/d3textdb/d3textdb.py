@@ -91,7 +91,7 @@ class D3TextDB:
         """
         if path:
             self.engine = create_engine(
-                f"sqlite+pysqlite:///{path}", module=pysqlite3
+                f"sqlite+pysqlite:///{path}", module=pysqlite3, echo=True
             )
         else:
             self.engine = create_engine(
