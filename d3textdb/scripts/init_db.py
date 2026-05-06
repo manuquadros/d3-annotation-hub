@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
-"""Initialize a d3textdb SQLite database from a TinyDB document database.
+"""Initialize a d3textdb SQLite database.
 
-Reads the 'documents' table from a TinyDB JSON database and imports references
-that have bacteria entries but no strain entries into the SQLite database.
+Creates the database with an admin user. Optionally imports references from a
+TinyDB document database when tinydb_path is supplied.
 """
 
 import argparse
 import json
 import sys
 from pathlib import Path
-from uuid import UUID, uuid4
+from uuid import uuid4
 
 import tqdm
 from d3textdb.d3textdb import D3TextDB
@@ -19,19 +19,33 @@ from d3textdb.schema import Reference, User
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
-            "Generate a d3textdb SQLite database and populate it with "
-            "references from a TinyDB document database."
+            "Create a d3textdb SQLite database with an admin user. "
+            "Pass tinydb_path to also import references from a TinyDB database."
         )
-    )
-    parser.add_argument(
-        "tinydb_path",
-        type=Path,
-        help="Path to the TinyDB JSON database.",
     )
     parser.add_argument(
         "output_path",
         type=Path,
         help="Path for the output SQLite database.",
+    )
+    parser.add_argument(
+        "tinydb_path",
+        type=Path,
+        nargs="?",
+        default=None,
+        help="Path to a TinyDB JSON database to import references from (optional).",
+    )
+    parser.add_argument(
+        "--admin-email",
+        required=True,
+        metavar="EMAIL",
+        help="Email address for the initial admin user.",
+    )
+    parser.add_argument(
+        "--admin-password",
+        required=True,
+        metavar="PASSWORD",
+        help="Password for the initial admin user.",
     )
     return parser.parse_args()
 
@@ -73,35 +87,30 @@ def to_reference(doc: dict) -> Reference:
 def main() -> None:
     args = parse_args()
 
-    if not args.tinydb_path.exists():
+    if args.tinydb_path is not None and not args.tinydb_path.exists():
         print(
             f"Error: TinyDB database not found: {args.tinydb_path}",
             file=sys.stderr,
         )
         sys.exit(1)
 
-    print(f"Reading TinyDB database: {args.tinydb_path}")
-    all_docs = load_documents(args.tinydb_path)
-    eligible = [doc for doc in all_docs if is_eligible(doc)]
-    print(
-        f"Found {len(all_docs)} documents, {len(eligible)} eligible for import."
-    )
-
     print(f"Creating SQLite database: {args.output_path}")
     db = D3TextDB(path=args.output_path)
-    test_user = User(
-        email="test@dsmz.de",
-        user_id=UUID("f47f7e7b-3913-457e-911c-6da6275de3ec"),
-    )
-    db.create_user(test_user, password="test")
-    admin = User(email="admin@dsmz.de", user_id=uuid4())
-    db.create_user(admin, password="admin", is_super_user=True, can_manage=True)
-    manager1 = User(email="manager@dsmz.de", user_id=uuid4())
-    db.create_user(manager1, password="manager", can_manage=True)
     try:
-        for doc in tqdm.tqdm(eligible):
-            db.store_reference(to_reference(doc))
-        print(f"Done. Imported {len(eligible)} references.")
+        admin = User(email=args.admin_email, user_id=uuid4())
+        db.create_user(admin, password=args.admin_password, is_super_user=True, can_manage=True)
+        print(f"Created admin user: {args.admin_email}")
+
+        if args.tinydb_path is not None:
+            print(f"Reading TinyDB database: {args.tinydb_path}")
+            all_docs = load_documents(args.tinydb_path)
+            eligible = [doc for doc in all_docs if is_eligible(doc)]
+            print(
+                f"Found {len(all_docs)} documents, {len(eligible)} eligible for import."
+            )
+            for doc in tqdm.tqdm(eligible):
+                db.store_reference(to_reference(doc))
+            print(f"Done. Imported {len(eligible)} references.")
     finally:
         db.engine.dispose()
 
