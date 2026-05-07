@@ -61,7 +61,7 @@
         }
     }
 
-    let confirmRemoveManagerId = $state<string | null>(null);
+    let confirmAction = $state<{ userId: string; kind: "remove-manager" | "remove-user" } | null>(null);
 
     async function fetchPassphrase(): Promise<string> {
         const res = await fetch("/api/admin/passphrase-suggestion");
@@ -83,7 +83,6 @@
         });
     }
 
-    let confirmRemoveUserId = $state<string | null>(null);
     let removeUserPending = $state(false);
 
     async function handleRemoveUser(u: UserRecord) {
@@ -102,10 +101,10 @@
                         x.user_id === u.user_id ? { ...x, disabled: true } : x,
                     );
                 }
-                confirmRemoveUserId = null;
             }
         } finally {
             removeUserPending = false;
+            confirmAction = null;
         }
     }
 
@@ -733,30 +732,30 @@
                                         </button>
                                     {/if}
                                     {#if u.can_manage && !u.is_super_user && !u.disabled}
-                                        {#if confirmRemoveManagerId === u.user_id}
+                                        {#if confirmAction?.userId === u.user_id && confirmAction.kind === "remove-manager"}
                                             <span class="confirm-prompt">Remove manager?</span>
                                             <button
                                                 class="btn-danger-sm"
                                                 onclick={() => {
                                                     setCanManage(u, false);
-                                                    confirmRemoveManagerId = null;
+                                                    confirmAction = null;
                                                 }}
                                             >Yes</button>
                                             <button
                                                 class="btn-ghost-sm"
-                                                onclick={() => (confirmRemoveManagerId = null)}
+                                                onclick={() => (confirmAction = null)}
                                             >Cancel</button>
                                         {:else}
                                             <button
                                                 class="btn-ghost-sm danger"
-                                                onclick={() => (confirmRemoveManagerId = u.user_id)}
+                                                onclick={() => (confirmAction = { userId: u.user_id, kind: "remove-manager" })}
                                             >
                                                 Remove project manager
                                             </button>
                                         {/if}
                                     {/if}
                                     {#if !u.disabled}
-                                        {#if confirmRemoveUserId === u.user_id}
+                                        {#if confirmAction?.userId === u.user_id && confirmAction.kind === "remove-user"}
                                             <span class="confirm-prompt">Remove?</span>
                                             <button
                                                 class="btn-danger-sm"
@@ -767,12 +766,12 @@
                                             </button>
                                             <button
                                                 class="btn-ghost-sm"
-                                                onclick={() => (confirmRemoveUserId = null)}
+                                                onclick={() => (confirmAction = null)}
                                             >Cancel</button>
                                         {:else}
                                             <button
                                                 class="btn-ghost-sm danger"
-                                                onclick={() => (confirmRemoveUserId = u.user_id)}
+                                                onclick={() => (confirmAction = { userId: u.user_id, kind: "remove-user" })}
                                             >
                                                 Remove
                                             </button>
