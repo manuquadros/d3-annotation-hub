@@ -60,6 +60,43 @@
         }
     }
 
+    async function fetchPassphrase(): Promise<string> {
+        const res = await fetch("/api/admin/passphrase-suggestion");
+        return res.ok ? res.json() : "";
+    }
+
+    let showAddUser = $state(false);
+    let newUserEmail = $state("");
+    let newUserPassphrase = $state("");
+    let addUserPending = $state(false);
+    let addUserError = $state<string | null>(null);
+    let addUserCreated = $state<{ email: string; passphrase: string } | null>(null);
+
+    async function handleAddUser(e: SubmitEvent) {
+        e.preventDefault();
+        addUserPending = true;
+        addUserError = null;
+        addUserCreated = null;
+        try {
+            const res = await fetch("/api/admin/users", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ email: newUserEmail, password: newUserPassphrase }),
+            });
+            if (!res.ok) {
+                const d = await res.json().catch(() => ({ detail: res.statusText }));
+                addUserError = d.detail ?? res.statusText;
+                return;
+            }
+            const created: UserRecord = await res.json();
+            allUsers = [...allUsers, created];
+            addUserCreated = { email: created.email, passphrase: newUserPassphrase };
+            showAddUser = false;
+        } finally {
+            addUserPending = false;
+        }
+    }
+
     let { data } = $props();
     let ontologies = $state<Ontology[]>(untrack(() => data.ontologies));
     let allUsers = $state<UserRecord[]>(untrack(() => data.allUsers ?? []));
@@ -548,7 +585,69 @@
 
     {#if data.isSuperuser}
         <section class="card">
-            <h2>User Management</h2>
+            <div class="section-header">
+                <h2>User Management</h2>
+                <button class="btn-ghost-sm" onclick={async () => {
+                    showAddUser = !showAddUser;
+                    addUserError = null;
+                    addUserCreated = null;
+                    if (showAddUser) newUserPassphrase = await fetchPassphrase();
+                }}>
+                    {showAddUser ? "Cancel" : "+ Add user"}
+                </button>
+            </div>
+
+            {#if addUserCreated}
+                <div class="password-notice">
+                    <strong>User created.</strong> Share this passphrase with
+                    <em>{addUserCreated.email}</em> — it will not be shown again:
+                    <code class="password">{addUserCreated.passphrase}</code>
+                </div>
+            {/if}
+
+            {#if showAddUser}
+                <form onsubmit={handleAddUser} class="add-user-form">
+                    <div class="field">
+                        <label for="new-user-email">Email</label>
+                        <input
+                            id="new-user-email"
+                            type="email"
+                            bind:value={newUserEmail}
+                            required
+                            disabled={addUserPending}
+                            placeholder="user@example.com"
+                        />
+                    </div>
+                    <div class="field">
+                        <label for="new-user-pass">Initial passphrase</label>
+                        <div class="passphrase-row">
+                            <input
+                                id="new-user-pass"
+                                type="text"
+                                bind:value={newUserPassphrase}
+                                required
+                                disabled={addUserPending}
+                            />
+                            <button
+                                type="button"
+                                class="btn-ghost-sm"
+                                title="Generate new passphrase"
+                                disabled={addUserPending}
+                                onclick={async () => (newUserPassphrase = await fetchPassphrase())}
+                            >
+                                <i class="ph ph-arrows-clockwise"></i>
+                            </button>
+                        </div>
+                    </div>
+                    {#if addUserError}
+                        <p class="error">{addUserError}</p>
+                    {/if}
+                    <button type="submit" class="btn-primary" disabled={addUserPending}>
+                        {addUserPending ? "Creating…" : "Create user"}
+                    </button>
+                </form>
+            {/if}
+
             {#if allUsers.length === 0}
                 <p class="empty">No users found.</p>
             {:else}
@@ -958,6 +1057,27 @@
         border-radius: 8px;
         padding: 1.5rem;
         margin-bottom: 1.5rem;
+    }
+
+    .add-user-form {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+        border-top: 1px solid #eee;
+        padding-top: 0.75rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .passphrase-row {
+        display: flex;
+        gap: 0.5rem;
+        align-items: center;
+    }
+
+    .passphrase-row input {
+        flex: 1;
+        min-width: 0;
+        font-family: monospace;
     }
 
     .field {

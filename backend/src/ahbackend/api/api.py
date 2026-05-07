@@ -4,6 +4,8 @@ import secrets
 import string
 from typing import Annotated, Optional, Self
 
+from xkcdpass import xkcd_password as xp
+
 from ahbackend import db, users
 from ahbackend.db import (
     get_project_properties,
@@ -423,6 +425,54 @@ def get_all_users(
     ]
 
 
+class CreateUserRequest(BaseModel):
+    email: str
+    password: str | None = None
+
+
+class CreateUserResponse(UserInfo):
+    generated_password: str | None = None
+
+
+@app.post("/admin/users", status_code=201)
+def create_new_user(
+    body: CreateUserRequest,
+    _: Annotated[User, Depends(users.get_current_superuser)],
+) -> CreateUserResponse:
+    """Create a new user account (superuser only)."""
+    if get_user(body.email) is not None:
+        raise HTTPException(status_code=409, detail="A user with this email already exists")
+
+    generated_password = None
+    password = body.password if body.password else _generate_passphrase()
+    if not body.password:
+        generated_password = password
+
+    from d3textdb.schema import User as DbUser
+
+    create_user(DbUser(email=body.email), password)
+    user = get_user(body.email)
+    if user is None:
+        raise HTTPException(status_code=500, detail="Failed to create user")
+
+    user_auth = db.get_user_auth(user.user_id)
+    return CreateUserResponse(
+        user_id=str(user.user_id),
+        email=str(user.email),
+        is_super_user=user_auth.is_super_user if user_auth else False,
+        can_manage=user_auth.can_manage if user_auth else False,
+        generated_password=generated_password,
+    )
+
+
+@app.get("/admin/passphrase-suggestion")
+def passphrase_suggestion(
+    _: Annotated[User, Depends(users.get_current_superuser)],
+) -> str:
+    """Return a suggested passphrase for use as an initial password."""
+    return _generate_passphrase()
+
+
 @app.get("/entity/types")
 def list_entity_types(
     current_user: Annotated[User, Depends(users.get_current_active_user)],
@@ -481,6 +531,15 @@ def get_response_json(*args) -> str:
 def _generate_password(length: int = 16) -> str:
     alphabet = string.ascii_letters + string.digits
     return "".join(secrets.choice(alphabet) for _ in range(length))
+
+
+_passphrase_wordlist = xp.generate_wordlist(
+    wordfile=xp.locate_wordfile(), min_length=4, max_length=8
+)
+
+
+def _generate_passphrase(numwords: int = 4) -> str:
+    return xp.generate_xkcdpassword(_passphrase_wordlist, numwords=numwords, delimiter="-")
 
 
 # ---------------------------------------------------------------------------

@@ -23,6 +23,7 @@ dependencies = [
   "apiadapters @ file:///${PROJECT_ROOT}/../apiadapters",
   "gunicorn>=25.3.0",
   "tomlkit>=0.14.0",
+  "xkcdpass>=1.30.0",
 ]
 
 [build-system]
