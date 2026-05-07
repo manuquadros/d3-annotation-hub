@@ -11,5 +11,8 @@ This guide is for everyone who uses the Annotation Hub:
 - **Curators** review the annotations submitted by annotators and produce a final,
   agreed-upon annotation for each article.
 - **Managers** configure projects, assign articles to the queue, and manage users.
+- **Administrators** (superusers) manage user accounts and system-wide settings
+  from the Admin panel.
 
-Use the sidebar to navigate to the section that matches your role.
+If you hold more than one role, a hub page appears after login so you can choose
+where to go. Use the sidebar to navigate to the section that matches your role.

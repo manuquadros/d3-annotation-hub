@@ -3,6 +3,13 @@
 Managers set up projects, populate the annotation queue, and control who has
 access.
 
+## Landing page
+
+When you log in as a manager without an annotator or curator assignment, you are
+taken directly to the **Project Management** page for your project. If you also
+have an annotator or curator role, you will first see a hub where you can choose
+which activity to start.
+
 ## Adding articles
 
 Go to **Documents** in the sidebar. Enter one or more PubMed IDs or DOIs and click
@@ -17,5 +24,33 @@ annotators can choose from.
 
 ## Managing users
 
-Under **Users** you can add members to the project and assign them the
-**annotator**, **curator**, or **manager** role.
+Open **Users** in the sidebar.
+
+### Adding an existing user
+
+Type any part of the user's email address into the search field. After a short
+pause, a dropdown appears with all matching accounts. Click the account you want
+to add, then select a role (**Annotator** or **Curator**) and click
+**Add to project**.
+
+### Creating a new account
+
+If the person does not yet have an account, click **Create new account for …** at
+the bottom of the search dropdown. A form appears with:
+
+- **Email** — pre-filled from your search, but fully editable. Change it to the
+  user's actual address if needed.
+- **Role** — choose Annotator or Curator.
+- **Initial passphrase** — a suggested passphrase is generated automatically.
+  Copy it with the clipboard button and share it with the new user; they will use
+  it to log in for the first time. Click the refresh button to generate a
+  different passphrase if you prefer.
+
+Click **Create & add** to create the account and add it to the project in one
+step. The passphrase is shown once after creation — make sure to share it before
+navigating away.
+
+### Removing a role
+
+In the member list, click **Remove Annotator** or **Remove Curator** next to a
+user to take away that role. The user's account itself is not affected.
