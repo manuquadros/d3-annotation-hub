@@ -1,11 +1,17 @@
 <script lang="ts">
     import { page } from "$app/stores";
+    import type { PageData } from "./$types";
 
+    interface Props {
+        data: PageData;
+    }
+
+    let { data }: Props = $props();
     const projectId = $derived($page.params.id);
 </script>
 
 <div class="hub">
-    <h1>Project Management</h1>
+    <h1>{data.projectName ?? "Project Management"}</h1>
 
     <div class="cards">
         <a class="card" href="/projects/{projectId}/documents">

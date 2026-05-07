@@ -8,8 +8,11 @@ export const load: PageLoad = async ({ fetch, url, parent }) => {
     const { currentProjectId, isAdmin, isSuperuser, isCurator, isAnnotator, isProjectManager } =
         await parent();
 
+    const canManageProjects = isAdmin && !isSuperuser;
+
     if (currentProjectId === null) {
-        if (isAdmin) redirect(302, "/admin");
+        if (isSuperuser) redirect(302, "/admin");
+        if (canManageProjects) redirect(302, "/projects/new");
         return { documentData: null };
     }
 
@@ -18,6 +21,10 @@ export const load: PageLoad = async ({ fetch, url, parent }) => {
     if (isCurator) destinations.push("curate");
     if (isProjectManager) destinations.push("manage");
     if (isSuperuser) destinations.push("admin");
+
+    if (canManageProjects && destinations.length === 0) {
+        redirect(302, `/projects/${currentProjectId}`);
+    }
 
     const go = url.searchParams.get("go") as Destination | null;
     const ref = url.searchParams.get("ref");
