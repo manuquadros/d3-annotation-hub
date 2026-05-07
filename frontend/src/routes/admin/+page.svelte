@@ -41,6 +41,7 @@
         email: string;
         is_super_user: boolean;
         can_manage: boolean;
+        disabled: boolean;
     }
 
     function userRoleLabel(u: UserRecord): string {
@@ -71,6 +72,40 @@
     let addUserPending = $state(false);
     let addUserError = $state<string | null>(null);
     let addUserCreated = $state<{ email: string; passphrase: string } | null>(null);
+    let passphraseNoticeCopied = $state(false);
+
+    function copyPassphrase(text: string) {
+        navigator.clipboard.writeText(text).then(() => {
+            passphraseNoticeCopied = true;
+            setTimeout(() => { passphraseNoticeCopied = false; }, 2000);
+        });
+    }
+
+    let confirmRemoveUserId = $state<string | null>(null);
+    let removeUserPending = $state(false);
+
+    async function handleRemoveUser(u: UserRecord) {
+        removeUserPending = true;
+        try {
+            const res = await fetch(
+                `/api/admin/users/${encodeURIComponent(u.email)}`,
+                { method: "DELETE" },
+            );
+            if (res.ok) {
+                const { action } = await res.json();
+                if (action === "deleted") {
+                    allUsers = allUsers.filter((x) => x.user_id !== u.user_id);
+                } else {
+                    allUsers = allUsers.map((x) =>
+                        x.user_id === u.user_id ? { ...x, disabled: true } : x,
+                    );
+                }
+                confirmRemoveUserId = null;
+            }
+        } finally {
+            removeUserPending = false;
+        }
+    }
 
     async function handleAddUser(e: SubmitEvent) {
         e.preventDefault();
@@ -601,7 +636,21 @@
                 <div class="password-notice">
                     <strong>User created.</strong> Share this passphrase with
                     <em>{addUserCreated.email}</em> — it will not be shown again:
-                    <code class="password">{addUserCreated.passphrase}</code>
+                    <div class="passphrase-row">
+                        <code class="password">{addUserCreated.passphrase}</code>
+                        <button
+                            type="button"
+                            class="btn-ghost-sm"
+                            title="Copy passphrase"
+                            onclick={() => copyPassphrase(addUserCreated!.passphrase)}
+                        >
+                            {#if passphraseNoticeCopied}
+                                <i class="ph ph-check"></i>
+                            {:else}
+                                <i class="ph ph-clipboard"></i>
+                            {/if}
+                        </button>
+                    </div>
                 </div>
             {/if}
 
@@ -661,17 +710,45 @@
                     </thead>
                     <tbody>
                         {#each allUsers as u (u.user_id)}
-                            <tr>
+                            <tr class:disabled-row={u.disabled}>
                                 <td>{u.email}</td>
-                                <td><span class="role-badge">{userRoleLabel(u)}</span></td>
+                                <td>
+                                    <span class="role-badge">{userRoleLabel(u)}</span>
+                                    {#if u.disabled}
+                                        <span class="role-badge disabled-badge">Disabled</span>
+                                    {/if}
+                                </td>
                                 <td class="actions-cell">
-                                    {#if !u.can_manage}
+                                    {#if !u.can_manage && !u.is_super_user && !u.disabled}
                                         <button
                                             class="btn-ghost-sm"
                                             onclick={() => handleMakeProjectManager(u)}
                                         >
                                             Make project manager
                                         </button>
+                                    {/if}
+                                    {#if !u.disabled}
+                                        {#if confirmRemoveUserId === u.user_id}
+                                            <span class="confirm-prompt">Remove?</span>
+                                            <button
+                                                class="btn-danger-sm"
+                                                disabled={removeUserPending}
+                                                onclick={() => handleRemoveUser(u)}
+                                            >
+                                                {removeUserPending ? "…" : "Yes"}
+                                            </button>
+                                            <button
+                                                class="btn-ghost-sm"
+                                                onclick={() => (confirmRemoveUserId = null)}
+                                            >Cancel</button>
+                                        {:else}
+                                            <button
+                                                class="btn-ghost-sm danger"
+                                                onclick={() => (confirmRemoveUserId = u.user_id)}
+                                            >
+                                                Remove
+                                            </button>
+                                        {/if}
                                     {/if}
                                 </td>
                             </tr>
@@ -1338,6 +1415,15 @@
         font-size: 0.75rem;
         margin-right: 0.3rem;
         color: #334;
+    }
+
+    .disabled-badge {
+        background: #f0e8e8;
+        color: #833;
+    }
+
+    .disabled-row td {
+        opacity: 0.55;
     }
 
     .password-notice {

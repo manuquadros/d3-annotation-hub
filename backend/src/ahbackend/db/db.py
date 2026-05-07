@@ -56,6 +56,18 @@ def create_user(user: User, password: str) -> uuid.UUID | None:
     return annodb.create_user(user, password)
 
 
+def user_has_references(user_id: uuid.UUID) -> bool:
+    return annodb.user_has_references(user_id)
+
+
+def disable_user(user_id: uuid.UUID) -> None:
+    annodb.disable_user(user_id)
+
+
+def delete_user(user_id: uuid.UUID) -> None:
+    annodb.delete_user(user_id)
+
+
 def get_reference_by_pubmed_id(pubmed_id: int) -> Reference | None:
     return annodb.get_article_by_pubmed_id(pubmed_id)
 

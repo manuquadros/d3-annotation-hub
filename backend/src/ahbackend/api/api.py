@@ -2,7 +2,7 @@ import base64
 import json
 import secrets
 import string
-from typing import Annotated, Optional, Self
+from typing import Annotated, Literal, Optional, Self
 
 from xkcdpass import xkcd_password as xp
 
@@ -22,6 +22,9 @@ from ahbackend.db import (
     confirm_entity,
     create_project,
     create_user,
+    delete_user,
+    disable_user,
+    user_has_references,
     delete_entity,
     delete_ontology,
     get_annotator_snapshots,
@@ -179,6 +182,7 @@ class UserInfo(BaseModel):
     email: str
     is_super_user: bool
     can_manage: bool
+    disabled: bool = False
 
 
 @app.get("/me")
@@ -409,6 +413,35 @@ def update_user_permissions(
     set_user_permissions(user.user_id, body.is_super_user, body.can_manage)
 
 
+class RemoveUserResponse(BaseModel):
+    action: Literal["disabled", "deleted"]
+
+
+@app.delete("/admin/users/{username}")
+def remove_user_account(
+    username: str,
+    current_user: Annotated[User, Depends(users.get_current_superuser)],
+) -> RemoveUserResponse:
+    """Disable or delete a user account (superuser only).
+
+    If the user has any associated data (annotations, memberships, etc.) they
+    are disabled rather than deleted, preserving referential integrity. If no
+    references exist the account is hard-deleted.
+    """
+    if str(current_user.email) == username:
+        raise HTTPException(
+            status_code=400, detail="Cannot remove your own account"
+        )
+    user = get_user(username)
+    if user is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    if user_has_references(user.user_id):
+        disable_user(user.user_id)
+        return RemoveUserResponse(action="disabled")
+    delete_user(user.user_id)
+    return RemoveUserResponse(action="deleted")
+
+
 @app.get("/admin/users")
 def get_all_users(
     _: Annotated[User, Depends(users.get_current_superuser)],
@@ -420,6 +453,7 @@ def get_all_users(
             email=str(u.email),
             is_super_user=a.is_super_user,
             can_manage=a.can_manage,
+            disabled=a.disabled,
         )
         for u, a in list_users()
     ]

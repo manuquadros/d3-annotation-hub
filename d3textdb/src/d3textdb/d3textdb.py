@@ -13,7 +13,7 @@ import pysqlite3
 from pydantic import EmailStr
 from sqlalchemy import create_engine
 from sqlalchemy import delete as sa_delete
-from sqlalchemy import event, func, literal_column, or_, select, text, update
+from sqlalchemy import event, exists, func, literal_column, or_, select, text, update
 from sqlalchemy.dialects.sqlite import insert
 from sqlalchemy.orm import Session, aliased
 from sqlalchemy.pool import StaticPool
@@ -1004,6 +1004,46 @@ class D3TextDB:
             session.commit()
 
         return user_id
+
+    def user_has_references(self, user_id: UUID) -> bool:
+        """Return True if any table other than User/UserAuth references this user_id."""
+        checks = [
+            select(AnnotationState).where(AnnotationState.user_id == user_id),
+            select(AnnotationSnapshot).where(AnnotationSnapshot.user_id == user_id),
+            select(CuratedAnnotation).where(CuratedAnnotation.curator_id == user_id),
+            select(CurationDecision).where(CurationDecision.curator_id == user_id),
+            select(UserRelationReference).where(UserRelationReference.user_id == user_id),
+            select(ProjectMembership).where(ProjectMembership.user_id == user_id),
+            select(UserLastProject).where(UserLastProject.user_id == user_id),
+        ]
+        with Session(self.engine) as session:
+            return session.scalar(
+                select(literal_column("1")).where(or_(*[q.exists() for q in checks]))
+            ) is not None
+
+    def disable_user(self, user_id: UUID) -> None:
+        """Set UserAuth.disabled = True for the given user."""
+        with Session(self.engine) as session:
+            session.execute(
+                update(UserAuth)
+                .where(UserAuth.user_id == user_id)
+                .values(disabled=True)
+            )
+            session.commit()
+
+    def delete_user(self, user_id: UUID) -> None:
+        """Hard-delete a user with no remaining references.
+
+        Only safe to call after :meth:`user_has_references` returns False.
+        """
+        with Session(self.engine) as session:
+            session.execute(
+                sa_delete(UserAuth).where(UserAuth.user_id == user_id)
+            )
+            session.execute(
+                sa_delete(User).where(User.user_id == user_id)
+            )
+            session.commit()
 
     def update_password(self, user_id: UUID, new_password: str) -> None:
         with Session(self.engine) as session:
