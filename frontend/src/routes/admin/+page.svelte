@@ -50,16 +50,18 @@
         return "User";
     }
 
-    async function handleMakeProjectManager(u: UserRecord) {
+    async function setCanManage(u: UserRecord, can_manage: boolean) {
         const res = await fetch(`/api/admin/users/${encodeURIComponent(u.email)}/permissions`, {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ is_super_user: u.is_super_user, can_manage: true }),
+            body: JSON.stringify({ is_super_user: u.is_super_user, can_manage }),
         });
         if (res.ok) {
-            allUsers = allUsers.map((x) => (x.user_id === u.user_id ? { ...x, can_manage: true } : x));
+            allUsers = allUsers.map((x) => (x.user_id === u.user_id ? { ...x, can_manage } : x));
         }
     }
+
+    let confirmRemoveManagerId = $state<string | null>(null);
 
     async function fetchPassphrase(): Promise<string> {
         const res = await fetch("/api/admin/passphrase-suggestion");
@@ -626,7 +628,10 @@
                     showAddUser = !showAddUser;
                     addUserError = null;
                     addUserCreated = null;
-                    if (showAddUser) newUserPassphrase = await fetchPassphrase();
+                    if (showAddUser) {
+                        newUserEmail = "";
+                        newUserPassphrase = await fetchPassphrase();
+                    }
                 }}>
                     {showAddUser ? "Cancel" : "+ Add user"}
                 </button>
@@ -722,10 +727,33 @@
                                     {#if !u.can_manage && !u.is_super_user && !u.disabled}
                                         <button
                                             class="btn-ghost-sm"
-                                            onclick={() => handleMakeProjectManager(u)}
+                                            onclick={() => setCanManage(u, true)}
                                         >
                                             Make project manager
                                         </button>
+                                    {/if}
+                                    {#if u.can_manage && !u.is_super_user && !u.disabled}
+                                        {#if confirmRemoveManagerId === u.user_id}
+                                            <span class="confirm-prompt">Remove manager?</span>
+                                            <button
+                                                class="btn-danger-sm"
+                                                onclick={() => {
+                                                    setCanManage(u, false);
+                                                    confirmRemoveManagerId = null;
+                                                }}
+                                            >Yes</button>
+                                            <button
+                                                class="btn-ghost-sm"
+                                                onclick={() => (confirmRemoveManagerId = null)}
+                                            >Cancel</button>
+                                        {:else}
+                                            <button
+                                                class="btn-ghost-sm danger"
+                                                onclick={() => (confirmRemoveManagerId = u.user_id)}
+                                            >
+                                                Remove project manager
+                                            </button>
+                                        {/if}
                                     {/if}
                                     {#if !u.disabled}
                                         {#if confirmRemoveUserId === u.user_id}
