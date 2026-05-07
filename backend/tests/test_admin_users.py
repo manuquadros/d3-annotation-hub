@@ -219,6 +219,75 @@ class TestRemoveUser:
         assert r.json()["action"] == "disabled"
 
 
+@pytest.fixture()
+def ctx_with_plain_user(ctx):
+    """Extends ctx with a plain user (no can_manage, no is_super_user).
+
+    Returns (client, admin_auth, user_auth) where user_auth is a Bearer
+    header dict for the plain user.
+    """
+    client, admin_auth = ctx
+    client.post(
+        "/admin/users",
+        json={"email": _NEW_USER_EMAIL, "password": _NEW_USER_PASSWORD},
+        headers=admin_auth,
+    )
+    r = client.post("/token", data={"username": _NEW_USER_EMAIL, "password": _NEW_USER_PASSWORD})
+    user_auth = {"Authorization": f"Bearer {r.json()['access_token']}"}
+    return client, admin_auth, user_auth
+
+
+class TestPermissions:
+    def _set_permissions(self, client, admin_auth, *, can_manage: bool):
+        r = client.put(
+            f"/admin/users/{_NEW_USER_EMAIL}/permissions",
+            json={"can_manage": can_manage, "is_super_user": False},
+            headers=admin_auth,
+        )
+        assert r.status_code == 204
+
+    def test_new_user_has_can_manage_false(self, ctx_with_plain_user):
+        client, admin_auth, _ = ctx_with_plain_user
+        r = client.get("/admin/users", headers=admin_auth)
+        user = next(u for u in r.json() if u["email"] == _NEW_USER_EMAIL)
+        assert user["can_manage"] is False
+        assert user["is_super_user"] is False
+
+    def test_plain_user_cannot_create_project(self, ctx_with_plain_user):
+        client, _, user_auth = ctx_with_plain_user
+        r = client.post("/projects", json={"name": "My Project"}, headers=user_auth)
+        assert r.status_code == 403
+
+    def test_make_project_manager_updates_user_list(self, ctx_with_plain_user):
+        client, admin_auth, _ = ctx_with_plain_user
+        self._set_permissions(client, admin_auth, can_manage=True)
+        r = client.get("/admin/users", headers=admin_auth)
+        user = next(u for u in r.json() if u["email"] == _NEW_USER_EMAIL)
+        assert user["can_manage"] is True
+
+    def test_project_manager_can_create_project(self, ctx_with_plain_user):
+        client, admin_auth, user_auth = ctx_with_plain_user
+        self._set_permissions(client, admin_auth, can_manage=True)
+        r = client.post("/projects", json={"name": "My Project"}, headers=user_auth)
+        assert r.status_code == 201
+        assert r.json()["name"] == "My Project"
+
+    def test_remove_project_manager_updates_user_list(self, ctx_with_plain_user):
+        client, admin_auth, _ = ctx_with_plain_user
+        self._set_permissions(client, admin_auth, can_manage=True)
+        self._set_permissions(client, admin_auth, can_manage=False)
+        r = client.get("/admin/users", headers=admin_auth)
+        user = next(u for u in r.json() if u["email"] == _NEW_USER_EMAIL)
+        assert user["can_manage"] is False
+
+    def test_removing_can_manage_revokes_project_creation(self, ctx_with_plain_user):
+        client, admin_auth, user_auth = ctx_with_plain_user
+        self._set_permissions(client, admin_auth, can_manage=True)
+        self._set_permissions(client, admin_auth, can_manage=False)
+        r = client.post("/projects", json={"name": "My Project"}, headers=user_auth)
+        assert r.status_code == 403
+
+
 class TestPassphraseSuggestion:
     def test_returns_a_non_empty_string(self, ctx):
         client, auth = ctx
