@@ -48,6 +48,17 @@ def get_user(email: str) -> User | None:
     return annodb.get_user(email)
 
 
+def search_users(query: str, limit: int = 20) -> list[tuple[User, UserAuth]]:
+    with Session(annodb.engine) as session:
+        rows = session.execute(
+            select(User, UserAuth)
+            .join(UserAuth, UserAuth.user_id == User.user_id)
+            .where(col(User.email).ilike(f"%{query}%"))
+            .limit(limit)
+        ).all()
+        return [(u, a) for u, a in rows]
+
+
 def get_user_auth(user_id: uuid.UUID) -> UserAuth | None:
     return annodb.get_user_auth(user_id)
 

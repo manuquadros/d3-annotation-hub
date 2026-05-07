@@ -47,6 +47,7 @@ from .db import (
     get_reference_by_pubmed_id,
     store_reference,
     get_user,
+    search_users,
     get_user_auth,
     get_user_last_project,
     get_user_project_roles,

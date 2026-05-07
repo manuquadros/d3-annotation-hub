@@ -65,6 +65,7 @@ from ahbackend.db import (
     save_curated_annotation,
     set_curation_decision,
     search_entities,
+    search_users,
     set_user_last_project,
     set_user_permissions,
     list_users,
@@ -501,7 +502,7 @@ def create_new_user(
 
 @app.get("/admin/passphrase-suggestion")
 def passphrase_suggestion(
-    _: Annotated[User, Depends(users.get_current_superuser)],
+    _: Annotated[User, Depends(users.get_current_active_user)],
 ) -> str:
     """Return a suggested passphrase for use as an initial password."""
     return _generate_passphrase()
@@ -657,6 +658,11 @@ class UserLookupResponse(BaseModel):
     email: str | None = None
 
 
+class UserSearchResult(BaseModel):
+    user_id: str
+    email: str
+
+
 class MemberInfo(BaseModel):
     user_id: str
     email: str
@@ -692,6 +698,21 @@ def lookup_user_for_project(
         user_id=str(user.user_id),
         email=str(user.email),
     )
+
+
+@app.get("/projects/{project_id}/users/search")
+def search_project_users(
+    project_id: int,
+    q: str,
+    _: Annotated[User, Depends(users.require_manager)],
+    limit: int = 20,
+) -> list[UserSearchResult]:
+    results = search_users(q, limit)
+    return [
+        UserSearchResult(user_id=str(u.user_id), email=str(u.email))
+        for u, a in results
+        if not a.disabled
+    ]
 
 
 @app.post("/projects/{project_id}/members", status_code=201)

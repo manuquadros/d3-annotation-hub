@@ -302,7 +302,7 @@ class TestPassphraseSuggestion:
         parts = r.json().split("-")
         assert len(parts) == 4
 
-    def test_non_superuser_is_rejected(self, ctx):
+    def test_any_authenticated_user_can_request(self, ctx):
         client, auth = ctx
         client.post(
             "/admin/users",
@@ -314,4 +314,9 @@ class TestPassphraseSuggestion:
         )
         plain_auth = {"Authorization": f"Bearer {r.json()['access_token']}"}
         r = client.get("/admin/passphrase-suggestion", headers=plain_auth)
-        assert r.status_code == 403
+        assert r.status_code == 200
+
+    def test_unauthenticated_request_is_rejected(self, ctx):
+        fresh_client = TestClient(app)
+        r = fresh_client.get("/admin/passphrase-suggestion")
+        assert r.status_code == 401
