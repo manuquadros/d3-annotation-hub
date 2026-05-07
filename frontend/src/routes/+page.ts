@@ -22,7 +22,7 @@ export const load: PageLoad = async ({ fetch, url, parent }) => {
     if (isProjectManager) destinations.push("manage");
     if (isSuperuser) destinations.push("admin");
 
-    if (canManageProjects && destinations.length === 0) {
+    if (isProjectManager && destinations.length === 0) {
         redirect(302, `/projects/${currentProjectId}`);
     }
 
