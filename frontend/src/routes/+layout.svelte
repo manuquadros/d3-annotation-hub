@@ -192,7 +192,7 @@
                             />
                         </div>
 
-                        {#if !data.isAdmin && !data.isCurator}
+                        {#if !data.isAdmin && !data.isCurator && !data.isProjectManager}
                             <nav class="queue-wrapper">
                                 <p class="title">Annotation Queue</p>
                                 <AnnotationQueue
@@ -219,7 +219,7 @@
                         </div>
                     {/if}
 
-                    {#if data.isAdmin && data.currentProjectId !== null}
+                    {#if (data.isAdmin || data.isProjectManager) && data.currentProjectId !== null}
                         <nav>
                             <p class="title">Management</p>
 

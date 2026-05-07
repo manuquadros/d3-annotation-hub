@@ -15,6 +15,8 @@ export const load: LayoutServerLoad = async ({ cookies, url }) => {
             isSuperuser: false,
             isAdmin: false,
             isCurator: false,
+            isAnnotator: false,
+            isProjectManager: false,
             projects: [],
             currentProjectId: null,
         };
@@ -57,16 +59,19 @@ export const load: LayoutServerLoad = async ({ cookies, url }) => {
     const isSuperuser = me?.is_super_user === true;
     const isAdmin = me?.can_manage === true || isSuperuser;
 
-    // Determine curator status for the current project.
     let isCurator = false;
-    if (!isCurator && currentProjectId !== null) {
+    let isAnnotator = false;
+    let isProjectManager = false;
+    if (currentProjectId !== null) {
         const rolesRes = await fetch(
             `${API_BASE_URL}/me/project-roles?project_id=${currentProjectId}`,
             { headers },
         );
         if (rolesRes.ok) {
-            const rolesData = await rolesRes.json();
-            isCurator = (rolesData.roles as string[]).includes("curator");
+            const roles = (await rolesRes.json()).roles as string[];
+            isCurator = roles.includes("curator");
+            isAnnotator = roles.includes("annotator");
+            isProjectManager = roles.includes("manager");
         }
     }
 
@@ -75,6 +80,8 @@ export const load: LayoutServerLoad = async ({ cookies, url }) => {
         isSuperuser,
         isAdmin,
         isCurator,
+        isAnnotator,
+        isProjectManager,
         projects,
         currentProjectId,
     };
