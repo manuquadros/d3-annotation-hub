@@ -1153,6 +1153,19 @@ class D3TextDB:
             )
             session.commit()
 
+    def remove_all_project_member_roles(
+        self, project_id: int, user_id: UUID
+    ) -> None:
+        """Remove all roles a user holds within a project."""
+        with Session(self.engine) as session:
+            session.execute(
+                sa_delete(ProjectMembership).where(
+                    (ProjectMembership.project_id == project_id)
+                    & (ProjectMembership.user_id == user_id)
+                )
+            )
+            session.commit()
+
     def get_project_members(
         self, project_id: int
     ) -> list[tuple[User, list[str]]]:

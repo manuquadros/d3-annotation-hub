@@ -50,7 +50,14 @@ Click **Create & add** to create the account and add it to the project in one
 step. The passphrase is shown once after creation — make sure to share it before
 navigating away.
 
-### Removing a role
+### Changing roles
 
-In the member list, click **Remove Annotator** or **Remove Curator** next to a
-user to take away that role. The user's account itself is not affected.
+Each member row shows **Annotator** and **Curator** as toggle buttons. A filled
+button means the user currently holds that role — click it to remove the role.
+An outline button means they do not — click it to add the role. Changes take
+effect immediately.
+
+### Removing a user from the project
+
+Click **Remove user** next to a member and confirm. This removes all their roles
+for this project. Their account and annotations are not deleted.

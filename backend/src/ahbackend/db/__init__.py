@@ -58,6 +58,7 @@ from .db import (
     query,
     remove_ontology_from_project,
     remove_project_member,
+    remove_all_project_roles,
     remove_reference_from_project,
     get_project_properties,
     get_ontology_triples,

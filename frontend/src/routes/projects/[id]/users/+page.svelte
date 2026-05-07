@@ -19,6 +19,13 @@
         | { status: "not_found"; email: string }
         | { status: "error"; message: string };
 
+    const PROJECT_ROLES = ["annotator", "curator"] as const;
+    type ProjectRole = (typeof PROJECT_ROLES)[number];
+    const ROLE_ICONS: Record<ProjectRole, string> = {
+        annotator: "ph-pencil-simple",
+        curator: "ph-seal-check",
+    };
+
     let { data } = $props();
 
     let members = $state<Member[]>(untrack(() => data.members));
@@ -29,7 +36,7 @@
     let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 
     let lookup = $state<LookupState>({ status: "idle" });
-    let selectedRole = $state<"annotator" | "curator">("annotator");
+    let selectedRole = $state<ProjectRole>("annotator");
 
     let newUserEmail = $state("");
     let newPassword = $state("");
@@ -38,6 +45,9 @@
     let submitting = $state(false);
     let addError = $state<string | null>(null);
     let addedPassword = $state<string | null>(null);
+    let toggleError = $state<string | null>(null);
+
+    let confirmRemoveUserId = $state<string | null>(null);
 
     function handleSearchInput() {
         const q = searchEmail.trim();
@@ -146,16 +156,44 @@
         }
     }
 
-    async function handleRemoveRole(userId: string, role: string) {
-        try {
-            await fetch(`/api/projects/${data.projectId}/members/${userId}/${role}`, {
-                method: "DELETE",
+    async function handleToggleRole(member: Member, role: string) {
+        toggleError = null;
+        const hasRole = member.roles.includes(role);
+        if (hasRole) {
+            const res = await fetch(
+                `/api/projects/${data.projectId}/members/${member.user_id}/${role}`,
+                { method: "DELETE" },
+            );
+            if (!res.ok) {
+                toggleError = "Failed to remove role.";
+                return;
+            }
+            member.roles = member.roles.filter((r) => r !== role);
+        } else {
+            const res = await fetch(`/api/projects/${data.projectId}/members`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ email: member.email, role }),
             });
-            const listRes = await fetch(`/api/projects/${data.projectId}/members`);
-            if (listRes.ok) members = await listRes.json();
-        } catch {
-            // ignore
+            if (!res.ok) {
+                toggleError = "Failed to add role.";
+                return;
+            }
+            const updated: Member = await res.json();
+            member.roles = updated.roles;
         }
+    }
+
+    async function handleRemoveUser(userId: string) {
+        const res = await fetch(`/api/projects/${data.projectId}/members/${userId}`, {
+            method: "DELETE",
+        });
+        if (!res.ok) {
+            toggleError = "Failed to remove user.";
+            return;
+        }
+        members = members.filter((m) => m.user_id !== userId);
+        confirmRemoveUserId = null;
     }
 
     function roleLabel(role: string): string {
@@ -313,6 +351,9 @@
     {#if members.length > 0}
         <section class="card">
             <h2>Project members ({members.length})</h2>
+            {#if toggleError}
+                <p class="error">{toggleError}</p>
+            {/if}
             <table>
                 <thead>
                     <tr>
@@ -326,22 +367,43 @@
                         <tr>
                             <td class="email">{member.email}</td>
                             <td>
-                                <div class="role-list">
-                                    {#each member.roles as role (role)}
-                                        <span class="role-badge">{roleLabel(role)}</span>
+                                <div class="role-toggles">
+                                    {#each PROJECT_ROLES as role (role)}
+                                        {@const active = member.roles.includes(role)}
+                                        <button
+                                            class="btn small {active ? 'secondary filled' : 'muted'}"
+                                            onclick={() => handleToggleRole(member, role)}
+                                            title="{active ? 'Remove' : 'Add'} {roleLabel(role)} role"
+                                        >
+                                            <i class="ph {ROLE_ICONS[role]}"></i>
+                                            {roleLabel(role)}
+                                        </button>
                                     {/each}
+                                    {#if member.roles.includes("manager")}
+                                        <button class="btn small muted filled" disabled>
+                                            <i class="ph ph-briefcase"></i>
+                                            Manager
+                                        </button>
+                                    {/if}
                                 </div>
                             </td>
                             <td class="actions">
-                                {#each member.roles.filter((r) => r !== "manager") as role (role)}
+                                {#if confirmRemoveUserId === member.user_id}
+                                    <span class="confirm-text">Remove from project?</span>
                                     <button
-                                        class="btn-danger-sm"
-                                        onclick={() => handleRemoveRole(member.user_id, role)}
-                                        title="Remove {roleLabel(role)} role"
-                                    >
-                                        Remove {roleLabel(role)}
-                                    </button>
-                                {/each}
+                                        class="btn small danger filled"
+                                        onclick={() => handleRemoveUser(member.user_id)}
+                                    >Yes</button>
+                                    <button
+                                        class="btn small muted"
+                                        onclick={() => (confirmRemoveUserId = null)}
+                                    >Cancel</button>
+                                {:else}
+                                    <button
+                                        class="btn small danger"
+                                        onclick={() => (confirmRemoveUserId = member.user_id)}
+                                    >Remove user</button>
+                                {/if}
                             </td>
                         </tr>
                     {/each}
@@ -506,17 +568,17 @@
         white-space: nowrap;
     }
 
-    .role-list {
+    .confirm-text {
+        font-size: 0.85rem;
+        color: #555;
+        margin-right: 0.4rem;
+    }
+
+    .role-toggles {
         display: flex;
         gap: 0.4rem;
         flex-wrap: wrap;
+        align-items: center;
     }
 
-    .role-badge {
-        background: #eef2ff;
-        color: #3730a3;
-        font-size: 0.8rem;
-        padding: 0.15rem 0.5rem;
-        border-radius: 999px;
-    }
 </style>

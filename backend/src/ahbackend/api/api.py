@@ -2,6 +2,7 @@ import base64
 import json
 import secrets
 import string
+import uuid
 from typing import Annotated, Literal, Optional, Self
 
 from xkcdpass import xkcd_password as xp
@@ -60,6 +61,7 @@ from ahbackend.db import (
     query,
     remove_ontology_from_project,
     remove_project_member,
+    remove_all_project_roles,
     remove_reference_from_project,
     run_ontology_import,
     save_curated_annotation,
@@ -96,6 +98,9 @@ from xmlparser import (
 )
 
 app = FastAPI()
+
+VALID_ROLES: frozenset[str] = frozenset({"manager", "annotator", "curator"})
+EXCLUSIVE_ROLES: frozenset[str] = frozenset({"annotator", "curator"})
 
 
 def reference_body_xml(ref: Reference) -> str:
@@ -730,11 +735,10 @@ def add_member_to_project(
     if get_project(project_id) is None:
         raise HTTPException(status_code=404, detail="Project not found")
 
-    valid_roles = {"manager", "annotator", "curator"}
-    if body.role not in valid_roles:
+    if body.role not in VALID_ROLES:
         raise HTTPException(
             status_code=422,
-            detail=f"role must be one of {sorted(valid_roles)}",
+            detail=f"role must be one of {sorted(VALID_ROLES)}",
         )
 
     generated_password: str | None = None
@@ -752,6 +756,10 @@ def add_member_to_project(
                 status_code=500, detail="Failed to create user"
             )
 
+    if body.role in EXCLUSIVE_ROLES:
+        for other in EXCLUSIVE_ROLES - {body.role}:
+            remove_project_member(project_id, user.user_id, other)
+
     add_project_member(project_id, user.user_id, body.role)
     roles = get_user_project_roles(user.user_id, project_id)
     return MemberInfo(
@@ -762,21 +770,25 @@ def add_member_to_project(
     )
 
 
+@app.delete("/projects/{project_id}/members/{user_id}", status_code=204)
+def remove_member_from_project_all_roles(
+    project_id: int,
+    user_id: uuid.UUID,
+    _: Annotated[User, Depends(users.require_manager)],
+) -> None:
+    """Remove a user from a project entirely (all roles)."""
+    remove_all_project_roles(project_id, user_id)
+
+
 @app.delete("/projects/{project_id}/members/{user_id}/{role}", status_code=204)
 def remove_member_from_project(
     project_id: int,
-    user_id: str,
+    user_id: uuid.UUID,
     role: str,
     _: Annotated[User, Depends(users.require_manager)],
 ) -> None:
     """Remove a specific role from a user within a project."""
-    import uuid as _uuid
-
-    try:
-        uid = _uuid.UUID(user_id)
-    except ValueError:
-        raise HTTPException(status_code=422, detail="Invalid user_id")
-    remove_project_member(project_id, uid, role)
+    remove_project_member(project_id, user_id, role)
 
 
 # ---------------------------------------------------------------------------

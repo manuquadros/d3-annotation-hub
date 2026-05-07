@@ -352,6 +352,10 @@ def remove_project_member(
     annodb.remove_project_member(project_id, user_id, role)
 
 
+def remove_all_project_roles(project_id: int, user_id: uuid.UUID) -> None:
+    annodb.remove_all_project_member_roles(project_id, user_id)
+
+
 def get_project_members(
     project_id: int,
 ) -> list[tuple[User, list[str]]]:
