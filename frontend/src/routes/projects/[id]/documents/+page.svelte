@@ -114,7 +114,7 @@
                 </div>
             {/if}
 
-            <button type="submit" class="btn-primary" disabled={submitting || !input.trim()}>
+            <button type="submit" class="btn primary filled" disabled={submitting || !input.trim()}>
                 {submitting ? "Importing…" : "Import references"}
             </button>
         </form>

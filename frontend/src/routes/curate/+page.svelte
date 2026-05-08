@@ -181,7 +181,7 @@
                             <td>{ref.year}</td>
                             <td>
                                 <a
-                                    class="btn btn-sm primary"
+                                    class="btn small primary"
                                     href="/curate/{ref.reference_id}?project={data.projectId}"
                                 >
                                     Review

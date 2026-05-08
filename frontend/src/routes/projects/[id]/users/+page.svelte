@@ -303,7 +303,7 @@
                             />
                             <button
                                 type="button"
-                                class="btn-ghost-sm"
+                                class="btn small muted"
                                 title="Copy passphrase"
                                 disabled={submitting || !newPassword}
                                 onclick={copyPassphrase}
@@ -312,7 +312,7 @@
                             </button>
                             <button
                                 type="button"
-                                class="btn-ghost-sm"
+                                class="btn small muted"
                                 title="Generate new passphrase"
                                 disabled={submitting}
                                 onclick={async () => {
@@ -330,7 +330,7 @@
                     <p class="error">{addError}</p>
                 {/if}
 
-                <button type="submit" class="btn-primary" disabled={submitting}>
+                <button type="submit" class="btn primary filled" disabled={submitting}>
                     {submitting
                         ? "Adding…"
                         : lookup.status === "not_found"

@@ -455,7 +455,7 @@
     <section class="card">
         <div class="section-header">
             <h2>Projects</h2>
-            <a href="/projects/new" class="btn-ghost-sm">+ New Project</a>
+            <a href="/projects/new" class="btn small muted">+ New Project</a>
         </div>
 
         {#if projects.length === 0}
@@ -478,7 +478,7 @@
                             <td>{project.required_annotators}</td>
                             <td class="actions-cell">
                                 <button
-                                    class="btn-ghost-sm"
+                                    class="btn small muted"
                                     onclick={() => toggleProject(project.project_id)}
                                 >
                                     {expandedProjectId === project.project_id ? "Hide" : "Manage"}
@@ -518,7 +518,7 @@
                                                                 <td class="actions-cell">
                                                                     {#each member.roles as role (role)}
                                                                         <button
-                                                                            class="btn-ghost-sm danger"
+                                                                            class="btn small danger"
                                                                             onclick={() =>
                                                                                 handleRemoveMember(
                                                                                     project.project_id,
@@ -558,7 +558,7 @@
                                                 </select>
                                                 <button
                                                     type="submit"
-                                                    class="btn-ghost-sm"
+                                                    class="btn small muted"
                                                     disabled={addMemberPending}
                                                 >
                                                     {addMemberPending ? "…" : "Add"}
@@ -593,7 +593,7 @@
                                                         {/each}
                                                     </select>
                                                     <button
-                                                        class="btn-ghost-sm"
+                                                        class="btn small muted"
                                                         disabled={!assignOntologyId[
                                                             project.project_id
                                                         ] ||
@@ -623,7 +623,7 @@
         <section class="card">
             <div class="section-header">
                 <h2>User Management</h2>
-                <button class="btn-ghost-sm" onclick={async () => {
+                <button class="btn small muted" onclick={async () => {
                     showAddUser = !showAddUser;
                     addUserError = null;
                     addUserCreated = null;
@@ -644,7 +644,7 @@
                         <code class="password">{addUserCreated.passphrase}</code>
                         <button
                             type="button"
-                            class="btn-ghost-sm"
+                            class="btn small muted"
                             title="Copy passphrase"
                             onclick={() => copyPassphrase(addUserCreated!.passphrase)}
                         >
@@ -683,7 +683,7 @@
                             />
                             <button
                                 type="button"
-                                class="btn-ghost-sm"
+                                class="btn small muted"
                                 title="Generate new passphrase"
                                 disabled={addUserPending}
                                 onclick={async () => (newUserPassphrase = await fetchPassphrase())}
@@ -695,7 +695,7 @@
                     {#if addUserError}
                         <p class="error">{addUserError}</p>
                     {/if}
-                    <button type="submit" class="btn-primary" disabled={addUserPending}>
+                    <button type="submit" class="btn primary filled" disabled={addUserPending}>
                         {addUserPending ? "Creating…" : "Create user"}
                     </button>
                 </form>
@@ -725,7 +725,7 @@
                                 <td class="actions-cell">
                                     {#if !u.can_manage && !u.is_super_user && !u.disabled}
                                         <button
-                                            class="btn-ghost-sm"
+                                            class="btn small muted"
                                             onclick={() => setCanManage(u, true)}
                                         >
                                             Make project manager
@@ -735,19 +735,19 @@
                                         {#if confirmAction?.userId === u.user_id && confirmAction.kind === "remove-manager"}
                                             <span class="confirm-prompt">Remove manager?</span>
                                             <button
-                                                class="btn-danger-sm"
+                                                class="btn small danger filled"
                                                 onclick={() => {
                                                     setCanManage(u, false);
                                                     confirmAction = null;
                                                 }}
                                             >Yes</button>
                                             <button
-                                                class="btn-ghost-sm"
+                                                class="btn small muted"
                                                 onclick={() => (confirmAction = null)}
                                             >Cancel</button>
                                         {:else}
                                             <button
-                                                class="btn-ghost-sm danger"
+                                                class="btn small danger"
                                                 onclick={() => (confirmAction = { userId: u.user_id, kind: "remove-manager" })}
                                             >
                                                 Remove project manager
@@ -758,19 +758,19 @@
                                         {#if confirmAction?.userId === u.user_id && confirmAction.kind === "remove-user"}
                                             <span class="confirm-prompt">Remove?</span>
                                             <button
-                                                class="btn-danger-sm"
+                                                class="btn small danger filled"
                                                 disabled={removeUserPending}
                                                 onclick={() => handleRemoveUser(u)}
                                             >
                                                 {removeUserPending ? "…" : "Yes"}
                                             </button>
                                             <button
-                                                class="btn-ghost-sm"
+                                                class="btn small muted"
                                                 onclick={() => (confirmAction = null)}
                                             >Cancel</button>
                                         {:else}
                                             <button
-                                                class="btn-ghost-sm danger"
+                                                class="btn small danger"
                                                 onclick={() => (confirmAction = { userId: u.user_id, kind: "remove-user" })}
                                             >
                                                 Remove
@@ -864,7 +864,7 @@
                 {/if}
 
                 <div class="actions">
-                    <button type="submit" class="btn-primary" disabled={submitting || !file}>
+                    <button type="submit" class="btn primary filled" disabled={submitting || !file}>
                         {submitting ? "Importing…" : "Import"}
                     </button>
                 </div>
@@ -897,26 +897,26 @@
                                     {#if confirmDeleteId === onto.ontology_id}
                                         <span class="confirm-prompt">Remove?</span>
                                         <button
-                                            class="btn-danger-sm"
+                                            class="btn small danger filled"
                                             disabled={deleting}
                                             onclick={() => handleDelete(onto.ontology_id)}
                                         >
                                             {deleting ? "…" : "Yes"}
                                         </button>
                                         <button
-                                            class="btn-ghost-sm"
+                                            class="btn small muted"
                                             onclick={() => (confirmDeleteId = null)}
                                             >Cancel</button
                                         >
                                     {:else}
                                         <button
-                                            class="btn-ghost-sm"
+                                            class="btn small muted"
                                             onclick={() => toggleView(onto.ontology_id)}
                                         >
                                             {viewingId === onto.ontology_id ? "Hide" : "View"}
                                         </button>
                                         <button
-                                            class="btn-ghost-sm danger"
+                                            class="btn small danger"
                                             onclick={() => (confirmDeleteId = onto.ontology_id)}
                                             >Remove</button
                                         >
@@ -957,7 +957,7 @@
                                                 </table>
                                                 {#if entityOffset < entityTotal}
                                                     <button
-                                                        class="btn-ghost-sm load-more"
+                                                        class="btn small muted load-more"
                                                         disabled={entityLoading}
                                                         onclick={() =>
                                                             loadEntities(
@@ -1022,45 +1022,45 @@
                                     {#if confirmRejectId === e.entity_id}
                                         <span class="confirm-prompt">Reject?</span>
                                         <button
-                                            class="btn-danger-sm"
+                                            class="btn small danger filled"
                                             disabled={actionPending === e.entity_id}
                                             onclick={() => handleReject(e.entity_id)}
                                         >
                                             {actionPending === e.entity_id ? "…" : "Yes"}
                                         </button>
                                         <button
-                                            class="btn-ghost-sm"
+                                            class="btn small muted"
                                             onclick={() => (confirmRejectId = null)}
                                             >Cancel</button
                                         >
                                     {:else if editCurieId === e.entity_id}
                                         <button
-                                            class="btn-ghost-sm"
+                                            class="btn small muted"
                                             disabled={actionPending === e.entity_id}
                                             onclick={() => handleEditCurie(e.entity_id)}
                                         >
                                             {actionPending === e.entity_id ? "…" : "Save"}
                                         </button>
                                         <button
-                                            class="btn-ghost-sm"
+                                            class="btn small muted"
                                             onclick={() => (editCurieId = null)}>Cancel</button
                                         >
                                     {:else}
                                         <button
-                                            class="btn-ghost-sm accept"
+                                            class="btn small success"
                                             disabled={actionPending === e.entity_id}
                                             onclick={() => handleAccept(e.entity_id)}
                                             >Accept</button
                                         >
                                         <button
-                                            class="btn-ghost-sm"
+                                            class="btn small muted"
                                             onclick={() => {
                                                 editCurieId = e.entity_id;
                                                 editCurieValue = e.entity_id;
                                             }}>Edit CURIE</button
                                         >
                                         <button
-                                            class="btn-ghost-sm danger"
+                                            class="btn small danger"
                                             onclick={() => (confirmRejectId = e.entity_id)}
                                             >Reject</button
                                         >
@@ -1072,7 +1072,7 @@
                 </table>
                 {#if proposedOffset < proposedTotal}
                     <button
-                        class="btn-ghost-sm load-more"
+                        class="btn small muted load-more"
                         disabled={proposedLoading}
                         onclick={loadMoreProposed}
                     >
@@ -1092,7 +1092,7 @@
             </p>
             <div class="fts-row">
                 <button
-                    class="btn-secondary"
+                    class="btn secondary"
                     disabled={ftsRebuilding}
                     onclick={handleRebuildFts}
                 >
@@ -1229,77 +1229,6 @@
 
     .actions {
         margin-top: 1.2rem;
-    }
-
-    .btn-primary {
-        padding: 0.5rem 1.2rem;
-        background: #333;
-        color: #fff;
-        border: none;
-        border-radius: 4px;
-        cursor: pointer;
-        font-size: 0.875rem;
-    }
-
-    .btn-primary:disabled {
-        opacity: 0.5;
-        cursor: not-allowed;
-    }
-
-    .btn-primary:not(:disabled):hover {
-        background: #111;
-    }
-
-    .btn-ghost-sm {
-        padding: 0.2rem 0.6rem;
-        background: transparent;
-        border: 1px solid #ccc;
-        border-radius: 3px;
-        cursor: pointer;
-        font-size: 0.8rem;
-        color: #444;
-    }
-
-    .btn-ghost-sm:hover {
-        background: #f5f5f5;
-    }
-
-    .btn-ghost-sm:disabled {
-        opacity: 0.5;
-        cursor: not-allowed;
-    }
-
-    .btn-ghost-sm.danger {
-        color: #b00;
-        border-color: #e0a0a0;
-    }
-
-    .btn-ghost-sm.danger:hover {
-        background: #fff0f0;
-    }
-
-    .btn-ghost-sm.accept {
-        color: #060;
-        border-color: #a0c8a0;
-    }
-
-    .btn-ghost-sm.accept:hover {
-        background: #f0fff0;
-    }
-
-    .btn-danger-sm {
-        padding: 0.2rem 0.6rem;
-        background: #b00;
-        color: #fff;
-        border: none;
-        border-radius: 3px;
-        cursor: pointer;
-        font-size: 0.8rem;
-    }
-
-    .btn-danger-sm:disabled {
-        opacity: 0.5;
-        cursor: not-allowed;
     }
 
     .error {

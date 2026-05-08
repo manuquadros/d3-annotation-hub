@@ -161,7 +161,7 @@
                             <td>{o.version ?? "—"}</td>
                             <td>
                                 <button
-                                    class="btn-danger-sm"
+                                    class="btn small danger filled"
                                     disabled={removingId === o.ontology_id}
                                     onclick={() => handleRemove(o.ontology_id)}
                                 >
@@ -183,7 +183,7 @@
                     {/each}
                 </select>
                 <button
-                    class="btn-primary-sm"
+                    class="btn small primary filled"
                     disabled={!selectedOntologyId || assigning}
                     onclick={handleAssign}
                 >
@@ -240,7 +240,7 @@
                 </p>
             {/if}
 
-            <button type="submit" class="btn-primary" disabled={submitting}>
+            <button type="submit" class="btn primary filled" disabled={submitting}>
                 {submitting ? "Importing…" : "Import and assign"}
             </button>
         </form>

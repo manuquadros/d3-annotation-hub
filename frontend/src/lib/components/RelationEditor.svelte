@@ -292,8 +292,8 @@
             {/if}
 
             <div class="actions">
-                <button class="btn-primary" onclick={confirm} disabled={!selectedCurie}>Confirm</button>
-                <button class="btn-secondary" onclick={close}>Cancel</button>
+                <button class="btn primary filled" onclick={confirm} disabled={!selectedCurie}>Confirm</button>
+                <button class="btn secondary" onclick={close}>Cancel</button>
             </div>
 
         {:else}
@@ -350,7 +350,7 @@
                 </div>
 
                 <button
-                    class="btn-primary"
+                    class="btn primary filled"
                     onclick={submitProposal}
                     disabled={!proposedLabel.trim()}
                 >
@@ -677,28 +677,4 @@
         margin-top: 1rem;
     }
 
-    .btn-primary {
-        padding: 0.5rem 1rem;
-        background: #333;
-        color: #fff;
-        border: none;
-        border-radius: 4px;
-        cursor: pointer;
-        font-size: 0.875rem;
-    }
-
-    .btn-primary:hover:not(:disabled) { background: #111; }
-    .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
-
-    .btn-secondary {
-        padding: 0.5rem 1rem;
-        background: #f0f0f0;
-        color: #333;
-        border: 1px solid #ccc;
-        border-radius: 4px;
-        cursor: pointer;
-        font-size: 0.875rem;
-    }
-
-    .btn-secondary:hover { background: #e0e0e0; }
 </style>

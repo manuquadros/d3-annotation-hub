@@ -83,10 +83,10 @@
             {/if}
 
             <div class="actions">
-                <button type="submit" class="btn-primary" disabled={submitting}>
+                <button type="submit" class="btn primary filled" disabled={submitting}>
                     {submitting ? "Creating…" : "Create project"}
                 </button>
-                <a href="/admin" class="btn-secondary">Cancel</a>
+                <a href="/admin" class="btn secondary">Cancel</a>
             </div>
         </form>
     </div>
@@ -159,33 +159,4 @@
         margin-top: 1.5rem;
     }
 
-    .btn-primary {
-        padding: 0.5rem 1.2rem;
-        background: #333;
-        color: #fff;
-        border: none;
-        border-radius: 4px;
-        cursor: pointer;
-        font-size: 0.875rem;
-    }
-
-    .btn-primary:disabled {
-        opacity: 0.5;
-        cursor: not-allowed;
-    }
-
-    .btn-primary:not(:disabled):hover {
-        background: #111;
-    }
-
-    .btn-secondary {
-        padding: 0.5rem 1rem;
-        color: #555;
-        font-size: 0.875rem;
-        text-decoration: none;
-    }
-
-    .btn-secondary:hover {
-        color: #111;
-    }
 </style>

@@ -11,6 +11,25 @@
     min-width: 0;
 }
 
+/* Digidive's .btn uses line-height for vertical centering, which is unreliable on
+   <button> elements due to browser UA baseline offsets. Flexbox is unambiguous. */
+button.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* inline-flex above would override display:block from .btn.block — restore it. */
+button.btn.block {
+    display: block;
+}
+
+/* Digidive's compact height doesn't carry the same visual separation as the old
+   padding-based submit buttons; form submit actions need extra top breathing room. */
+form button[type="submit"].btn {
+    margin-top: 0.5rem;
+}
+
 /* Digidive sets overflow:hidden on .content-wrapper, which breaks position:sticky.
    Override it so the viewport is the sticky scroll container. */
 .content-wrapper {

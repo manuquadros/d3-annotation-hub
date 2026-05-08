@@ -494,8 +494,8 @@
         {/if}
 
         <div class="actions">
-            <button class="btn-primary" onclick={confirmCreate}>Confirm</button>
-            <button class="btn-secondary" onclick={close}>Cancel</button>
+            <button class="btn primary filled" onclick={confirmCreate}>Confirm</button>
+            <button class="btn secondary" onclick={close}>Cancel</button>
         </div>
     {:else if editorState.mode === "edit-pointer"}
         <h2>Edit Annotation</h2>
@@ -580,18 +580,18 @@
                     placeholder="Add synonym…"
                     onkeydown={(e) => e.key === "Enter" && addSynonym()}
                 />
-                <button class="btn-secondary" onclick={addSynonym}>Add</button>
+                <button class="btn secondary" onclick={addSynonym}>Add</button>
             </div>
         </div>
 
         <div class="actions">
-            <button class="btn-primary" onclick={confirmEditPointer}
+            <button class="btn primary filled" onclick={confirmEditPointer}
                 >Confirm</button
             >
-            <button class="btn-danger" onclick={deletePointer}
+            <button class="btn danger filled" style="margin-left: auto" onclick={deletePointer}
                 >Delete highlight</button
             >
-            <button class="btn-secondary" onclick={close}>Cancel</button>
+            <button class="btn secondary" onclick={close}>Cancel</button>
         </div>
     {:else if editorState.mode === "edit-entity"}
         <h2>Edit Entity</h2>
@@ -645,18 +645,18 @@
                     placeholder="Add synonym…"
                     onkeydown={(e) => e.key === "Enter" && addSynonym()}
                 />
-                <button class="btn-secondary" onclick={addSynonym}>Add</button>
+                <button class="btn secondary" onclick={addSynonym}>Add</button>
             </div>
         </div>
 
         <div class="actions">
-            <button class="btn-primary" onclick={confirmEditEntity}
+            <button class="btn primary filled" onclick={confirmEditEntity}
                 >Confirm</button
             >
-            <button class="btn-danger" onclick={deleteEntity}
+            <button class="btn danger filled" style="margin-left: auto" onclick={deleteEntity}
                 >Delete entity</button
             >
-            <button class="btn-secondary" onclick={close}>Cancel</button>
+            <button class="btn secondary" onclick={close}>Cancel</button>
         </div>
 
         <div class="mentions">
@@ -932,46 +932,4 @@
         margin-bottom: 1rem;
     }
 
-    .btn-primary {
-        padding: 0.5rem 1rem;
-        background: #333;
-        color: #fff;
-        border: none;
-        border-radius: 4px;
-        cursor: pointer;
-        font-size: 0.875rem;
-    }
-
-    .btn-primary:hover {
-        background: #111;
-    }
-
-    .btn-secondary {
-        padding: 0.5rem 1rem;
-        background: #f0f0f0;
-        color: #333;
-        border: 1px solid #ccc;
-        border-radius: 4px;
-        cursor: pointer;
-        font-size: 0.875rem;
-    }
-
-    .btn-secondary:hover {
-        background: #e0e0e0;
-    }
-
-    .btn-danger {
-        padding: 0.5rem 1rem;
-        background: #c00;
-        color: #fff;
-        border: none;
-        border-radius: 4px;
-        cursor: pointer;
-        font-size: 0.875rem;
-        margin-left: auto;
-    }
-
-    .btn-danger:hover {
-        background: #900;
-    }
 </style>

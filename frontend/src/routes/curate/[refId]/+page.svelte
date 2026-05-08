@@ -580,7 +580,7 @@
 
 <div class="curate-page">
     <div class="curate-header">
-        <a href="/curate?project={data.projectId}" class="btn btn-sm">
+        <a href="/curate?project={data.projectId}" class="btn small">
             ← Back to queue
         </a>
         <div class="reference-meta">

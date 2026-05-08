@@ -231,7 +231,7 @@
             {#if entitiesTotal > PAGE_SIZE}
                 <div class="pagination">
                     <button
-                        class="btn-secondary"
+                        class="btn secondary"
                         disabled={entitiesOffset === 0 || loadingEntities}
                         onclick={() =>
                             loadEntitiesPage(entitiesOffset - PAGE_SIZE)}
@@ -246,7 +246,7 @@
                         of {entitiesTotal.toLocaleString()}
                     </span>
                     <button
-                        class="btn-secondary"
+                        class="btn secondary"
                         disabled={entitiesOffset + PAGE_SIZE >= entitiesTotal ||
                             loadingEntities}
                         onclick={() =>
@@ -416,7 +416,7 @@
             {#if triplesTotal > PAGE_SIZE}
                 <div class="pagination">
                     <button
-                        class="btn-secondary"
+                        class="btn secondary"
                         disabled={triplesOffset === 0 || loadingTriples}
                         onclick={() =>
                             loadTriplesPage(triplesOffset - PAGE_SIZE)}
@@ -431,7 +431,7 @@
                         of {triplesTotal.toLocaleString()}
                     </span>
                     <button
-                        class="btn-secondary"
+                        class="btn secondary"
                         disabled={triplesOffset + PAGE_SIZE >= triplesTotal ||
                             loadingTriples}
                         onclick={() =>
