@@ -898,7 +898,7 @@ class D3TextDB:
                 )
             session.commit()
 
-    def get_article_by_pubmed_id(self, pubmed_id: int) -> Reference:
+    def get_article_by_pubmed_id(self, pubmed_id: int) -> Reference | None:
         with Session(self.engine) as session:
             return session.scalar(
                 select(Reference).where(Reference.pubmed_id == pubmed_id)
