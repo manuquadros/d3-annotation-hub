@@ -62,6 +62,7 @@
         if (/^\/projects\/\d+$/.test(path)) return [{ label: "Management" }];
         if (path === "/admin") return [{ label: "Admin" }];
         if (path === "/projects/new") return [{ label: "New Project" }];
+        if (path === "/settings") return [{ label: "Settings" }];
         return [];
     });
 </script>
@@ -165,23 +166,6 @@
 
             <!-- Sidebar start -->
             <div class="sidebar">
-                <nav class="sidebar-topnav">
-                    <ul>
-                        <li>
-                            <a href="/docs"><i class="ph ph-book"></i>Manual</a>
-                        </li>
-                        <li>
-                            <button
-                                type="button"
-                                class="with-icon"
-                                onclick={() => auth.logout()}
-                            >
-                                <i class="ph ph-sign-out"></i>
-                                Log out
-                            </button>
-                        </li>
-                    </ul>
-                </nav>
                 <div class="sidebar-menu">
                     {#if data.projects.length > 0 && data.currentProjectId !== null}
                         <div class="sidebar-section">
@@ -191,32 +175,51 @@
                                 isAdmin={data.isAdmin}
                             />
                         </div>
-
-                        {#if !data.isSuperuser && !data.isCurator && !data.isProjectManager}
-                            <nav class="queue-wrapper">
-                                <p class="title">Annotation Queue</p>
-                                <AnnotationQueue
-                                    projectId={data.currentProjectId}
-                                />
-                            </nav>
-                        {/if}
-
-                        {#if data.isCurator}
-                            <nav>
-                                <p class="title">Curation</p>
-                                <a
-                                    class="with-icon"
-                                    href="/curate?project={data.currentProjectId}"
-                                >
-                                    <i class="ph ph-check-square"></i>
-                                    Curation Queue
-                                </a>
-                            </nav>
-                        {/if}
                     {:else}
                         <div class="sidebar-section">
                             <p class="title">No projects assigned</p>
                         </div>
+                    {/if}
+                    <div class="divider"></div>
+                    <nav>
+                        <a class="with-icon" href="/docs">
+                            <i class="ph ph-book"></i>
+                            Manual
+                        </a>
+                        <a class="with-icon" href="/settings">
+                            <i class="ph ph-sliders"></i>
+                            Settings
+                        </a>
+                        <button
+                            type="button"
+                            class="with-icon"
+                            onclick={() => auth.logout()}
+                        >
+                            <i class="ph ph-sign-out"></i>
+                            Log out
+                        </button>
+                    </nav>
+
+                    {#if !data.isSuperuser && !data.isCurator && !data.isProjectManager && data.currentProjectId !== null}
+                        <nav class="queue-wrapper">
+                            <p class="title">Annotation Queue</p>
+                            <AnnotationQueue
+                                projectId={data.currentProjectId}
+                            />
+                        </nav>
+                    {/if}
+
+                    {#if data.isCurator}
+                        <nav>
+                            <p class="title">Curation</p>
+                            <a
+                                class="with-icon"
+                                href="/curate?project={data.currentProjectId}"
+                            >
+                                <i class="ph ph-check-square"></i>
+                                Curation Queue
+                            </a>
+                        </nav>
                     {/if}
 
                     {#if (data.isSuperuser || data.isProjectManager) && data.currentProjectId !== null}

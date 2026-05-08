@@ -364,7 +364,43 @@ header {
     display: flex;
     flex-direction: column;
     height: calc(100% - 8rem); /* match digidive's top: 8rem offset */
-    padding-bottom: 1rem;
+    padding: 1rem 0;
+}
+
+/* Make button.with-icon in sidebar-menu match a.with-icon digidive styles */
+.sidebar-menu > button.with-icon,
+.sidebar-menu nav > button.with-icon {
+    display: flex;
+    align-items: center;
+    padding: 0.5rem 2.5rem;
+    background: none;
+    border: none;
+    width: 100%;
+    text-align: left;
+    cursor: pointer;
+    color: inherit;
+    font: inherit;
+    text-decoration: none;
+}
+
+.sidebar-menu > button.with-icon > i,
+.sidebar-menu nav > button.with-icon > i {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 3rem;
+    height: 3rem;
+    font-size: 2rem;
+    margin-right: 1rem;
+    color: rgba(70, 70, 70, 0.8);
+    background-color: rgba(0, 0, 0, 0.05);
+    border: 2px solid transparent;
+    border-radius: var(--border-radius);
+}
+
+.sidebar-menu > button.with-icon:hover > i,
+.sidebar-menu nav > button.with-icon:hover > i {
+    border-color: #464646;
 }
 
 .sidebar-menu nav.queue-wrapper {
