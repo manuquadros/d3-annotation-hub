@@ -55,8 +55,8 @@ export type Reference = {
     reference_id: number;
     pubmed_id: number;
     pmc_id: number;
-    pmc_open: boolean;
-    doi: string;
+    pmc_open: boolean | null;
+    doi: string | null;
     authors: string;
     title: string;
     journal: string;
@@ -71,8 +71,8 @@ export const ReferenceSchema = z.object({
     reference_id: z.int(),
     pubmed_id: z.int(),
     pmc_id: z.int(),
-    pmc_open: z.boolean(),
-    doi: z.string(),
+    pmc_open: z.boolean().nullable(),
+    doi: z.string().nullable(),
     authors: z.string(),
     title: z.string(),
     journal: z.string(),

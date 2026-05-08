@@ -167,17 +167,19 @@ def fetch_annotation(
     ref = reference_annotation.reference
 
     try:
-        abstract = str(transform_article(ref.abstract))
+        abstract = transform_article(ref.abstract) if ref.abstract else None
     except XMLSyntaxError:
         abstract = ref.abstract
+
+    try:
+        body = transform_article(reference_body_xml(ref)) if ref.body else None
+    except XMLSyntaxError:
+        body = None
 
     return reference_annotation.model_copy(
         update={
             "reference": ref.model_copy(
-                update={
-                    "abstract": abstract,
-                    "body": transform_article(reference_body_xml(ref)),
-                }
+                update={"abstract": abstract, "body": body}
             )
         }
     ).model_dump_json()
@@ -1403,7 +1405,7 @@ def annotator_snapshots(
     abstract_html: str | None = None
     if ref.abstract:
         try:
-            abstract_html = str(transform_article(ref.abstract))
+            abstract_html = transform_article(ref.abstract)
         except XMLSyntaxError:
             abstract_html = ref.abstract
 

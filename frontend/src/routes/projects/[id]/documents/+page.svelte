@@ -41,21 +41,28 @@
         }
 
         try {
-            const res = await fetch(`/api/projects/${data.projectId}/references`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ identifiers }),
-            });
+            const res = await fetch(
+                `/api/projects/${data.projectId}/references`,
+                {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ identifiers }),
+                },
+            );
 
             if (!res.ok) {
-                const d = await res.json().catch(() => ({ detail: res.statusText }));
+                const d = await res
+                    .json()
+                    .catch(() => ({ detail: res.statusText }));
                 errorMessage = d.detail ?? res.statusText;
             } else {
                 result = await res.json();
                 if (result!.imported > 0) {
                     input = "";
                     // Refresh the reference list to show newly added entries
-                    const listRes = await fetch(`/api/projects/${data.projectId}/references`);
+                    const listRes = await fetch(
+                        `/api/projects/${data.projectId}/references`,
+                    );
                     if (listRes.ok) references = await listRes.json();
                 }
             }
@@ -108,13 +115,19 @@
                             {result.not_found.length === 1
                                 ? "1 identifier was not found in the database:"
                                 : `${result.not_found.length} identifiers were not found in the database:`}
-                            <span class="monospace">{result.not_found.join(", ")}</span>
+                            <span class="monospace"
+                                >{result.not_found.join(", ")}</span
+                            >
                         </p>
                     {/if}
                 </div>
             {/if}
 
-            <button type="submit" class="btn primary filled" disabled={submitting || !input.trim()}>
+            <button
+                type="submit"
+                class="btn primary filled"
+                disabled={submitting || !input.trim()}
+            >
                 {submitting ? "Importing…" : "Import references"}
             </button>
         </form>
@@ -126,7 +139,7 @@
             <table>
                 <thead>
                     <tr>
-                        <th>DOI</th>
+                        <th>Identifier</th>
                         <th>Title</th>
                         <th>Authors</th>
                         <th>Year</th>
