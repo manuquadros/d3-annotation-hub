@@ -84,5 +84,6 @@ export const load: LayoutServerLoad = async ({ cookies, url }) => {
         isProjectManager,
         projects,
         currentProjectId,
+        email: me?.email ?? null,
     };
 };
