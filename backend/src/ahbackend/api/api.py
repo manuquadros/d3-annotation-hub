@@ -3,85 +3,13 @@ import json
 import secrets
 import string
 import uuid
-from typing import Annotated, Literal, Optional, Self
+from typing import Annotated, Literal, Optional
 
-from xkcdpass import xkcd_password as xp
-
-from ahbackend import db, users
-from ahbackend.db import (
-    get_project_properties,
-    get_ontology_triples,
-    rebuild_fts,
-    get_ontology_properties_by_id,
-    list_proposed_entities,
-    store_proposed_entity,
-    list_proposed_properties,
-    store_proposed_property,
-    add_project_member,
-    add_reference_to_project,
-    assign_ontology_to_project,
-    confirm_entity,
-    archive_project,
-    create_project,
-    create_user,
-    delete_user,
-    disable_user,
-    user_has_references,
-    delete_entity,
-    delete_ontology,
-    get_annotator_snapshots,
-    get_curated_annotation,
-    get_annotation_queue,
-    get_entities_by_curies,
-    get_curation_claims,
-    get_curation_decisions,
-    get_curation_queue,
-    get_entity_types,
-    get_ontology_entities,
-    get_project,
-    get_project_annotation_queue,
-    get_project_ontologies,
-    get_project_queue_with_status,
-    mark_annotation_complete,
-    mark_annotation_incomplete,
-    get_project_reference_ids,
-    get_reference_by_doi,
-    list_project_references,
-    get_project_members,
-    get_reference_annotation,
-    get_reference_by_id,
-    get_reference_by_pubmed_id,
-    store_reference,
-    get_user,
-    get_user_last_project,
-    get_user_project_roles,
-    list_ontologies,
-    list_projects,
-    list_proposed_entities,
-    list_user_projects,
-    query,
-    remove_ontology_from_project,
-    remove_project_member,
-    remove_all_project_roles,
-    remove_reference_from_project,
-    run_ontology_import,
-    save_curated_annotation,
-    set_curation_decision,
-    search_entities,
-    search_users,
-    set_user_last_project,
-    set_user_permissions,
-    list_users,
-    update_entity_curie,
-    upsert_annotation,
-)
-from ahbackend.pmc import fetch_reference_from_pmc
 from d3textdb.owl import parse_owl
 from d3textdb.schema import (
     EntityAnnotation,
     Ontology,
     Pointer,
-    Project,
     Reference,
     ReferenceAnnotation,
     Relation,
@@ -90,13 +18,84 @@ from d3textdb.schema import (
 )
 from fastapi import Body, Depends, FastAPI, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, EmailStr, ConfigDict
+from pydantic import BaseModel, ConfigDict, EmailStr
+from xkcdpass import xkcd_password as xp
 from xmlparser import (
     XMLSyntaxError,
-    replace_annotation,
     transform_article,
-    transform_tree,
 )
+
+from ahbackend import users
+from ahbackend.db import UserAuth
+from ahbackend.db.operations import (
+    add_project_member,
+    add_reference_to_project,
+    archive_project,
+    assign_ontology_to_project,
+    confirm_entity,
+    create_project,
+    create_user,
+    delete_entity,
+    delete_ontology,
+    delete_user,
+    disable_user,
+    mark_annotation_complete,
+    mark_annotation_incomplete,
+    rebuild_fts,
+    remove_all_project_roles,
+    remove_ontology_from_project,
+    remove_project_member,
+    remove_reference_from_project,
+    run_ontology_import,
+    save_curated_annotation,
+    set_curation_decision,
+    set_user_last_project,
+    set_user_permissions,
+    store_proposed_entity,
+    store_proposed_property,
+    store_reference,
+    update_entity_curie,
+    upsert_annotation,
+)
+from ahbackend.db.queries import (
+    get_annotation_queue,
+    get_annotator_snapshots,
+    get_curated_annotation,
+    get_curation_claims,
+    get_curation_decisions,
+    get_curation_queue,
+    get_entities_by_curies,
+    get_entity_types,
+    get_ontology_entities,
+    get_ontology_properties_by_id,
+    get_ontology_triples,
+    get_project,
+    get_project_members,
+    get_project_ontologies,
+    get_project_properties,
+    get_project_queue_with_status,
+    get_project_reference_ids,
+    get_reference_annotation,
+    get_reference_by_doi,
+    get_reference_by_id,
+    get_reference_by_pubmed_id,
+    get_user,
+    get_user_auth,
+    get_user_last_project,
+    get_user_project_roles,
+    list_ontologies,
+    list_project_references,
+    list_projects,
+    list_proposed_entities,
+    list_proposed_properties,
+    list_user_projects,
+    list_users,
+    query,
+    search_entities,
+    search_users,
+    user_has_references,
+)
+from ahbackend.pmc import fetch_reference_from_pmc
 
 app = FastAPI()
 
@@ -106,8 +105,13 @@ EXCLUSIVE_ROLES: frozenset[str] = frozenset({"annotator", "curator"})
 
 def reference_body_xml(ref: Reference) -> str:
     """Wrap a body fragment with the minimal article envelope needed by the XSL."""
-    pmc_tag = f'<article-id pub-id-type="pmcid">PMC{ref.pmc_id}</article-id>' if ref.pmc_id else ""
+    pmc_tag = (
+        f'<article-id pub-id-type="pmcid">PMC{ref.pmc_id}</article-id>'
+        if ref.pmc_id
+        else ""
+    )
     return f"<article><front><article-meta>{pmc_tag}</article-meta></front>{ref.body or ''}</article>"
+
 
 origins = ["http://localhost:5173"]
 
@@ -126,12 +130,8 @@ def get_test_response() -> str:
         data = json.load(f)
         for ref in data["references"].values():
             if "body" in ref:
-                html_article = transform_article(
-                    article_xml=ref["body"], style="jats"
-                )
-                ref["body"] = base64.b64encode(html_article).decode(
-                    encoding="utf-8"
-                )
+                html_article = transform_article(article_xml=ref["body"], style="jats")
+                ref["body"] = base64.b64encode(html_article).decode(encoding="utf-8")
             ref["abstract"] = base64.b64encode(ref["abstract"].encode()).decode(
                 encoding="utf-8"
             )
@@ -139,9 +139,7 @@ def get_test_response() -> str:
 
 
 @app.get("/segment/")
-def show_segment(
-    pmid: Optional[int] = None, start: Optional[int] = None
-) -> str:
+def show_segment(pmid: Optional[int] = None, start: Optional[int] = None) -> str:
     args = [arg for arg in (pmid, start) if arg is not None]
 
     return get_response_json(*args)
@@ -179,9 +177,7 @@ def fetch_annotation(
 
     return reference_annotation.model_copy(
         update={
-            "reference": ref.model_copy(
-                update={"abstract": abstract, "body": body}
-            )
+            "reference": ref.model_copy(update={"abstract": abstract, "body": body})
         }
     ).model_dump_json()
 
@@ -199,7 +195,7 @@ def get_me(
     current_user: Annotated[User, Depends(users.get_current_active_user)],
 ) -> UserInfo:
     """Return the authenticated user's profile and role."""
-    user_auth = db.get_user_auth(current_user.user_id)
+    user_auth = get_user_auth(current_user.user_id)
     return UserInfo(
         user_id=str(current_user.user_id),
         email=str(current_user.email),
@@ -217,9 +213,7 @@ def get_last_project(
     current_user: Annotated[User, Depends(users.get_current_active_user)],
 ) -> LastProjectResponse:
     """Return the user's last active project id, or null if none."""
-    return LastProjectResponse(
-        project_id=get_user_last_project(current_user.user_id)
-    )
+    return LastProjectResponse(project_id=get_user_last_project(current_user.user_id))
 
 
 @app.put("/me/last-project", status_code=204)
@@ -438,9 +432,7 @@ def remove_user_account(
     references exist the account is hard-deleted.
     """
     if str(current_user.email) == username:
-        raise HTTPException(
-            status_code=400, detail="Cannot remove your own account"
-        )
+        raise HTTPException(status_code=400, detail="Cannot remove your own account")
     user = get_user(username)
     if user is None:
         raise HTTPException(status_code=404, detail="User not found")
@@ -484,7 +476,9 @@ def create_new_user(
 ) -> CreateUserResponse:
     """Create a new user account (superuser only)."""
     if get_user(body.email) is not None:
-        raise HTTPException(status_code=409, detail="A user with this email already exists")
+        raise HTTPException(
+            status_code=409, detail="A user with this email already exists"
+        )
 
     generated_password = None
     password = body.password if body.password else _generate_passphrase()
@@ -498,7 +492,7 @@ def create_new_user(
     if user is None:
         raise HTTPException(status_code=500, detail="Failed to create user")
 
-    user_auth = db.get_user_auth(user.user_id)
+    user_auth = get_user_auth(user.user_id)
     return CreateUserResponse(
         user_id=str(user.user_id),
         email=str(user.email),
@@ -582,7 +576,9 @@ _passphrase_wordlist = xp.generate_wordlist(
 
 
 def _generate_passphrase(numwords: int = 4) -> str:
-    return xp.generate_xkcdpassword(_passphrase_wordlist, numwords=numwords, delimiter="-")
+    return xp.generate_xkcdpassword(
+        _passphrase_wordlist, numwords=numwords, delimiter="-"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -598,7 +594,7 @@ class CreateProjectRequest(BaseModel):
 
 class ProjectResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
-    
+
     project_id: int
     name: str
     description: str | None
@@ -611,9 +607,7 @@ def create_new_project(
     current_user: Annotated[User, Depends(users.get_current_admin)],
 ) -> ProjectResponse:
     """Create a new annotation project (admin only)."""
-    project_id = create_project(
-        body.name, body.description, body.required_annotators
-    )
+    project_id = create_project(body.name, body.description, body.required_annotators)
     add_project_member(project_id, current_user.user_id, "manager")
     project = get_project(project_id)
     return ProjectResponse.model_validate(project)
@@ -636,7 +630,7 @@ def list_all_projects(
     current_user: Annotated[User, Depends(users.get_current_active_user)],
 ) -> list[ProjectResponse]:
     """List projects. Superusers see all; other users see only their own."""
-    user_auth = db.get_user_auth(current_user.user_id)
+    user_auth = get_user_auth(current_user.user_id)
     if user_auth and (user_auth.can_manage or user_auth.is_super_user):
         projects = list_projects()
     else:
@@ -653,17 +647,12 @@ def get_one_project(
     project = get_project(project_id)
     if project is None:
         raise HTTPException(status_code=404, detail="Project not found")
-    user_auth = db.get_user_auth(current_user.user_id)
+    user_auth = user_auth(current_user.user_id)
     if not (user_auth and (user_auth.can_manage or user_auth.is_super_user)):
         roles = get_user_project_roles(current_user.user_id, project_id)
         if not roles:
             raise HTTPException(status_code=403, detail="Access denied")
     return ProjectResponse.from_orm(project)
-
-
-# ---------------------------------------------------------------------------
-# Project members
-# ---------------------------------------------------------------------------
 
 
 class AddMemberRequest(BaseModel):
@@ -767,9 +756,7 @@ def add_member_to_project(
         create_user(DbUser(email=body.email), password)
         user = get_user(body.email)
         if user is None:
-            raise HTTPException(
-                status_code=500, detail="Failed to create user"
-            )
+            raise HTTPException(status_code=500, detail="Failed to create user")
 
     if body.role in EXCLUSIVE_ROLES:
         for other in EXCLUSIVE_ROLES - {body.role}:
@@ -838,7 +825,9 @@ def list_project_properties(
     current_user: Annotated[User, Depends(users.get_current_active_user)],
 ) -> list[PropertyResponse]:
     """Return OWL object properties plus pending proposed properties for the project."""
-    owl_props = [PropertyResponse.model_validate(p) for p in get_project_properties(project_id)]
+    owl_props = [
+        PropertyResponse.model_validate(p) for p in get_project_properties(project_id)
+    ]
     proposed, _ = list_proposed_properties(project_id, limit=500, offset=0)
     proposed_props = [
         PropertyResponse(
@@ -980,7 +969,9 @@ def get_project_references(
     """List references associated with a project."""
     if get_project(project_id) is None:
         raise HTTPException(status_code=404, detail="Project not found")
-    return [ReferenceInfo.model_validate(r) for r in list_project_references(project_id)]
+    return [
+        ReferenceInfo.model_validate(r) for r in list_project_references(project_id)
+    ]
 
 
 @app.post("/projects/{project_id}/references")
@@ -1065,7 +1056,7 @@ def project_annotation_queue(
 ) -> list[QueueItem]:
     """Return the annotation queue for the current user within a project."""
     roles = get_user_project_roles(current_user.user_id, project_id)
-    user_auth = db.get_user_auth(current_user.user_id)
+    user_auth = get_user_auth(current_user.user_id)
     if not can_access_project(user_auth, roles):
         raise HTTPException(status_code=403, detail="Access denied")
     items = get_project_queue_with_status(project_id, current_user.user_id)
@@ -1080,7 +1071,7 @@ def complete_queue_item(
 ) -> None:
     """Mark a reference as complete for the current user within a project."""
     roles = get_user_project_roles(current_user.user_id, project_id)
-    user_auth = db.get_user_auth(current_user.user_id)
+    user_auth = get_user_auth(current_user.user_id)
     if not can_access_project(user_auth, roles):
         raise HTTPException(status_code=403, detail="Access denied")
     mark_annotation_complete(project_id, current_user.user_id, ref)
@@ -1094,7 +1085,7 @@ def uncomplete_queue_item(
 ) -> None:
     """Mark a reference as incomplete for the current user within a project."""
     roles = get_user_project_roles(current_user.user_id, project_id)
-    user_auth = db.get_user_auth(current_user.user_id)
+    user_auth = get_user_auth(current_user.user_id)
     if not can_access_project(user_auth, roles):
         raise HTTPException(status_code=403, detail="Access denied")
     mark_annotation_incomplete(project_id, current_user.user_id, ref)
@@ -1131,7 +1122,7 @@ def curation_queue(
     current_user: Annotated[User, Depends(users.get_current_active_user)],
 ) -> list[ReferenceInfo]:
     """Return references ready for curation (have enough annotator completions)."""
-    user_auth = db.get_user_auth(current_user.user_id)
+    user_auth = get_user_auth(current_user.user_id)
     roles = get_user_project_roles(current_user.user_id, project_id)
     if not can_curate_project(user_auth, roles):
         raise HTTPException(status_code=403, detail="Curator access required")
@@ -1195,7 +1186,7 @@ def curation_claims(
     current_user: Annotated[User, Depends(users.get_current_active_user)],
 ) -> ClaimsResponse:
     """Return all unique relations from completed annotations, with evidence."""
-    user_auth = db.get_user_auth(current_user.user_id)
+    user_auth = get_user_auth(current_user.user_id)
     roles = get_user_project_roles(current_user.user_id, project_id)
     if not can_curate_project(user_auth, roles):
         raise HTTPException(status_code=403, detail="Curator access required")
@@ -1262,7 +1253,9 @@ class VerdictBody(BaseModel):
     verdict: Verdict
 
 
-@app.post("/projects/{project_id}/curation/claims/{relation_id}/verdict", status_code=204)
+@app.post(
+    "/projects/{project_id}/curation/claims/{relation_id}/verdict", status_code=204
+)
 def set_claim_verdict(
     project_id: int,
     relation_id: int,
@@ -1270,7 +1263,7 @@ def set_claim_verdict(
     current_user: Annotated[User, Depends(users.get_current_active_user)],
 ) -> None:
     """Record the current curator's accept/reject verdict on a relation."""
-    user_auth = db.get_user_auth(current_user.user_id)
+    user_auth = get_user_auth(current_user.user_id)
     roles = get_user_project_roles(current_user.user_id, project_id)
     if not can_curate_project(user_auth, roles):
         raise HTTPException(status_code=403, detail="Curator access required")
@@ -1326,36 +1319,26 @@ class SnapshotsResponse(BaseModel):
     curated_relations: list[RelationOut] = []
 
 
-def can_access_project(
-    user_auth: db.UserAuth | None, roles: list[str]
-) -> bool:
+def can_access_project(user_auth: UserAuth | None, roles: list[str]) -> bool:
     """Return True if the user has any project role or the can_manage flag."""
     return bool(roles) or (
         user_auth is not None and (user_auth.can_manage or user_auth.is_super_user)
     )
 
 
-def can_curate_project(
-    user_auth: db.UserAuth | None, roles: list[str]
-) -> bool:
+def can_curate_project(user_auth: UserAuth | None, roles: list[str]) -> bool:
     """Return True if the user has the curator or manager role."""
     return "curator" in roles or "manager" in roles
 
 
-def _curator_or_superuser(
-    project_id: int, current_user: User
-) -> None:
-    user_auth = db.get_user_auth(current_user.user_id)
+def _curator_or_superuser(project_id: int, current_user: User) -> None:
+    user_auth = get_user_auth(current_user.user_id)
     roles = get_user_project_roles(current_user.user_id, project_id)
     if not can_curate_project(user_auth, roles):
-        raise HTTPException(
-            status_code=403, detail="Curator access required"
-        )
+        raise HTTPException(status_code=403, detail="Curator access required")
 
 
-@app.get(
-    "/projects/{project_id}/curation/{reference_id}/snapshots"
-)
+@app.get("/projects/{project_id}/curation/{reference_id}/snapshots")
 def annotator_snapshots(
     project_id: int,
     reference_id: int,

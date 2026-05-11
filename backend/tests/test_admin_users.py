@@ -9,7 +9,8 @@ import pytest
 from fastapi.testclient import TestClient
 
 import ahbackend.api.api as api_module
-import ahbackend.db.db as db_impl
+import ahbackend.db.operations as operations_module
+import ahbackend.db.queries as queries_module
 from ahbackend.api.api import app
 from d3textdb import D3TextDB
 from d3textdb.schema import Reference
@@ -25,7 +26,8 @@ _NEW_USER_PASSWORD = "initial-passphrase"
 def ctx(monkeypatch):
     """Fresh in-memory DB with one superuser. Returns (client, auth_headers)."""
     test_db = D3TextDB()
-    monkeypatch.setattr(db_impl, "annodb", test_db)
+    monkeypatch.setattr(queries_module, "annodb", test_db)
+    monkeypatch.setattr(operations_module, "annodb", test_db)
     monkeypatch.setattr(api_module, "transform_article", lambda x: x or "")
 
     test_db.create_user(DbUser(email=_ADMIN_EMAIL), _ADMIN_PASSWORD, is_super_user=True)
@@ -130,7 +132,7 @@ class TestCreateUser:
 def ctx_with_member(ctx):
     """Extends ctx with a regular user who is a member of a project."""
     client, auth = ctx
-    test_db = db_impl.annodb
+    test_db = queries_module.annodb
     user_id = test_db.create_user(DbUser(email=_NEW_USER_EMAIL), _NEW_USER_PASSWORD)
     project_id = test_db.create_project("Test Project", required_annotators=1)
     test_db.add_project_member(project_id, user_id, "annotator")
