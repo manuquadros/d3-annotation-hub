@@ -1801,10 +1801,6 @@ class D3TextDB:
                 last_updated=latest_state.recorded_at,
             )
 
-    # -------------------------------------------------------------------------
-    # Ontology management
-    # -------------------------------------------------------------------------
-
     def store_ontology(
         self,
         name: str,

@@ -8,13 +8,10 @@ requires-python = ">=3.12"
 license = "GPL-3.0-or-later"
 dependencies = [
   "cryptography>=46.0.3",
-  "email-validator>=2.2.0",
   "fastapi[standard]>=0.115.12",
   "multimethod>=2.0",
-  "passlib[bcrypt]>=1.7.4",
   "pydantic>=2.11.4",
   "pyjwt>=2.10.1",
-  "python-multipart>=0.0.20",
   "sqlmodel>=0.0.24",
   "tokenizers>=0.21.1",
   "uvicorn>=0.34.2",

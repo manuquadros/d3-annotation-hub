@@ -3,7 +3,6 @@ from typing import Annotated, Optional
 
 import bcrypt
 import jwt
-from ahbackend import config, db
 from fastapi import (
     APIRouter,
     Cookie,
@@ -15,11 +14,14 @@ from fastapi import (
 )
 from fastapi.security import OAuth2PasswordRequestForm
 from jwt.exceptions import InvalidTokenError
-from passlib.context import CryptContext
 from pydantic import BaseModel
 
+from ahbackend import config
+from ahbackend.db import User, UserAuth
+from ahbackend.db.operations import update_password
+from ahbackend.db.queries import get_user, get_user_auth, get_user_project_roles
+
 router = APIRouter()
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
 class Token(BaseModel):
@@ -35,7 +37,7 @@ def verify_password(plain_password: str, hashed: str) -> bool:
     )
 
 
-def is_valid_credentials(password: str, user_auth: db.UserAuth | None) -> bool:
+def is_valid_credentials(password: str, user_auth: UserAuth | None) -> bool:
     return (
         user_auth is not None
         and not user_auth.disabled
@@ -43,9 +45,9 @@ def is_valid_credentials(password: str, user_auth: db.UserAuth | None) -> bool:
     )
 
 
-def authenticate_user(username: str, password: str) -> db.User | None:
-    user = db.get_user(username)
-    user_auth = db.get_user_auth(user.user_id) if user else None
+def authenticate_user(username: str, password: str) -> User | None:
+    user = get_user(username)
+    user_auth = get_user_auth(user.user_id) if user else None
     return user if is_valid_credentials(password, user_auth) else None
 
 
@@ -66,51 +68,49 @@ async def get_token(
 
 async def get_current_user(
     token: Annotated[str, Depends(get_token)],
-) -> db.User:
+) -> User:
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
     try:
-        payload = jwt.decode(
-            token, config.PUBLIC_KEY, algorithms=[config.ALGORITHM]
-        )
+        payload = jwt.decode(token, config.PUBLIC_KEY, algorithms=[config.ALGORITHM])
         username = payload.get("sub")
         if username is None:
             raise credentials_exception
     except InvalidTokenError:
         raise credentials_exception
     else:
-        user = db.get_user(username)
+        user = get_user(username)
         if user is None:
             raise credentials_exception
         return user
 
 
 async def get_current_active_user(
-    current_user: Annotated[db.User, Depends(get_current_user)],
-) -> db.User:
-    user_auth = db.get_user_auth(current_user.user_id)
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> User:
+    user_auth = get_user_auth(current_user.user_id)
     if user_auth and user_auth.disabled:
         raise HTTPException(status_code=400, detail="Inactive user")
     return current_user
 
 
 async def get_current_superuser(
-    current_user: Annotated[db.User, Depends(get_current_active_user)],
-) -> db.User:
-    user_auth = db.get_user_auth(current_user.user_id)
+    current_user: Annotated[User, Depends(get_current_active_user)],
+) -> User:
+    user_auth = get_user_auth(current_user.user_id)
     if not user_auth or not user_auth.is_super_user:
         raise HTTPException(status_code=403, detail="Superuser access required")
     return current_user
 
 
 async def get_current_admin(
-    current_user: Annotated[db.User, Depends(get_current_active_user)],
-) -> db.User:
+    current_user: Annotated[User, Depends(get_current_active_user)],
+) -> User:
     """Allow users with the can_manage permission flag."""
-    user_auth = db.get_user_auth(current_user.user_id)
+    user_auth = get_user_auth(current_user.user_id)
     if not user_auth or not user_auth.can_manage:
         raise HTTPException(status_code=403, detail="Admin access required")
     return current_user
@@ -118,17 +118,15 @@ async def get_current_admin(
 
 async def require_manager(
     project_id: int,
-    current_user: Annotated[db.User, Depends(get_current_active_user)],
-) -> db.User:
+    current_user: Annotated[User, Depends(get_current_active_user)],
+) -> User:
     """Allow users with can_manage permission or a project-level manager role."""
-    user_auth = db.get_user_auth(current_user.user_id)
+    user_auth = get_user_auth(current_user.user_id)
     if user_auth and user_auth.can_manage:
         return current_user
-    roles = db.get_user_project_roles(current_user.user_id, project_id)
+    roles = get_user_project_roles(current_user.user_id, project_id)
     if "manager" not in roles:
-        raise HTTPException(
-            status_code=403, detail="Project manager access required"
-        )
+        raise HTTPException(status_code=403, detail="Project manager access required")
     return current_user
 
 
@@ -177,34 +175,20 @@ class ChangePasswordRequest(BaseModel):
     new_password: str
 
 
-class ResetPasswordRequest(BaseModel):
-    new_password: str
-
-
 @router.post("/change-password")
 async def change_password(
     body: ChangePasswordRequest,
-    current_user: Annotated[db.User, Depends(get_current_active_user)],
+    current_user: Annotated[User, Depends(get_current_active_user)],
 ) -> None:
-    user_auth = db.get_user_auth(current_user.user_id)
-    if user_auth is None or not verify_password(body.current_password, user_auth.hashed_password):
+    user_auth = get_user_auth(current_user.user_id)
+    if user_auth is None or not verify_password(
+        body.current_password, user_auth.hashed_password
+    ):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Current password is incorrect",
         )
-    db.update_password(current_user.user_id, body.new_password)
-
-
-@router.post("/admin/reset-password/{username}")
-async def reset_password(
-    username: str,
-    body: ResetPasswordRequest,
-    _: Annotated[db.User, Depends(get_current_superuser)],
-) -> None:
-    user = db.get_user(username)
-    if user is None:
-        raise HTTPException(status_code=404, detail="User not found")
-    db.update_password(user.user_id, body.new_password)
+    update_password(current_user.user_id, body.new_password)
 
 
 @router.post("/logout")

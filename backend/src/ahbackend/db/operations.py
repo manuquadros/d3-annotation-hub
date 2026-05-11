@@ -1,5 +1,6 @@
-import uuid
 from datetime import datetime, timezone
+from typing import TYPE_CHECKING
+from uuid import UUID
 
 from d3textdb import ParsedOntology
 from d3textdb.schema import (
@@ -7,8 +8,8 @@ from d3textdb.schema import (
     AnnotationState,
     Pointer,
     Reference,
-    Relation,
     ReferenceAnnotation,
+    Relation,
     SnapshotPointer,
     SnapshotRelation,
     StatePointer,
@@ -23,25 +24,23 @@ from sqlmodel import Session, col, delete, select
 from ._annodb import annodb
 
 
-def create_user(user: User, password: str) -> uuid.UUID | None:
+def create_user(user: User, password: str) -> UUID | None:
     return annodb.create_user(user, password)
 
 
-def disable_user(user_id: uuid.UUID) -> None:
+def disable_user(user_id: UUID) -> None:
     annodb.disable_user(user_id)
 
 
-def delete_user(user_id: uuid.UUID) -> None:
+def delete_user(user_id: UUID) -> None:
     annodb.delete_user(user_id)
 
 
-def update_password(user_id: uuid.UUID, new_password: str) -> None:
+def update_password(user_id: UUID, new_password: str) -> None:
     annodb.update_password(user_id, new_password)
 
 
-def set_user_permissions(
-    user_id: uuid.UUID, is_super_user: bool, can_manage: bool
-) -> None:
+def set_user_permissions(user_id: UUID, is_super_user: bool, can_manage: bool) -> None:
     with Session(annodb.engine) as session:
         auth = session.get(UserAuth, user_id)
         if auth is None:
@@ -72,15 +71,15 @@ def archive_project(project_id: int) -> None:
     annodb.archive_project(project_id)
 
 
-def add_project_member(project_id: int, user_id: uuid.UUID, role: str) -> None:
+def add_project_member(project_id: int, user_id: UUID, role: str) -> None:
     annodb.add_project_member(project_id, user_id, role)
 
 
-def remove_project_member(project_id: int, user_id: uuid.UUID, role: str) -> None:
+def remove_project_member(project_id: int, user_id: UUID, role: str) -> None:
     annodb.remove_project_member(project_id, user_id, role)
 
 
-def remove_all_project_roles(project_id: int, user_id: uuid.UUID) -> None:
+def remove_all_project_roles(project_id: int, user_id: UUID) -> None:
     annodb.remove_all_project_member_roles(project_id, user_id)
 
 
@@ -100,7 +99,7 @@ def remove_reference_from_project(project_id: int, reference_id: int) -> None:
     annodb.remove_reference_from_project(project_id, reference_id)
 
 
-def set_user_last_project(user_id: uuid.UUID, project_id: int) -> None:
+def set_user_last_project(user_id: UUID, project_id: int) -> None:
     annodb.set_user_last_project(user_id, project_id)
 
 
@@ -176,7 +175,7 @@ def rebuild_fts() -> None:
 def set_curation_decision(
     project_id: int,
     relation_id: int,
-    curator_id: uuid.UUID,
+    curator_id: UUID,
     verdict: Verdict,
 ) -> None:
     annodb.set_curation_decision(project_id, relation_id, curator_id, verdict)
@@ -185,7 +184,7 @@ def set_curation_decision(
 def save_curated_annotation(
     project_id: int,
     reference_id: int,
-    curator_id: uuid.UUID,
+    curator_id: UUID,
     pointers: list[Pointer],
     relations: list[Relation],
 ) -> int:
@@ -234,7 +233,7 @@ def _resolve_reference(ref_identifier: str) -> Reference | None:
 
 
 def mark_annotation_complete(
-    project_id: int, user_id: uuid.UUID, ref_identifier: str
+    project_id: int, user_id: UUID, ref_identifier: str
 ) -> None:
     """Idempotent: does nothing if a snapshot already exists for the (project, user, reference) triple."""
     ref = _resolve_reference(ref_identifier)
@@ -308,7 +307,7 @@ def mark_annotation_complete(
 
 
 def mark_annotation_incomplete(
-    project_id: int, user_id: uuid.UUID, ref_identifier: str
+    project_id: int, user_id: UUID, ref_identifier: str
 ) -> None:
     """Delete all AnnotationSnapshot rows for the (project, user, reference) triple."""
     ref = _resolve_reference(ref_identifier)

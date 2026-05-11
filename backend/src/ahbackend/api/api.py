@@ -1,9 +1,7 @@
-import base64
-import json
 import secrets
 import string
 import uuid
-from typing import Annotated, Literal, Optional
+from typing import TYPE_CHECKING, Annotated, Literal
 
 from d3textdb.owl import parse_owl
 from d3textdb.schema import (
@@ -58,7 +56,6 @@ from ahbackend.db.operations import (
     upsert_annotation,
 )
 from ahbackend.db.queries import (
-    get_annotation_queue,
     get_annotator_snapshots,
     get_curated_annotation,
     get_curation_claims,
@@ -90,7 +87,6 @@ from ahbackend.db.queries import (
     list_proposed_properties,
     list_user_projects,
     list_users,
-    query,
     search_entities,
     search_users,
     user_has_references,
@@ -123,31 +119,6 @@ app.add_middleware(
     allow_credentials=True,
 )
 app.include_router(users.router)
-
-
-def get_test_response() -> str:
-    with open("tests/15117974_test.json") as f:
-        data = json.load(f)
-        for ref in data["references"].values():
-            if "body" in ref:
-                html_article = transform_article(article_xml=ref["body"], style="jats")
-                ref["body"] = base64.b64encode(html_article).decode(encoding="utf-8")
-            ref["abstract"] = base64.b64encode(ref["abstract"].encode()).decode(
-                encoding="utf-8"
-            )
-        return json.dumps(data)
-
-
-@app.get("/segment/")
-def show_segment(pmid: Optional[int] = None, start: Optional[int] = None) -> str:
-    args = [arg for arg in (pmid, start) if arg is not None]
-
-    return get_response_json(*args)
-
-
-@app.get("/")
-def index() -> str:
-    return get_test_response()
 
 
 @app.get("/reference/")
@@ -531,19 +502,6 @@ def entity_search(
     return search_entities(q, limit, project_id, is_class)
 
 
-@app.get("/queue/")
-def annotation_queue(
-    current_user: Annotated[User, Depends(users.get_current_active_user)],
-) -> list[str]:
-    """Returns a list of documents that the user is yet to annotate."""
-    return [str(pmid) for pmid in get_annotation_queue(current_user.user_id)]
-
-
-@app.get(path="/relation/")
-def retrieve_relation_data(predicate: str, subject: str, object: str) -> str:
-    return query(predicate, subject, object)
-
-
 @app.post("/save/")
 def store_annotation(
     current_user: Annotated[User, Depends(users.get_current_active_user)],
@@ -552,17 +510,6 @@ def store_annotation(
     """Update annotation in the database"""
     annotation = ReferenceAnnotation.model_validate_json(json_data)
     upsert_annotation(annotation)
-
-
-def get_response_json(*args) -> str:
-    response = query(*args)
-    response.content = transform_article(response.content)
-    return response.model_dump_json()
-
-
-# ---------------------------------------------------------------------------
-# Helper
-# ---------------------------------------------------------------------------
 
 
 def _generate_password(length: int = 16) -> str:
@@ -579,11 +526,6 @@ def _generate_passphrase(numwords: int = 4) -> str:
     return xp.generate_xkcdpassword(
         _passphrase_wordlist, numwords=numwords, delimiter="-"
     )
-
-
-# ---------------------------------------------------------------------------
-# Project CRUD
-# ---------------------------------------------------------------------------
 
 
 class CreateProjectRequest(BaseModel):
@@ -647,7 +589,7 @@ def get_one_project(
     project = get_project(project_id)
     if project is None:
         raise HTTPException(status_code=404, detail="Project not found")
-    user_auth = user_auth(current_user.user_id)
+    user_auth = get_user_auth(current_user.user_id)
     if not (user_auth and (user_auth.can_manage or user_auth.is_super_user)):
         roles = get_user_project_roles(current_user.user_id, project_id)
         if not roles:
@@ -793,11 +735,6 @@ def remove_member_from_project(
     remove_project_member(project_id, user_id, role)
 
 
-# ---------------------------------------------------------------------------
-# Project ontologies
-# ---------------------------------------------------------------------------
-
-
 @app.get("/projects/{project_id}/ontologies")
 def list_project_ontologies(
     project_id: int,
@@ -842,11 +779,6 @@ def list_project_properties(
     # Deduplicate: OWL properties take precedence over proposed ones with the same curie.
     seen = {p.curie for p in owl_props}
     return owl_props + [p for p in proposed_props if p.curie not in seen]
-
-
-# ---------------------------------------------------------------------------
-# Project-scoped proposals (entities and properties)
-# ---------------------------------------------------------------------------
 
 
 class ProposedEntityRequest(BaseModel):
@@ -927,11 +859,6 @@ def unassign_ontology(
 ) -> None:
     """Remove an ontology from a project."""
     remove_ontology_from_project(project_id, ontology_id)
-
-
-# ---------------------------------------------------------------------------
-# Project references
-# ---------------------------------------------------------------------------
 
 
 class AddReferencesRequest(BaseModel):
@@ -1039,11 +966,6 @@ def remove_reference(
     remove_reference_from_project(project_id, reference_id)
 
 
-# ---------------------------------------------------------------------------
-# Project annotation queue
-# ---------------------------------------------------------------------------
-
-
 class QueueItem(BaseModel):
     ref: str
     completed: bool
@@ -1091,11 +1013,6 @@ def uncomplete_queue_item(
     mark_annotation_incomplete(project_id, current_user.user_id, ref)
 
 
-# ---------------------------------------------------------------------------
-# Curator entity management
-# ---------------------------------------------------------------------------
-
-
 @app.patch("/projects/{project_id}/curation/entity-curie", status_code=204)
 def curator_rename_entity_curie(
     project_id: int,
@@ -1109,11 +1026,6 @@ def curator_rename_entity_curie(
     """
     _curator_or_superuser(project_id, current_user)
     update_entity_curie(curie, body.new_curie)
-
-
-# ---------------------------------------------------------------------------
-# Curation queue
-# ---------------------------------------------------------------------------
 
 
 @app.get("/projects/{project_id}/curation/queue")
@@ -1138,11 +1050,6 @@ def curation_queue(
         )
         for r in refs
     ]
-
-
-# ---------------------------------------------------------------------------
-# Curation: claims
-# ---------------------------------------------------------------------------
 
 
 class EntityOut(BaseModel):
@@ -1268,11 +1175,6 @@ def set_claim_verdict(
     if not can_curate_project(user_auth, roles):
         raise HTTPException(status_code=403, detail="Curator access required")
     set_curation_decision(project_id, relation_id, current_user.user_id, body.verdict)
-
-
-# ---------------------------------------------------------------------------
-# Curation: annotator snapshots and save
-# ---------------------------------------------------------------------------
 
 
 class PointerOut(BaseModel):

@@ -85,9 +85,6 @@ def iri_to_curie(iri: str, prefix: str, base_iri: str) -> str:
     return iri.rsplit("#", 1)[-1].rsplit("/", 1)[-1]
 
 
-# ── Format detection ──────────────────────────────────────────────────────────
-
-
 def _is_owl_xml(content: bytes) -> bool:
     """Return True if ``content`` is OWL/XML (Functional Syntax in XML).
 
@@ -111,10 +108,9 @@ def _rdflib_format(content: bytes) -> str:
     return "turtle"
 
 
-# ── OWL/XML parser (ElementTree) ──────────────────────────────────────────────
-
-
-def _parse_owl_xml(content: bytes, prefix: str, base_iri: str) -> ParsedOntology:
+def _parse_owl_xml(
+    content: bytes, prefix: str, base_iri: str
+) -> ParsedOntology:
     """Parse OWL/XML (Functional Syntax in XML serialization) using ElementTree.
 
     This handles the format written by Protégé and the OWL API, where the root
@@ -139,7 +135,6 @@ def _parse_owl_xml(content: bytes, prefix: str, base_iri: str) -> ParsedOntology
             pfx, local = short.split(":", 1)
             if pfx in ns_map:
                 return ns_map[pfx] + local
-        # Relative IRI — resolve against xml:base
         return xml_base.rstrip("/") + "/" + short if xml_base else short
 
     def elem_iri(elem: ET.Element) -> str | None:
@@ -167,7 +162,9 @@ def _parse_owl_xml(content: bytes, prefix: str, base_iri: str) -> ParsedOntology
                 declared_properties.add(iri)
 
     # Collect rdfs:label and synonym annotations from <AnnotationAssertion>
-    labels: dict[str, str] = {}  # IRI → preferred label (classes and properties)
+    labels: dict[
+        str, str
+    ] = {}  # IRI → preferred label (classes and properties)
     synonyms: dict[str, list[str]] = {}
     annotated_iris = declared | declared_properties
 
@@ -199,12 +196,24 @@ def _parse_owl_xml(content: bytes, prefix: str, base_iri: str) -> ParsedOntology
         children = list(sc)
         if len(children) < 2:
             continue
-        sub_iri = elem_iri(children[0]) if children[0].tag == f"{{{_OWL_NS}}}Class" else None
-        sup_iri = elem_iri(children[1]) if children[1].tag == f"{{{_OWL_NS}}}Class" else None
-        if sub_iri and sup_iri and sub_iri in declared and sub_iri not in superclass:
+        sub_iri = (
+            elem_iri(children[0])
+            if children[0].tag == f"{{{_OWL_NS}}}Class"
+            else None
+        )
+        sup_iri = (
+            elem_iri(children[1])
+            if children[1].tag == f"{{{_OWL_NS}}}Class"
+            else None
+        )
+        if (
+            sub_iri
+            and sup_iri
+            and sub_iri in declared
+            and sub_iri not in superclass
+        ):
             superclass[sub_iri] = sup_iri
 
-    # Build result
     result = ParsedOntology()
     seen_curies: set[str] = set()
 
@@ -228,12 +237,14 @@ def _parse_owl_xml(content: bytes, prefix: str, base_iri: str) -> ParsedOntology
         )
         seen_curies.add(curie)
 
-    # SubClassOf triples
     for sc in root.iter(f"{{{_OWL_NS}}}SubClassOf"):
         children = list(sc)
         if len(children) != 2:
             continue
-        if children[0].tag != f"{{{_OWL_NS}}}Class" or children[1].tag != f"{{{_OWL_NS}}}Class":
+        if (
+            children[0].tag != f"{{{_OWL_NS}}}Class"
+            or children[1].tag != f"{{{_OWL_NS}}}Class"
+        ):
             continue
         sub_iri = elem_iri(children[0])
         sup_iri = elem_iri(children[1])
@@ -248,16 +259,23 @@ def _parse_owl_xml(content: bytes, prefix: str, base_iri: str) -> ParsedOntology
                     )
                 )
 
-    # Collect domain/range for each declared ObjectProperty
-    prop_domain: dict[str, str] = {}  # prop IRI → first domain class IRI
-    prop_range: dict[str, str] = {}   # prop IRI → first range class IRI
+    prop_domain: dict[str, str] = {}
+    prop_range: dict[str, str] = {}
 
     for elem in root.iter(f"{{{_OWL_NS}}}ObjectPropertyDomain"):
         children = list(elem)
         if len(children) < 2:
             continue
-        prop_iri = elem_iri(children[0]) if children[0].tag == f"{{{_OWL_NS}}}ObjectProperty" else None
-        cls_iri = elem_iri(children[1]) if children[1].tag == f"{{{_OWL_NS}}}Class" else None
+        prop_iri = (
+            elem_iri(children[0])
+            if children[0].tag == f"{{{_OWL_NS}}}ObjectProperty"
+            else None
+        )
+        cls_iri = (
+            elem_iri(children[1])
+            if children[1].tag == f"{{{_OWL_NS}}}Class"
+            else None
+        )
         if prop_iri and cls_iri and prop_iri not in prop_domain:
             prop_domain[prop_iri] = cls_iri
 
@@ -265,12 +283,19 @@ def _parse_owl_xml(content: bytes, prefix: str, base_iri: str) -> ParsedOntology
         children = list(elem)
         if len(children) < 2:
             continue
-        prop_iri = elem_iri(children[0]) if children[0].tag == f"{{{_OWL_NS}}}ObjectProperty" else None
-        cls_iri = elem_iri(children[1]) if children[1].tag == f"{{{_OWL_NS}}}Class" else None
+        prop_iri = (
+            elem_iri(children[0])
+            if children[0].tag == f"{{{_OWL_NS}}}ObjectProperty"
+            else None
+        )
+        cls_iri = (
+            elem_iri(children[1])
+            if children[1].tag == f"{{{_OWL_NS}}}Class"
+            else None
+        )
         if prop_iri and cls_iri and prop_iri not in prop_range:
             prop_range[prop_iri] = cls_iri
 
-    # Build ParsedProperty list (only properties that have a label)
     for prop_iri in declared_properties:
         label = labels.get(prop_iri)
         if label is None:
@@ -282,15 +307,16 @@ def _parse_owl_xml(content: bytes, prefix: str, base_iri: str) -> ParsedOntology
             ParsedProperty(
                 curie=curie,
                 label=label,
-                domain_curie=iri_to_curie(domain_iri, prefix, base_iri) if domain_iri else None,
-                range_curie=iri_to_curie(range_iri, prefix, base_iri) if range_iri else None,
+                domain_curie=iri_to_curie(domain_iri, prefix, base_iri)
+                if domain_iri
+                else None,
+                range_curie=iri_to_curie(range_iri, prefix, base_iri)
+                if range_iri
+                else None,
             )
         )
 
     return result
-
-
-# ── rdflib parser (RDF/XML, Turtle, N-Triples, JSON-LD) ───────────────────────
 
 
 def _direct_superclass_curie(
@@ -332,7 +358,9 @@ def _parse_owl_rdflib(
         if label is None:
             continue
 
-        synonyms = [str(o) for pred in SYNONYM_PREDICATES for o in g.objects(cls, pred)]
+        synonyms = [
+            str(o) for pred in SYNONYM_PREDICATES for o in g.objects(cls, pred)
+        ]
         kind = _direct_superclass_curie(g, cls, prefix, base_iri)
 
         result.entities.append(
@@ -377,21 +405,26 @@ def _parse_owl_rdflib(
         if label is None:
             continue
         prop_curie = iri_to_curie(str(prop), prefix, base_iri)
-        domains = [o for o in g.objects(prop, RDFS.domain) if isinstance(o, URIRef)]
-        ranges = [o for o in g.objects(prop, RDFS.range) if isinstance(o, URIRef)]
+        domains = [
+            o for o in g.objects(prop, RDFS.domain) if isinstance(o, URIRef)
+        ]
+        ranges = [
+            o for o in g.objects(prop, RDFS.range) if isinstance(o, URIRef)
+        ]
         result.properties.append(
             ParsedProperty(
                 curie=prop_curie,
                 label=label,
-                domain_curie=iri_to_curie(str(domains[0]), prefix, base_iri) if domains else None,
-                range_curie=iri_to_curie(str(ranges[0]), prefix, base_iri) if ranges else None,
+                domain_curie=iri_to_curie(str(domains[0]), prefix, base_iri)
+                if domains
+                else None,
+                range_curie=iri_to_curie(str(ranges[0]), prefix, base_iri)
+                if ranges
+                else None,
             )
         )
 
     return result
-
-
-# ── Public entry point ────────────────────────────────────────────────────────
 
 
 def parse_owl(

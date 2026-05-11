@@ -176,24 +176,6 @@ def get_project_annotation_queue(project_id: int, user_id: uuid.UUID) -> list[st
     return annodb.get_project_annotation_queue(project_id, user_id)
 
 
-def get_annotation_queue(user_id: uuid.UUID) -> list[str]:
-    """Return identifiers of references not yet completed by the user.
-
-    Returns the pubmed_id when available, otherwise the doi.
-    """
-    annotated = select(AnnotationSnapshot.reference_id).where(
-        AnnotationSnapshot.user_id == user_id
-    )
-    stmt = select(Reference.pubmed_id, Reference.doi).where(
-        col(Reference.reference_id).not_in(annotated)
-    )
-    with Session(annodb.engine) as session:
-        return [
-            str(pubmed_id) if pubmed_id is not None else doi
-            for pubmed_id, doi in session.execute(stmt).all()
-        ]
-
-
 def get_curation_queue(project_id: int) -> list[Reference]:
     return annodb.get_curation_queue(project_id)
 
