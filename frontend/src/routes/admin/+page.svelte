@@ -426,6 +426,23 @@
         }
     }
 
+    let confirmDeleteProjectId = $state<number | null>(null);
+    let deletingProjectId = $state<number | null>(null);
+
+    async function handleDeleteProject(projectId: number) {
+        deletingProjectId = projectId;
+        try {
+            const res = await fetch(`/api/projects/${projectId}`, { method: "DELETE" });
+            if (res.ok) {
+                projects = projects.filter((p) => p.project_id !== projectId);
+                if (expandedProjectId === projectId) expandedProjectId = null;
+            }
+        } finally {
+            deletingProjectId = null;
+            confirmDeleteProjectId = null;
+        }
+    }
+
     let confirmDeleteId = $state<number | null>(null);
     let deleting = $state(false);
 
@@ -483,6 +500,25 @@
                                 >
                                     {expandedProjectId === project.project_id ? "Hide" : "Manage"}
                                 </button>
+                                {#if confirmDeleteProjectId === project.project_id}
+                                    <span class="confirm-prompt">Delete project?</span>
+                                    <button
+                                        class="btn small danger filled"
+                                        disabled={deletingProjectId === project.project_id}
+                                        onclick={() => handleDeleteProject(project.project_id)}
+                                    >
+                                        {deletingProjectId === project.project_id ? "…" : "Yes"}
+                                    </button>
+                                    <button
+                                        class="btn small muted"
+                                        onclick={() => (confirmDeleteProjectId = null)}
+                                    >Cancel</button>
+                                {:else}
+                                    <button
+                                        class="btn small danger"
+                                        onclick={() => (confirmDeleteProjectId = project.project_id)}
+                                    >Remove</button>
+                                {/if}
                             </td>
                         </tr>
 

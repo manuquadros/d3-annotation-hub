@@ -306,6 +306,10 @@ def get_project(project_id: int) -> Project | None:
     return annodb.get_project(project_id)
 
 
+def archive_project(project_id: int) -> None:
+    annodb.archive_project(project_id)
+
+
 def list_projects() -> list[Project]:
     return annodb.list_projects()
 

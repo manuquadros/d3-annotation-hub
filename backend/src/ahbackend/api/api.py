@@ -21,6 +21,7 @@ from ahbackend.db import (
     add_reference_to_project,
     assign_ontology_to_project,
     confirm_entity,
+    archive_project,
     create_project,
     create_user,
     delete_user,
@@ -616,6 +617,18 @@ def create_new_project(
     add_project_member(project_id, current_user.user_id, "manager")
     project = get_project(project_id)
     return ProjectResponse.model_validate(project)
+
+
+@app.delete("/projects/{project_id}", status_code=204)
+def archive_one_project(
+    project_id: int,
+    current_user: Annotated[User, Depends(users.get_current_admin)],
+) -> None:
+    """Soft-delete a project (superuser only)."""
+    project = get_project(project_id)
+    if project is None or project.archived_at is not None:
+        raise HTTPException(status_code=404, detail="Project not found")
+    archive_project(project_id)
 
 
 @app.get("/projects")

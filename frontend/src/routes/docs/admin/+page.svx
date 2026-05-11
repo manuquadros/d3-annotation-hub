@@ -4,6 +4,17 @@ The **Admin** panel is only accessible to superusers. It is reached via the
 **Admin** link in the sidebar, or automatically after login when no project is
 assigned.
 
+## Managing projects
+
+The project list shows all projects in the system. Click a project row to expand
+it and see its members.
+
+### Removing a project
+
+Click **Remove** next to a project and confirm with **Yes**. Projects are
+soft-deleted: the record is deactivated and no longer appears to managers or
+annotators, but the underlying data is preserved.
+
 ## Managing users
 
 The user list shows every account on the system. Accounts that have been

@@ -82,6 +82,7 @@ class Project(SQLModel, table=True):
     name: str
     description: str | None = None
     required_annotators: int = Field(default=2)
+    archived_at: datetime | None = Field(default=None, index=True)
 
 
 class ProjectMembership(SQLModel, table=True):

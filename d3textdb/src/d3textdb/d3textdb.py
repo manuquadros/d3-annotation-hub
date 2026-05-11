@@ -13,7 +13,16 @@ import pysqlite3
 from pydantic import EmailStr
 from sqlalchemy import create_engine
 from sqlalchemy import delete as sa_delete
-from sqlalchemy import event, exists, func, literal_column, or_, select, text, update
+from sqlalchemy import (
+    event,
+    exists,
+    func,
+    literal_column,
+    or_,
+    select,
+    text,
+    update,
+)
 from sqlalchemy.dialects.sqlite import insert
 from sqlalchemy.orm import Session, aliased
 from sqlalchemy.pool import StaticPool
@@ -1009,17 +1018,32 @@ class D3TextDB:
         """Return True if any table other than User/UserAuth references this user_id."""
         checks = [
             select(AnnotationState).where(AnnotationState.user_id == user_id),
-            select(AnnotationSnapshot).where(AnnotationSnapshot.user_id == user_id),
-            select(CuratedAnnotation).where(CuratedAnnotation.curator_id == user_id),
-            select(CurationDecision).where(CurationDecision.curator_id == user_id),
-            select(UserRelationReference).where(UserRelationReference.user_id == user_id),
-            select(ProjectMembership).where(ProjectMembership.user_id == user_id),
+            select(AnnotationSnapshot).where(
+                AnnotationSnapshot.user_id == user_id
+            ),
+            select(CuratedAnnotation).where(
+                CuratedAnnotation.curator_id == user_id
+            ),
+            select(CurationDecision).where(
+                CurationDecision.curator_id == user_id
+            ),
+            select(UserRelationReference).where(
+                UserRelationReference.user_id == user_id
+            ),
+            select(ProjectMembership).where(
+                ProjectMembership.user_id == user_id
+            ),
             select(UserLastProject).where(UserLastProject.user_id == user_id),
         ]
         with Session(self.engine) as session:
-            return session.scalar(
-                select(literal_column("1")).where(or_(*[q.exists() for q in checks]))
-            ) is not None
+            return (
+                session.scalar(
+                    select(literal_column("1")).where(
+                        or_(*[q.exists() for q in checks])
+                    )
+                )
+                is not None
+            )
 
     def disable_user(self, user_id: UUID) -> None:
         """Set UserAuth.disabled = True for the given user."""
@@ -1040,9 +1064,7 @@ class D3TextDB:
             session.execute(
                 sa_delete(UserAuth).where(UserAuth.user_id == user_id)
             )
-            session.execute(
-                sa_delete(User).where(User.user_id == user_id)
-            )
+            session.execute(sa_delete(User).where(User.user_id == user_id))
             session.commit()
 
     def update_password(self, user_id: UUID, new_password: str) -> None:
@@ -1086,18 +1108,52 @@ class D3TextDB:
             session.commit()
         return project_id
 
+    def archive_project(self, project_id: int) -> None:
+        """Soft-delete a project; preserve annotation data, drop relational/config rows."""
+        with Session(self.engine) as session:
+            session.execute(
+                update(Project)
+                .where(Project.project_id == project_id)
+                .values(archived_at=datetime.now(timezone.utc))
+            )
+            session.execute(
+                sa_delete(ProjectMembership).where(
+                    ProjectMembership.project_id == project_id
+                )
+            )
+            session.execute(
+                sa_delete(ProjectOntology).where(
+                    ProjectOntology.project_id == project_id
+                )
+            )
+            session.execute(
+                sa_delete(ProjectReference).where(
+                    ProjectReference.project_id == project_id
+                )
+            )
+            session.execute(
+                sa_delete(UserLastProject).where(
+                    UserLastProject.project_id == project_id
+                )
+            )
+            session.commit()
+
     def get_project(self, project_id: int) -> Project | None:
         """Return the :class:`Project` with the given id, or ``None``."""
         with Session(self.engine) as session:
             return session.get(Project, project_id)
 
     def list_projects(self) -> list[Project]:
-        """Return all projects."""
+        """Return all active (non-archived) projects."""
         with Session(self.engine) as session:
-            return list(session.scalars(select(Project)).all())
+            return list(
+                session.scalars(
+                    select(Project).where(Project.archived_at.is_(None))
+                ).all()
+            )
 
     def list_user_projects(self, user_id: UUID) -> list[Project]:
-        """Return all projects the user has any membership role in."""
+        """Return all active projects the user has any membership role in."""
         with Session(self.engine) as session:
             return list(
                 session.scalars(
@@ -1106,7 +1162,10 @@ class D3TextDB:
                         ProjectMembership,
                         ProjectMembership.project_id == Project.project_id,
                     )
-                    .where(ProjectMembership.user_id == user_id)
+                    .where(
+                        ProjectMembership.user_id == user_id,
+                        Project.archived_at.is_(None),
+                    )
                     .distinct()
                 ).all()
             )
