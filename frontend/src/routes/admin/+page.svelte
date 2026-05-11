@@ -791,27 +791,29 @@
                                         {/if}
                                     {/if}
                                     {#if !u.disabled}
-                                        {#if confirmAction?.userId === u.user_id && confirmAction.kind === "remove-user"}
-                                            <span class="confirm-prompt">Remove?</span>
-                                            <button
-                                                class="btn small danger filled"
-                                                disabled={removeUserPending}
-                                                onclick={() => handleRemoveUser(u)}
-                                            >
-                                                {removeUserPending ? "…" : "Yes"}
-                                            </button>
-                                            <button
-                                                class="btn small muted"
-                                                onclick={() => (confirmAction = null)}
-                                            >Cancel</button>
-                                        {:else}
-                                            <button
-                                                class="btn small danger"
-                                                onclick={() => (confirmAction = { userId: u.user_id, kind: "remove-user" })}
-                                            >
-                                                Remove
-                                            </button>
-                                        {/if}
+                                        <span style="margin-left: auto; display: flex; gap: 0.4rem; align-items: center;">
+                                            {#if confirmAction?.userId === u.user_id && confirmAction.kind === "remove-user"}
+                                                <span class="confirm-prompt">Remove?</span>
+                                                <button
+                                                    class="btn small danger filled"
+                                                    disabled={removeUserPending}
+                                                    onclick={() => handleRemoveUser(u)}
+                                                >
+                                                    {removeUserPending ? "…" : "Yes"}
+                                                </button>
+                                                <button
+                                                    class="btn small muted"
+                                                    onclick={() => (confirmAction = null)}
+                                                >Cancel</button>
+                                            {:else}
+                                                <button
+                                                    class="btn small danger"
+                                                    onclick={() => (confirmAction = { userId: u.user_id, kind: "remove-user" })}
+                                                >
+                                                    Remove
+                                                </button>
+                                            {/if}
+                                        </span>
                                     {/if}
                                 </td>
                             </tr>
