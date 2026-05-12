@@ -601,3 +601,49 @@ def test_store_annotation_transaction_rollback() -> None:
     )
     assert len(retrieved.pointers) == initial_pointer_count
     assert len(retrieved.relations) == initial_relation_count
+
+
+def test_search_entities_contains_fallback() -> None:
+    from d3textdb.schema import EntityAnnotation as EA
+
+    db = D3TextDB()
+    ontology_id = db.store_ontology("Test Ontology", "TEST", "http://test.org/")
+
+    db.load_ontology_entities(
+        ontology_id,
+        [
+            EA(entity_id="T:1", preferred_name="Mycobacterium bovis", kind="d3o:Bacteria", synonyms=[]),
+            EA(entity_id="T:2", preferred_name="Bacterium acidiphilum", kind="d3o:Bacteria", synonyms=[]),
+        ],
+    )
+
+    results = db.search_entities("bacterium")
+    names = [r.preferred_name for r in results]
+
+    assert "Mycobacterium bovis" in names, f"Contains match missing from results: {names}"
+    assert names.index("Bacterium acidiphilum") < names.index("Mycobacterium bovis"), (
+        f"Prefix match should rank before contains match, got: {names}"
+    )
+
+
+def test_get_entity_types_ranks_prefix_match_before_contains_match() -> None:
+    from d3textdb.schema import EntityAnnotation as EA
+
+    db = D3TextDB()
+    ontology_id = db.store_ontology("Test Ontology", "TEST", "http://test.org/")
+
+    db.load_ontology_entities(
+        ontology_id,
+        [
+            EA(entity_id="T:1", preferred_name="Bacteria", kind="d3o:Bacteria", synonyms=[], is_class=True),
+            EA(entity_id="T:2", preferred_name="Anaerobic Bacteria", kind="d3o:Bacteria", synonyms=[], is_class=True),
+            EA(entity_id="T:3", preferred_name="16S (Bacterial)", kind="d3o:Bacteria", synonyms=[], is_class=True),
+        ],
+    )
+
+    results = db.get_entity_types("bact")
+    names = [r.preferred_name for r in results]
+
+    assert names[0] == "Bacteria", f"Expected 'Bacteria' first, got: {names}"
+    assert "Anaerobic Bacteria" in names
+    assert "16S (Bacterial)" in names

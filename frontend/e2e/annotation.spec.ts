@@ -20,7 +20,38 @@ test("clicking a queue item loads the article", async ({ page }) => {
     await firstLink.click();
 
     await expect(page).toHaveURL(expectedHref!);
-    await expect(page.locator(".reference-meta h2")).toBeVisible();
+    await expect(page.locator(".reference-meta h1")).toBeVisible();
+});
+
+test("class picker ranks prefix matches before contains matches", async ({
+    page,
+}) => {
+    await page.goto("/");
+    await page.waitForURL((url) => url.searchParams.has("ref"), {
+        timeout: 10_000,
+    });
+
+    await page.locator(".queue-row a").first().click();
+    await expect(page.locator(".reference-meta h1")).toBeVisible();
+
+    const articleBody = page.locator("#article-body").first();
+    await expect(articleBody).toBeVisible();
+    const box = await articleBody.boundingBox();
+    await page.mouse.move(box!.x + 10, box!.y + 10);
+    await page.mouse.down();
+    await page.mouse.move(box!.x + 60, box!.y + 10);
+    await page.mouse.up();
+
+    await page.locator(".tabs button", { hasText: "New entity" }).click();
+
+    const classInput = page.locator(".class-picker input");
+    await classInput.fill("bact");
+
+    const firstOption = page.locator(".class-picker .dropdown li").first();
+    await expect(firstOption).toBeVisible();
+
+    const firstLabel = await firstOption.locator(".opt-label").textContent();
+    expect(firstLabel?.toLowerCase()).toMatch(/^bact/);
 });
 
 test("check button marks a queue item complete and back to incomplete", async ({

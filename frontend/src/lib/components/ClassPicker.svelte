@@ -18,15 +18,22 @@
         query = found ? `${found.label} (${found.curie})` : value;
     });
 
-    const filtered: KindOption[] = $derived(
-        query.length === 0
-            ? options
-            : options.filter(
-                  (o) =>
-                      o.label.toLowerCase().includes(query.toLowerCase()) ||
-                      o.curie.toLowerCase().includes(query.toLowerCase()),
-              ),
-    );
+    const filtered: KindOption[] = $derived.by(() => {
+        if (query.length === 0) return options;
+        const q = query.toLowerCase();
+        const lower = (o: KindOption) => o.label.toLowerCase();
+        const matches = options.filter(
+            (o) => lower(o).includes(q) || o.curie.toLowerCase().includes(q),
+        );
+        const tier = (s: string) => (s === q ? 0 : s.startsWith(q) ? 1 : 2);
+        const lc = new Map(matches.map((o) => [o.curie, lower(o)]));
+        return matches.sort((a, b) => {
+            const aLabel = lc.get(a.curie)!;
+            const bLabel = lc.get(b.curie)!;
+            const td = tier(aLabel) - tier(bLabel);
+            return td !== 0 ? td : a.label.localeCompare(b.label);
+        });
+    });
 
     function select(opt: KindOption) {
         value = opt.curie;

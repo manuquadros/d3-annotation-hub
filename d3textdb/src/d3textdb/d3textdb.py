@@ -11,7 +11,7 @@ from uuid import UUID
 import bcrypt
 import pysqlite3
 from pydantic import EmailStr
-from sqlalchemy import create_engine
+from sqlalchemy import case, create_engine
 from sqlalchemy import delete as sa_delete
 from sqlalchemy import (
     event,
@@ -168,7 +168,12 @@ class D3TextDB:
         project_id: int | None = None,
         is_class: bool = False,
     ) -> list[EntityAnnotation]:
-        """Search entities by name/synonym using a prefix LIKE match.
+        """Search entities by name/synonym using a contains LIKE match.
+
+        Results are ranked: preferred-name exact match → preferred-name prefix
+        match → preferred-name contains match → synonym-only match. Within each
+        tier, entities whose names prefix-match rank above contains-only matches,
+        then by shortest matching name length.
 
         If `is_class` is True, only OWL classes are returned (for class pickers).
         If False (default), only non-class individuals are returned (for annotation search).
@@ -183,7 +188,22 @@ class D3TextDB:
         pref_name = aliased(Name)
         match_name = aliased(Name)
 
-        pattern = f"{query.strip()}%"
+        q = query.strip()
+        prefix_pattern = f"{q}%"
+        contains_pattern = f"%{q}%"
+
+        preferred_match_tier = func.max(
+            case(
+                (func.lower(pref_name.label) == q.lower(), 0),
+                (pref_name.label.ilike(prefix_pattern), 1),
+                (pref_name.label.ilike(contains_pattern), 2),
+                else_=3,
+            )
+        )
+
+        any_name_prefix = func.min(
+            case((match_name.label.ilike(prefix_pattern), 0), else_=1)
+        )
 
         stmt = (
             select(
@@ -202,10 +222,14 @@ class D3TextDB:
                 (pref_en.entity_id == Entity.entity_id) & pref_en.is_preferred,
             )
             .outerjoin(pref_name, pref_name.id == pref_en.name_id)
-            .where(match_name.label.ilike(pattern))
+            .where(match_name.label.ilike(contains_pattern))
             .where(Entity.is_class == is_class)
             .group_by(Entity.curie, Entity.type, Entity.confirmed)
-            .order_by(func.min(func.length(match_name.label)))
+            .order_by(
+                preferred_match_tier,
+                any_name_prefix,
+                func.min(func.length(match_name.label)),
+            )
             .limit(limit)
         )
 
@@ -2069,6 +2093,16 @@ class D3TextDB:
         with Session(self.engine) as session:
             rows = session.execute(stmt).fetchall()
 
+        q_lower = query.strip().lower()
+
+        def rank(e: EntityAnnotation) -> tuple:
+            name = e.preferred_name.lower()
+            if name == q_lower:
+                return (0, name)
+            if name.startswith(q_lower):
+                return (1, name)
+            return (2, name)
+
         return sorted(
             [
                 EntityAnnotation(
@@ -2080,7 +2114,7 @@ class D3TextDB:
                 )
                 for row in rows
             ],
-            key=lambda e: e.preferred_name,
+            key=rank,
         )
 
     def get_ontology_entities(
