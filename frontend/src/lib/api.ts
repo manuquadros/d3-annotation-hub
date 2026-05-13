@@ -28,6 +28,7 @@ export async function fetchReference(
 
 export interface QueueItem {
     ref: string;
+    citation: string;
     completed: boolean;
 }
 

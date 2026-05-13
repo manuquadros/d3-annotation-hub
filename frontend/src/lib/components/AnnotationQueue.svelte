@@ -62,7 +62,7 @@
                     goto(`/?ref=${item.ref}&project=${projectId}`);
                 }}
             >
-                {item.ref}
+                {item.citation}
             </a>
             <button
                 class="check-btn"

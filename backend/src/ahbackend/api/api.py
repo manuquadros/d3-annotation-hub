@@ -968,6 +968,7 @@ def remove_reference(
 
 class QueueItem(BaseModel):
     ref: str
+    citation: str
     completed: bool
 
 
@@ -982,7 +983,10 @@ def project_annotation_queue(
     if not can_access_project(user_auth, roles):
         raise HTTPException(status_code=403, detail="Access denied")
     items = get_project_queue_with_status(project_id, current_user.user_id)
-    return [QueueItem(ref=ref, completed=completed) for ref, completed in items]
+    return [
+        QueueItem(ref=ref, citation=citation, completed=completed)
+        for ref, citation, completed in items
+    ]
 
 
 @app.post("/projects/{project_id}/queue/complete", status_code=204)

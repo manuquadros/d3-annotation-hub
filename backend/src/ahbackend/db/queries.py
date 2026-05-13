@@ -21,6 +21,7 @@ from d3textdb.schema import (
 from multimethod import multimethod
 from sqlmodel import Session, col, select
 
+from ..utils import cse_citation
 from ._annodb import annodb
 
 
@@ -291,11 +292,12 @@ def get_reference_annotation(
 
 def get_project_queue_with_status(
     project_id: int, user_id: uuid.UUID
-) -> list[tuple[str, bool]]:
+) -> list[tuple[str, str, bool]]:
     """Return all project references with completion status for the user.
 
-    Returns a list of (identifier, completed) tuples where identifier is the
-    pubmed_id string when available, otherwise the doi.
+    Returns a list of (identifier, citation, completed) tuples where identifier
+    is the pubmed_id string when available, otherwise the doi, and citation is
+    a CSE-style key (e.g. "Smith et al. 2004").
     """
     with Session(annodb.engine) as session:
         completed_ref_ids = set(
@@ -307,7 +309,13 @@ def get_project_queue_with_status(
             ).all()
         )
         rows = session.execute(
-            select(Reference.pubmed_id, Reference.doi, Reference.reference_id)
+            select(
+                Reference.pubmed_id,
+                Reference.doi,
+                Reference.reference_id,
+                Reference.authors,
+                Reference.year,
+            )
             .join(
                 ProjectReference,
                 ProjectReference.reference_id == Reference.reference_id,
@@ -317,9 +325,10 @@ def get_project_queue_with_status(
         return [
             (
                 str(pubmed_id) if pubmed_id is not None else doi,
+                cse_citation(authors, year),
                 ref_id in completed_ref_ids,
             )
-            for pubmed_id, doi, ref_id in rows
+            for pubmed_id, doi, ref_id, authors, year in rows
         ]
 
 

@@ -603,6 +603,7 @@ def test_store_annotation_transaction_rollback() -> None:
     assert len(retrieved.relations) == initial_relation_count
 
 
+
 def test_search_entities_contains_fallback() -> None:
     from d3textdb.schema import EntityAnnotation as EA
 

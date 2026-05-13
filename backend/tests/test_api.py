@@ -3,6 +3,7 @@ from uuid import UUID
 from d3textdb.schema import UserAuth
 
 from ahbackend.api.api import can_access_project, can_curate_project
+from ahbackend.utils import cse_citation
 
 _DUMMY_UUID = UUID("00000000-0000-0000-0000-000000000000")
 
@@ -45,3 +46,18 @@ class TestCanCurateProject:
 
     def test_returns_false_when_user_auth_is_none_and_no_roles(self):
         assert not can_curate_project(None, [])
+
+
+class TestCseCitation:
+    def test_single_author(self):
+        assert cse_citation("Smith, J.", 2004) == "Smith 2004"
+
+    def test_two_authors(self):
+        assert cse_citation("Smith, J.; Jones, A.", 2004) == "Smith & Jones 2004"
+
+    def test_three_or_more_authors(self):
+        assert cse_citation("Smith, J.; Jones, A.; Williams, B.", 2004) == "Smith et al. 2004"
+        assert cse_citation("Bhakta, S.; Besra, G.S.; Upton, A.M.; Parish, T.", 2004) == "Bhakta et al. 2004"
+
+    def test_empty_authors(self):
+        assert cse_citation("", 2004) == "2004"
