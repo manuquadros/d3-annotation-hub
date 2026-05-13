@@ -16,6 +16,12 @@ Go to **Documents** in the sidebar. Enter one or more PubMed IDs or DOIs and cli
 **Add**. If an article is available on PubMed Central it is fetched automatically
 and added to the project queue.
 
+## Removing articles
+
+In the **Documents** list, click the **×** button at the end of any row to remove
+that article from the project. Removing an article does not delete it from the
+system; it only removes it from this project's queue.
+
 ## Managing ontologies
 
 Under **Ontologies** you can import OWL files that define the entity types and

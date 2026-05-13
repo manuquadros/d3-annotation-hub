@@ -1,5 +1,6 @@
 <script lang="ts">
     import { untrack } from "svelte";
+    import { SvelteSet } from "svelte/reactivity";
     import "$lib/styles/management.css";
     interface Reference {
         reference_id: number;
@@ -23,6 +24,28 @@
     let submitting = $state(false);
     let result = $state<Result | null>(null);
     let errorMessage = $state<string | null>(null);
+    const removing = new SvelteSet<number>();
+
+    async function handleRemove(referenceId: number) {
+        removing.add(referenceId);
+        try {
+            const res = await fetch(
+                `/api/projects/${data.projectId}/references/${referenceId}`,
+                { method: "DELETE" },
+            );
+            if (res.ok) {
+                references = references.filter(
+                    (r) => r.reference_id !== referenceId,
+                );
+            } else {
+                errorMessage = `Failed to remove reference: ${res.statusText}`;
+            }
+        } catch (err) {
+            errorMessage = String(err);
+        } finally {
+            removing.delete(referenceId);
+        }
+    }
 
     async function handleSubmit(e: SubmitEvent) {
         e.preventDefault();
@@ -59,7 +82,6 @@
                 result = await res.json();
                 if (result!.imported > 0) {
                     input = "";
-                    // Refresh the reference list to show newly added entries
                     const listRes = await fetch(
                         `/api/projects/${data.projectId}/references`,
                     );
@@ -143,6 +165,7 @@
                         <th>Title</th>
                         <th>Authors</th>
                         <th>Year</th>
+                        <th></th>
                     </tr>
                 </thead>
                 <tbody>
@@ -160,6 +183,16 @@
                             <td class="title">{ref.title}</td>
                             <td class="authors">{ref.authors}</td>
                             <td class="year">{ref.year}</td>
+                            <td class="remove-cell">
+                                <button
+                                    class="remove-btn"
+                                    onclick={() =>
+                                        handleRemove(ref.reference_id)}
+                                    disabled={removing.has(ref.reference_id)}
+                                    title="Remove from project"
+                                    aria-label="Remove {ref.title} from project"
+                                >×</button>
+                            </td>
                         </tr>
                     {/each}
                 </tbody>
@@ -226,5 +259,33 @@
     td.year {
         white-space: nowrap;
         color: #555;
+    }
+
+    td.remove-cell {
+        width: 1px;
+        padding: 0 0.25rem;
+        text-align: center;
+    }
+
+    .remove-btn {
+        background: none;
+        border: none;
+        cursor: pointer;
+        color: #aaa;
+        font-size: 1.1rem;
+        line-height: 1;
+        padding: 0.1rem 0.3rem;
+        border-radius: 3px;
+        transition: color 0.15s, background 0.15s;
+    }
+
+    .remove-btn:hover:not(:disabled) {
+        color: #c0392b;
+        background: #fdecea;
+    }
+
+    .remove-btn:disabled {
+        opacity: 0.4;
+        cursor: default;
     }
 </style>
