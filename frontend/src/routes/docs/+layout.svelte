@@ -12,6 +12,7 @@
         { href: "/docs/curation", label: "Curating annotations" },
         { href: "/docs/management", label: "Project management" },
         { href: "/docs/admin", label: "Administration" },
+        { href: "/docs/changelog", label: "Changelog" },
     ];
 
     let lightboxSrc = $state<string | null>(null);

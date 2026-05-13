@@ -273,6 +273,7 @@
             <div class="footer">
                 <span> &copy; DSMZ 2026 </span>
                 <span class="version">Version: {__APP_VERSION__}</span>
+                <a href="/docs/changelog">Changelog</a>
                 {#if data.email}
                     <span class="ml-auto">Logged as: {data.email}</span>
                 {/if}
