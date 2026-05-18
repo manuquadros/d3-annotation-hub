@@ -77,6 +77,11 @@
         () => initialState.reference,
     );
 
+    function abstractNeedsTitle(html: string): boolean {
+        const text = html.replace(/<[^>]+>/g, "").trimStart();
+        return !text.toLowerCase().startsWith("abstract");
+    }
+
     untrack(() => {
         const validEntityIds = new globalThis.Set(initialState.entities.keys());
         const relationsArray = initialState.relations.toArray();
@@ -112,6 +117,9 @@
             </p>
         </div>
         {#if reference?.abstract}
+            {#if abstractNeedsTitle(reference.abstract)}
+                <h2 class="section-heading">Abstract</h2>
+            {/if}
             <ArticleSection html={reference.abstract} field="abstract" />
         {/if}
         <ArticleSection html={reference?.body} field="body" />

@@ -10,7 +10,7 @@
     import type { Attachment } from "svelte/attachments";
 
     interface Props {
-        html: string | undefined;
+        html: string | null | undefined;
         field: "abstract" | "body";
     }
     let { html, field }: Props = $props();

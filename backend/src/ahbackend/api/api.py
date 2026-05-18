@@ -91,7 +91,7 @@ from ahbackend.db.queries import (
     search_users,
     user_has_references,
 )
-from ahbackend.pmc import fetch_reference_from_pmc
+from ahbackend.fetch import fetch_reference_from_ncbi
 
 app = FastAPI()
 
@@ -932,7 +932,7 @@ def add_references(
             ref = get_reference_by_pubmed_id(pubmed_id)
 
         if ref is None and pubmed_id is not None:
-            fetched = fetch_reference_from_pmc(pubmed_id)
+            fetched = fetch_reference_from_ncbi(pubmed_id)
             if fetched is not None:
                 ref_id = store_reference(fetched)
                 add_reference_to_project(project_id, ref_id)

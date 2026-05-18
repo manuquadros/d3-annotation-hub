@@ -54,7 +54,7 @@ export const UserSchema = z.object({
 export type Reference = {
     reference_id: number;
     pubmed_id: number;
-    pmc_id: number;
+    pmc_id: number | null;
     pmc_open: boolean | null;
     doi: string | null;
     authors: string;
@@ -64,13 +64,13 @@ export type Reference = {
     number: string | null;
     pages: string;
     year: number;
-    abstract?: string;
-    body?: string;
+    abstract?: string | null;
+    body?: string | null;
 };
 export const ReferenceSchema = z.object({
     reference_id: z.int(),
     pubmed_id: z.int(),
-    pmc_id: z.int(),
+    pmc_id: z.int().nullable(),
     pmc_open: z.boolean().nullable(),
     doi: z.string().nullable(),
     authors: z.string(),
@@ -80,8 +80,8 @@ export const ReferenceSchema = z.object({
     number: z.nullable(z.string()),
     pages: z.string(),
     year: z.int(),
-    abstract: z.string().optional(),
-    body: z.string().optional(),
+    abstract: z.string().nullish(),
+    body: z.string().nullish(),
 }) satisfies z.ZodType<Reference>;
 
 // Create an Immutable Record for Relation to ensure value-based equality
