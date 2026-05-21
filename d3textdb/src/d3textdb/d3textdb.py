@@ -4,8 +4,8 @@ import hashlib
 import itertools
 import json
 import os
+from collections.abc import Iterable
 from datetime import datetime, timezone
-from typing import Iterable
 from uuid import UUID
 
 import bcrypt
@@ -83,8 +83,6 @@ def _content_hash(pointers: list[Pointer], relations: list[Relation]) -> str:
         {"pointers": pointer_data, "relations": relation_data}, sort_keys=True
     )
     return hashlib.sha256(payload.encode()).hexdigest()
-
-
 
 
 class D3TextDB:
