@@ -2,9 +2,10 @@ repos:
   - repo:
       https://github.com/astral-sh/ruff-pre-commit
       # Ruff version.
-    rev: v0.11.8
+    rev: v0.15.14
     hooks:
-      - id: ruff
+      - id: ruff-check
+        args: [--fix, --exit-non-zero-on-fix, --show-fixes]
       - id: ruff-format
 
   - repo: https://github.com/pdm-project/pdm
@@ -13,3 +14,21 @@ repos:
       - id: pdm-export
         args: ["-o", "requirements.txt", "--without-hashes"]
         files: ^pylock.toml$
+
+  - repo: https://github.com/codespell-project/codespell
+    rev: v2.4.2
+    hooks:
+      - id: codespell
+        additional_dependencies:
+          - tomli
+
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.20.2
+    hooks:
+      - id: mypy
+        args: [src]
+        pass_filenames: false
+        additional_dependencies:
+          - types-requests
+          - types-certifi
+          - pytest
