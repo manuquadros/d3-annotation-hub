@@ -31,19 +31,13 @@ build-backend = "pdm.backend"
 dev = [
   "autodoc-pydantic>=2.2.0",
   "beartype>=0.21.0",
-  "black>=24",
   "debugpy>=1.8.14",
   "devtools>=0.12.2",
-  "flake8-pyproject>=1.2.3",
-  "flake8-type-checking>=3.0.0",
   "icecream>=2.1.4",
   "ipython-autotime>=0.3.2",
   "ipython>=9.4",
-  "isort>=6.0.1",
-  "mccabe>=0.7.0",
   "memray>=1.14.0",
   "pre-commit>=4.2.0",
-  "prospector[with_everything]>=1.13.3",
   "pudb>=2024.1.3",
   "pydata-sphinx-theme>=0.16.0",
   "pyls-memestra>=0.0.16",
@@ -58,6 +52,8 @@ dev = [
   "python-lsp-server>=1.12.2",
   "rich>=13.9.4",
   "rope>=1.13.0",
+  "ruff>=0.11",
+  "sphinx-autobuild>=2024",
   "sphinx-book-theme>=1",
   "sphinx-pydantic>=0.1.1",
   "sphinx>=8.1.3",
@@ -67,24 +63,34 @@ dev = [
 
 [tool.pdm.scripts]
 dev = "python scripts/run.py"
-lint = "flake8 ."
-fmt = { composite = ["black .", "isort ."] }
+lint = "ruff check ."
+fmt = "ruff format ."
+fmt-check = "ruff format --check ."
 test = "pytest"
+docs-build.shell = "sphinx-apidoc -o docs/api src/ahbackend --force && sphinx-build docs docs/_build/html"
+docs-serve = "sphinx-autobuild docs docs/_build/html --open-browser"
 
+[[tool.pdm.source]]
+name = "private"
+url = "https://download.pytorch.org/whl/cu124"
+
+[tool.pdm.dev-dependencies]
+dev = ["-e file:///${PROJECT_ROOT}/../apiadapters#egg=apiadapters"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 
-[tool.flake8]
-max-line-length = 80
-exclude = [".venv", "build", "dist"]
-per-file-ignores = ["__init__.py:F401"]
-
-[tool.black]
+[tool.ruff]
 line-length = 80
+target-version = "py312"
 
-[tool.isort]
-profile = "black"
-line_length = 80
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "UP", "B", "SIM", "TCH", "C90"]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["ahbackend"]
 
 [tool.pylsp.plugins]
 pylsp-mypy.enabled = true
