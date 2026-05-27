@@ -2341,7 +2341,17 @@ class D3TextDB:
                 )
 
             session.execute(
-                sa_delete(Ontology).where(Ontology.ontology_id == ontology_id)
+                sa_delete(OntologyProperty).where(
+                    OntologyProperty.ontology_id == ontology_id
+                )
+            )
+            session.execute(
+                sa_delete(ProjectOntology).where(
+                    ProjectOntology.ontology_id == ontology_id
+                )
+            )
+            session.execute(
+                sa_delete(Ontology).where(Ontology.ontology_id == ontology_id),
             )
             session.commit()
 
