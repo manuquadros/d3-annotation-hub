@@ -1,11 +1,13 @@
+from collections.abc import Iterable
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 from uuid import UUID
 
-from d3textdb import ParsedOntology
+from d3textdb import ParsedOntology, ParsedProperty, ParsedTriple
 from d3textdb.schema import (
     AnnotationSnapshot,
     AnnotationState,
+    EntityAnnotation,
     Pointer,
     Reference,
     ReferenceAnnotation,
@@ -40,7 +42,9 @@ def update_password(user_id: UUID, new_password: str) -> None:
     annodb.update_password(user_id, new_password)
 
 
-def set_user_permissions(user_id: UUID, is_super_user: bool, can_manage: bool) -> None:
+def set_user_permissions(
+    user_id: UUID, is_super_user: bool, can_manage: bool
+) -> None:
     with Session(annodb.engine) as session:
         auth = session.get(UserAuth, user_id)
         if auth is None:
@@ -110,7 +114,9 @@ def store_proposed_entity(
     kind: str,
     proposed_by: str | None = None,
 ) -> dict:
-    return annodb.store_proposed_entity(project_id, label, curie, kind, proposed_by)
+    return annodb.store_proposed_entity(
+        project_id, label, curie, kind, proposed_by
+    )
 
 
 def store_proposed_property(
@@ -143,13 +149,39 @@ def run_ontology_import(
     )
     entity_count = annodb.load_ontology_entities(ontology_id, parsed.entities)
     triple_count = annodb.load_ontology_triples(parsed.triples)
-    property_count = annodb.load_ontology_properties(ontology_id, parsed.properties)
+    property_count = annodb.load_ontology_properties(
+        ontology_id, parsed.properties
+    )
     return {
         "ontology_id": ontology_id,
         "entities": entity_count,
         "triples": triple_count,
         "properties": property_count,
     }
+
+
+def store_ontology_metadata(
+    name: str, prefix: str, base_iri: str, version: str | None
+) -> int:
+    return annodb.store_ontology(
+        name=name, prefix=prefix, uri=base_iri, version=version
+    )
+
+
+def load_entities_bulk(
+    ontology_id: int, entities: Iterable[EntityAnnotation]
+) -> int:
+    return annodb.load_ontology_entities(ontology_id, entities)
+
+
+def load_triples_bulk(triples: list[ParsedTriple]) -> int:
+    return annodb.load_ontology_triples(triples)
+
+
+def load_properties_bulk(
+    ontology_id: int, properties: list[ParsedProperty]
+) -> int:
+    return annodb.load_ontology_properties(ontology_id, properties)
 
 
 def delete_ontology(ontology_id: int) -> None:

@@ -8,7 +8,9 @@ from ahbackend.utils import cse_citation
 _DUMMY_UUID = UUID("00000000-0000-0000-0000-000000000000")
 
 
-def make_user_auth(*, is_super_user: bool = False, can_manage: bool = False) -> UserAuth:
+def make_user_auth(
+    *, is_super_user: bool = False, can_manage: bool = False
+) -> UserAuth:
     return UserAuth(
         user_id=_DUMMY_UUID,
         hashed_password="",
@@ -53,11 +55,21 @@ class TestCseCitation:
         assert cse_citation("Smith, J.", 2004) == "Smith 2004"
 
     def test_two_authors(self):
-        assert cse_citation("Smith, J.; Jones, A.", 2004) == "Smith & Jones 2004"
+        assert (
+            cse_citation("Smith, J.; Jones, A.", 2004) == "Smith & Jones 2004"
+        )
 
     def test_three_or_more_authors(self):
-        assert cse_citation("Smith, J.; Jones, A.; Williams, B.", 2004) == "Smith et al. 2004"
-        assert cse_citation("Bhakta, S.; Besra, G.S.; Upton, A.M.; Parish, T.", 2004) == "Bhakta et al. 2004"
+        assert (
+            cse_citation("Smith, J.; Jones, A.; Williams, B.", 2004)
+            == "Smith et al. 2004"
+        )
+        assert (
+            cse_citation(
+                "Bhakta, S.; Besra, G.S.; Upton, A.M.; Parish, T.", 2004
+            )
+            == "Bhakta et al. 2004"
+        )
 
     def test_empty_authors(self):
         assert cse_citation("", 2004) == "2004"

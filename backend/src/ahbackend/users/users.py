@@ -75,7 +75,9 @@ async def get_current_user(
         headers={"WWW-Authenticate": "Bearer"},
     )
     try:
-        payload = jwt.decode(token, config.PUBLIC_KEY, algorithms=[config.ALGORITHM])
+        payload = jwt.decode(
+            token, config.PUBLIC_KEY, algorithms=[config.ALGORITHM]
+        )
         username = payload.get("sub")
         if username is None:
             raise credentials_exception
@@ -126,12 +128,18 @@ async def require_manager(
         return current_user
     roles = get_user_project_roles(current_user.user_id, project_id)
     if "manager" not in roles:
-        raise HTTPException(status_code=403, detail="Project manager access required")
+        raise HTTPException(
+            status_code=403, detail="Project manager access required"
+        )
     return current_user
 
 
 def create_access_token(
-    data: dict, expires_delta: timedelta, now: datetime, private_key, algorithm: str
+    data: dict,
+    expires_delta: timedelta,
+    now: datetime,
+    private_key,
+    algorithm: str,
 ):
     to_encode = data.copy()
     expire = now + expires_delta

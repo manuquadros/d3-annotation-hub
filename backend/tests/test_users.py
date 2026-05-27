@@ -46,7 +46,6 @@ class TestCreateAccessToken:
 
         assert token1 == token2
 
-
     def test_input_data_is_not_mutated(self, key_pair):
         private_key, _ = key_pair
         now = datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
@@ -91,6 +90,8 @@ class TestIsValidCredentials:
         auth = _make_user_auth(hashed_password)
         assert not is_valid_credentials("wrong-password", auth)
 
-    def test_returns_true_with_correct_password_and_active_user(self, hashed_password):
+    def test_returns_true_with_correct_password_and_active_user(
+        self, hashed_password
+    ):
         auth = _make_user_auth(hashed_password)
         assert is_valid_credentials(_PLAIN_PASSWORD, auth)

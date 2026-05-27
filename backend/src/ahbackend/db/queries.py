@@ -70,7 +70,10 @@ def list_project_references(project_id: int) -> list[Reference]:
 
 
 def search_entities(
-    query: str, limit: int = 20, project_id: int | None = None, is_class: bool = False
+    query: str,
+    limit: int = 20,
+    project_id: int | None = None,
+    is_class: bool = False,
 ) -> list[EntityAnnotation]:
     return annodb.search_entities(query, limit, project_id, is_class)
 
@@ -109,7 +112,12 @@ def get_ontology_triples(
     object_filter: str = "",
 ) -> tuple[list[dict], int]:
     return annodb.get_ontology_triples(
-        ontology_id, limit, offset, subject_filter, predicate_filter, object_filter
+        ontology_id,
+        limit,
+        offset,
+        subject_filter,
+        predicate_filter,
+        object_filter,
     )
 
 
@@ -152,7 +160,9 @@ def is_project_creator(user_id: uuid.UUID) -> bool:
 def list_users() -> list[tuple[User, UserAuth]]:
     with Session(annodb.engine) as session:
         rows = session.execute(
-            select(User, UserAuth).join(UserAuth, UserAuth.user_id == User.user_id)
+            select(User, UserAuth).join(
+                UserAuth, UserAuth.user_id == User.user_id
+            )
         ).all()
         return [(u, a) for u, a in rows]
 
@@ -173,7 +183,9 @@ def get_user_last_project(user_id: uuid.UUID) -> int | None:
     return annodb.get_user_last_project(user_id)
 
 
-def get_project_annotation_queue(project_id: int, user_id: uuid.UUID) -> list[str]:
+def get_project_annotation_queue(
+    project_id: int, user_id: uuid.UUID
+) -> list[str]:
     return annodb.get_project_annotation_queue(project_id, user_id)
 
 
@@ -217,7 +229,9 @@ def get_curation_claims(
             return {}, {}, set(), {}
 
         snapshot_ids = [s.snapshot_id for s in snapshots]
-        snap_to_ref: dict[int, int] = {s.snapshot_id: s.reference_id for s in snapshots}
+        snap_to_ref: dict[int, int] = {
+            s.snapshot_id: s.reference_id for s in snapshots
+        }
 
         rel_rows = session.execute(
             select(Relation, SnapshotRelation.snapshot_id)
@@ -265,11 +279,15 @@ def get_curation_claims(
                 elif p.entity_id == relation.object:
                     claims_map[key][ref_id]["object_pointers"].add(ptr)
 
-        ref_ids = {ref_id for evidence in claims_map.values() for ref_id in evidence}
+        ref_ids = {
+            ref_id for evidence in claims_map.values() for ref_id in evidence
+        }
         refs: dict[int, Reference] = {}
         if ref_ids:
             for ref in session.scalars(
-                select(Reference).where(col(Reference.reference_id).in_(ref_ids))
+                select(Reference).where(
+                    col(Reference.reference_id).in_(ref_ids)
+                )
             ).all():
                 refs[ref.reference_id] = ref
 
@@ -348,7 +366,9 @@ def query(pmid: int) -> Reference:
 
 @multimethod
 def query(predicate: str, subject: str, object: str) -> str:
-    relation = annodb.get_relation(predicate=predicate, subject=subject, object=object)
+    relation = annodb.get_relation(
+        predicate=predicate, subject=subject, object=object
+    )
     if relation is None:
         return ""
     return relation.model_dump_json()

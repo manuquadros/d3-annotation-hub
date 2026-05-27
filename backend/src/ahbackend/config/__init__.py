@@ -14,7 +14,9 @@ with pathlib.Path("config.toml").open(mode="r") as cfg:
     ACCESS_TOKEN_EXPIRE_MINUTES = config.value["authentication"][
         "access_token_expire_minutes"
     ]
-    COOKIE_SECURE: bool = config.value["authentication"].get("cookie_secure", False)
+    COOKIE_SECURE: bool = config.value["authentication"].get(
+        "cookie_secure", False
+    )
     PK_PATH: str | None = config.value["authentication"].get(
         "D3HUB_PKPATH"
     ) or os.getenv("D3HUB_PKPATH")

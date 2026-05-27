@@ -67,12 +67,17 @@ def _fetch_annotation(client: TestClient, auth: dict, project_id: int) -> dict:
     return json.loads(r.json())
 
 
-def _save_annotation(
-    client: TestClient, auth: dict, annotation: dict
-) -> None:
+def _save_annotation(client: TestClient, auth: dict, annotation: dict) -> None:
     # store_reference does INSERT … ON CONFLICT(pubmed_id, doi) so the PK must
     # be absent; otherwise SQLite raises a UNIQUE violation on reference_id.
-    payload = {**annotation, "reference": {k: v for k, v in annotation["reference"].items() if k != "reference_id"}}
+    payload = {
+        **annotation,
+        "reference": {
+            k: v
+            for k, v in annotation["reference"].items()
+            if k != "reference_id"
+        },
+    }
     r = client.post(
         "/save/", json={"json_data": json.dumps(payload)}, headers=auth
     )
@@ -82,13 +87,17 @@ def _save_annotation(
 class TestLogin:
     def test_valid_credentials_return_token(self, ctx):
         client, _ = ctx
-        r = client.post("/token", data={"username": _EMAIL, "password": _PASSWORD})
+        r = client.post(
+            "/token", data={"username": _EMAIL, "password": _PASSWORD}
+        )
         assert r.status_code == 200
         assert "access_token" in r.json()
 
     def test_wrong_password_is_rejected(self, ctx):
         client, _ = ctx
-        r = client.post("/token", data={"username": _EMAIL, "password": "wrong"})
+        r = client.post(
+            "/token", data={"username": _EMAIL, "password": "wrong"}
+        )
         assert r.status_code == 401
 
     def test_unauthenticated_request_is_rejected(self, ctx):
@@ -194,8 +203,18 @@ class TestFetchAndSave:
             },
         ]
         ann["pointers"] = [
-            {"reference_id": ref_id, "entity_id": "TEST:001", "offset": 5, "length": 7},
-            {"reference_id": ref_id, "entity_id": "TEST:002", "offset": 20, "length": 8},
+            {
+                "reference_id": ref_id,
+                "entity_id": "TEST:001",
+                "offset": 5,
+                "length": 7,
+            },
+            {
+                "reference_id": ref_id,
+                "entity_id": "TEST:002",
+                "offset": 20,
+                "length": 8,
+            },
         ]
         ann["relations"] = [
             {
@@ -228,7 +247,12 @@ class TestFetchAndSave:
             }
         ]
         ann["pointers"] = [
-            {"reference_id": ref_id, "entity_id": "TEST:001", "offset": 5, "length": 7}
+            {
+                "reference_id": ref_id,
+                "entity_id": "TEST:001",
+                "offset": 5,
+                "length": 7,
+            }
         ]
         _save_annotation(client, auth, ann)
 
@@ -269,8 +293,18 @@ class TestFullWorkflow:
             },
         ]
         ann["pointers"] = [
-            {"reference_id": ref_id, "entity_id": "TEST:001", "offset": 5, "length": 7},
-            {"reference_id": ref_id, "entity_id": "TEST:002", "offset": 20, "length": 8},
+            {
+                "reference_id": ref_id,
+                "entity_id": "TEST:001",
+                "offset": 5,
+                "length": 7,
+            },
+            {
+                "reference_id": ref_id,
+                "entity_id": "TEST:002",
+                "offset": 20,
+                "length": 8,
+            },
         ]
         ann["relations"] = [
             {

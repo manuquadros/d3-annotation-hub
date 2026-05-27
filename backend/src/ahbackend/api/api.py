@@ -1,3 +1,5 @@
+import asyncio
+import json
 import secrets
 import string
 import uuid
@@ -16,6 +18,7 @@ from d3textdb.schema import (
 )
 from fastapi import Body, Depends, FastAPI, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, ConfigDict, EmailStr
 from xkcdpass import xkcd_password as xp
 from xmlparser import (
@@ -37,6 +40,9 @@ from ahbackend.db.operations import (
     delete_ontology,
     delete_user,
     disable_user,
+    load_entities_bulk,
+    load_properties_bulk,
+    load_triples_bulk,
     mark_annotation_complete,
     mark_annotation_incomplete,
     rebuild_fts,
@@ -44,11 +50,11 @@ from ahbackend.db.operations import (
     remove_ontology_from_project,
     remove_project_member,
     remove_reference_from_project,
-    run_ontology_import,
     save_curated_annotation,
     set_curation_decision,
     set_user_last_project,
     set_user_permissions,
+    store_ontology_metadata,
     store_proposed_entity,
     store_proposed_property,
     store_reference,
@@ -97,6 +103,12 @@ app = FastAPI()
 
 VALID_ROLES: frozenset[str] = frozenset({"manager", "annotator", "curator"})
 EXCLUSIVE_ROLES: frozenset[str] = frozenset({"annotator", "curator"})
+
+_TRIPLE_CHUNK = 500
+
+
+def _sse(event: str, data: object) -> str:
+    return f"event: {event}\ndata: {json.dumps(data)}\n\n"
 
 
 def reference_body_xml(ref: Reference) -> str:
@@ -148,7 +160,9 @@ def fetch_annotation(
 
     return reference_annotation.model_copy(
         update={
-            "reference": ref.model_copy(update={"abstract": abstract, "body": body})
+            "reference": ref.model_copy(
+                update={"abstract": abstract, "body": body}
+            )
         }
     ).model_dump_json()
 
@@ -184,7 +198,9 @@ def get_last_project(
     current_user: Annotated[User, Depends(users.get_current_active_user)],
 ) -> LastProjectResponse:
     """Return the user's last active project id, or null if none."""
-    return LastProjectResponse(project_id=get_user_last_project(current_user.user_id))
+    return LastProjectResponse(
+        project_id=get_user_last_project(current_user.user_id)
+    )
 
 
 @app.put("/me/last-project", status_code=204)
@@ -221,22 +237,157 @@ def get_ontologies(
 
 
 @app.post("/admin/ontology/import")
-async def import_ontology(
+async def import_ontology(  # noqa: C901
     current_user: Annotated[User, Depends(users.get_current_admin)],
     file: UploadFile,
     name: str = Form(...),
     prefix: str = Form(...),
     base_iri: str = Form(default=""),
     version: str | None = Form(default=None),
-) -> dict:
-    """Upload an OWL file and import its classes and hierarchy into the DB."""
+) -> StreamingResponse:
+    """Upload an OWL file and stream import progress as SSE events."""
     content = await file.read()
-    try:
-        parsed = parse_owl(content, prefix, base_iri)
-    except Exception as exc:
-        raise HTTPException(status_code=422, detail=f"OWL parse error: {exc}") from exc
 
-    return run_ontology_import(parsed, name, prefix, base_iri, version)
+    async def _stream():  # noqa: C901
+        # 1. Parse OWL
+        yield _sse("progress", {"step": "parse", "loaded": 0, "total": 1})
+        try:
+            parsed = parse_owl(content, prefix, base_iri)
+        except Exception as exc:
+            yield _sse("error", {"detail": f"OWL parse error: {exc}"})
+            return
+        yield _sse("progress", {"step": "parse", "loaded": 1, "total": 1})
+
+        n_entities = len(parsed.entities)
+        n_triples = len(parsed.triples)
+        n_props = len(parsed.properties)
+
+        # 2. Store ontology metadata
+        yield _sse(
+            "progress", {"step": "store_ontology", "loaded": 0, "total": 1}
+        )
+        try:
+            ontology_id = store_ontology_metadata(
+                name, prefix, base_iri, version
+            )
+        except Exception as exc:
+            yield _sse("error", {"detail": str(exc)})
+            return
+        yield _sse(
+            "progress", {"step": "store_ontology", "loaded": 1, "total": 1}
+        )
+
+        # 3. Load entities in a thread; iterable wrapper reports per batch
+        yield _sse(
+            "progress",
+            {"step": "load_entities", "loaded": 0, "total": n_entities},
+        )
+        loop = asyncio.get_running_loop()
+        entity_q: asyncio.Queue[int] = asyncio.Queue()
+
+        def _tracked_entities():
+            for count, entity in enumerate(parsed.entities, 1):
+                yield entity
+                if count % 500 == 0 or count == n_entities:
+                    loop.call_soon_threadsafe(entity_q.put_nowait, count)
+
+        try:
+            load_task = asyncio.create_task(
+                asyncio.to_thread(
+                    load_entities_bulk, ontology_id, _tracked_entities()
+                )
+            )
+            while not load_task.done():
+                try:
+                    loaded = await asyncio.wait_for(entity_q.get(), timeout=0.5)
+                    yield _sse(
+                        "progress",
+                        {
+                            "step": "load_entities",
+                            "loaded": loaded,
+                            "total": n_entities,
+                        },
+                    )
+                except TimeoutError:
+                    pass
+            await asyncio.sleep(0)  # flush call_soon_threadsafe callbacks
+            while not entity_q.empty():
+                loaded = entity_q.get_nowait()
+                yield _sse(
+                    "progress",
+                    {
+                        "step": "load_entities",
+                        "loaded": loaded,
+                        "total": n_entities,
+                    },
+                )
+            entity_count = await load_task
+        except Exception as exc:
+            yield _sse("error", {"detail": f"Entity loading error: {exc}"})
+            delete_ontology(ontology_id)
+            return
+
+        # 4. Load triples — chunked for per-batch progress
+        yield _sse(
+            "progress",
+            {"step": "load_triples", "loaded": 0, "total": n_triples},
+        )
+        triple_count = 0
+        try:
+            for start in range(0, n_triples, _TRIPLE_CHUNK):
+                chunk = parsed.triples[start : start + _TRIPLE_CHUNK]
+                stored = await asyncio.to_thread(load_triples_bulk, chunk)
+                triple_count += stored
+                yield _sse(
+                    "progress",
+                    {
+                        "step": "load_triples",
+                        "loaded": triple_count,
+                        "total": n_triples,
+                    },
+                )
+        except Exception as exc:
+            yield _sse("error", {"detail": f"Triple loading error: {exc}"})
+            delete_ontology(ontology_id)
+            return
+
+        # 5. Load properties — single shot
+        yield _sse(
+            "progress",
+            {"step": "load_properties", "loaded": 0, "total": n_props},
+        )
+        try:
+            property_count = await asyncio.to_thread(
+                load_properties_bulk, ontology_id, parsed.properties
+            )
+        except Exception as exc:
+            yield _sse("error", {"detail": str(exc)})
+            delete_ontology(ontology_id)
+            return
+
+        yield _sse(
+            "progress",
+            {
+                "step": "load_properties",
+                "loaded": property_count,
+                "total": n_props,
+            },
+        )
+        yield _sse(
+            "complete",
+            {
+                "ontology_id": ontology_id,
+                "entities": entity_count,
+                "triples": triple_count,
+                "properties": property_count,
+            },
+        )
+
+    return StreamingResponse(
+        _stream(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
 
 
 @app.get("/admin/ontologies/{ontology_id}/entities")
@@ -277,7 +428,12 @@ def list_ontology_triples(
 ) -> dict:
     """Return a page of triples for an ontology plus the total count."""
     rows, total = get_ontology_triples(
-        ontology_id, limit, offset, subject_filter, predicate_filter, object_filter
+        ontology_id,
+        limit,
+        offset,
+        subject_filter,
+        predicate_filter,
+        object_filter,
     )
     return {"triples": [OntologyTripleOut(**r) for r in rows], "total": total}
 
@@ -403,7 +559,9 @@ def remove_user_account(
     references exist the account is hard-deleted.
     """
     if str(current_user.email) == username:
-        raise HTTPException(status_code=400, detail="Cannot remove your own account")
+        raise HTTPException(
+            status_code=400, detail="Cannot remove your own account"
+        )
     user = get_user(username)
     if user is None:
         raise HTTPException(status_code=404, detail="User not found")
@@ -549,7 +707,9 @@ def create_new_project(
     current_user: Annotated[User, Depends(users.get_current_admin)],
 ) -> ProjectResponse:
     """Create a new annotation project (admin only)."""
-    project_id = create_project(body.name, body.description, body.required_annotators)
+    project_id = create_project(
+        body.name, body.description, body.required_annotators
+    )
     add_project_member(project_id, current_user.user_id, "manager")
     project = get_project(project_id)
     return ProjectResponse.model_validate(project)
@@ -763,7 +923,8 @@ def list_project_properties(
 ) -> list[PropertyResponse]:
     """Return OWL object properties plus pending proposed properties for the project."""
     owl_props = [
-        PropertyResponse.model_validate(p) for p in get_project_properties(project_id)
+        PropertyResponse.model_validate(p)
+        for p in get_project_properties(project_id)
     ]
     proposed, _ = list_proposed_properties(project_id, limit=500, offset=0)
     proposed_props = [
@@ -897,7 +1058,8 @@ def get_project_references(
     if get_project(project_id) is None:
         raise HTTPException(status_code=404, detail="Project not found")
     return [
-        ReferenceInfo.model_validate(r) for r in list_project_references(project_id)
+        ReferenceInfo.model_validate(r)
+        for r in list_project_references(project_id)
     ]
 
 
@@ -1102,7 +1264,9 @@ def curation_claims(
     if not can_curate_project(user_auth, roles):
         raise HTTPException(status_code=403, detail="Curator access required")
 
-    claims_map, refs, entity_curies, relation_ids = get_curation_claims(project_id)
+    claims_map, refs, entity_curies, relation_ids = get_curation_claims(
+        project_id
+    )
     decisions = get_curation_decisions(project_id, current_user.user_id)
 
     entity_list = get_entities_by_curies(list(entity_curies))
@@ -1165,7 +1329,8 @@ class VerdictBody(BaseModel):
 
 
 @app.post(
-    "/projects/{project_id}/curation/claims/{relation_id}/verdict", status_code=204
+    "/projects/{project_id}/curation/claims/{relation_id}/verdict",
+    status_code=204,
 )
 def set_claim_verdict(
     project_id: int,
@@ -1178,7 +1343,9 @@ def set_claim_verdict(
     roles = get_user_project_roles(current_user.user_id, project_id)
     if not can_curate_project(user_auth, roles):
         raise HTTPException(status_code=403, detail="Curator access required")
-    set_curation_decision(project_id, relation_id, current_user.user_id, body.verdict)
+    set_curation_decision(
+        project_id, relation_id, current_user.user_id, body.verdict
+    )
 
 
 class PointerOut(BaseModel):
@@ -1228,7 +1395,8 @@ class SnapshotsResponse(BaseModel):
 def can_access_project(user_auth: UserAuth | None, roles: list[str]) -> bool:
     """Return True if the user has any project role or the can_manage flag."""
     return bool(roles) or (
-        user_auth is not None and (user_auth.can_manage or user_auth.is_super_user)
+        user_auth is not None
+        and (user_auth.can_manage or user_auth.is_super_user)
     )
 
 

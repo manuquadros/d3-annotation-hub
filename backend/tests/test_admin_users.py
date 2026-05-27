@@ -30,10 +30,14 @@ def ctx(monkeypatch):
     monkeypatch.setattr(operations_module, "annodb", test_db)
     monkeypatch.setattr(api_module, "transform_article", lambda x: x or "")
 
-    test_db.create_user(DbUser(email=_ADMIN_EMAIL), _ADMIN_PASSWORD, is_super_user=True)
+    test_db.create_user(
+        DbUser(email=_ADMIN_EMAIL), _ADMIN_PASSWORD, is_super_user=True
+    )
 
     client = TestClient(app)
-    r = client.post("/token", data={"username": _ADMIN_EMAIL, "password": _ADMIN_PASSWORD})
+    r = client.post(
+        "/token", data={"username": _ADMIN_EMAIL, "password": _ADMIN_PASSWORD}
+    )
     assert r.status_code == 200, r.text
     auth = {"Authorization": f"Bearer {r.json()['access_token']}"}
     return client, auth
@@ -61,7 +65,8 @@ class TestCreateUser:
             headers=auth,
         )
         r = client.post(
-            "/token", data={"username": _NEW_USER_EMAIL, "password": _NEW_USER_PASSWORD}
+            "/token",
+            data={"username": _NEW_USER_EMAIL, "password": _NEW_USER_PASSWORD},
         )
         assert r.status_code == 200
         assert "access_token" in r.json()
@@ -106,7 +111,8 @@ class TestCreateUser:
             headers=auth,
         )
         r = client.post(
-            "/token", data={"username": _NEW_USER_EMAIL, "password": _NEW_USER_PASSWORD}
+            "/token",
+            data={"username": _NEW_USER_EMAIL, "password": _NEW_USER_PASSWORD},
         )
         plain_auth = {"Authorization": f"Bearer {r.json()['access_token']}"}
 
@@ -133,7 +139,9 @@ def ctx_with_member(ctx):
     """Extends ctx with a regular user who is a member of a project."""
     client, auth = ctx
     test_db = queries_module.annodb
-    user_id = test_db.create_user(DbUser(email=_NEW_USER_EMAIL), _NEW_USER_PASSWORD)
+    user_id = test_db.create_user(
+        DbUser(email=_NEW_USER_EMAIL), _NEW_USER_PASSWORD
+    )
     project_id = test_db.create_project("Test Project", required_annotators=1)
     test_db.add_project_member(project_id, user_id, "annotator")
     return client, auth, test_db, project_id
@@ -169,7 +177,8 @@ class TestRemoveUser:
         self._create_new_user(client, auth)
         client.delete(f"/admin/users/{_NEW_USER_EMAIL}", headers=auth)
         r = client.post(
-            "/token", data={"username": _NEW_USER_EMAIL, "password": _NEW_USER_PASSWORD}
+            "/token",
+            data={"username": _NEW_USER_EMAIL, "password": _NEW_USER_PASSWORD},
         )
         assert r.status_code == 401
 
@@ -183,11 +192,14 @@ class TestRemoveUser:
         client, auth, _, __ = ctx_with_member
         client.delete(f"/admin/users/{_NEW_USER_EMAIL}", headers=auth)
         r = client.post(
-            "/token", data={"username": _NEW_USER_EMAIL, "password": _NEW_USER_PASSWORD}
+            "/token",
+            data={"username": _NEW_USER_EMAIL, "password": _NEW_USER_PASSWORD},
         )
         assert r.status_code == 401
 
-    def test_disabled_user_appears_in_list_with_disabled_flag(self, ctx_with_member):
+    def test_disabled_user_appears_in_list_with_disabled_flag(
+        self, ctx_with_member
+    ):
         client, auth, _, __ = ctx_with_member
         client.delete(f"/admin/users/{_NEW_USER_EMAIL}", headers=auth)
         r = client.get("/admin/users", headers=auth)
@@ -206,16 +218,18 @@ class TestRemoveUser:
 
     def test_disables_user_with_annotation_state(self, ctx_with_member):
         client, auth, test_db, project_id = ctx_with_member
-        ref_id = test_db.store_reference(Reference(
-            pubmed_id=12345678,
-            authors="Doe J",
-            title="Test",
-            journal="J",
-            volume="1",
-            pages="1",
-            year=2024,
-            abstract="",
-        ))
+        ref_id = test_db.store_reference(
+            Reference(
+                pubmed_id=12345678,
+                authors="Doe J",
+                title="Test",
+                journal="J",
+                volume="1",
+                pages="1",
+                year=2024,
+                abstract="",
+            )
+        )
         test_db.add_reference_to_project(project_id, ref_id)
         r = client.delete(f"/admin/users/{_NEW_USER_EMAIL}", headers=auth)
         assert r.json()["action"] == "disabled"
@@ -234,7 +248,10 @@ def ctx_with_plain_user(ctx):
         json={"email": _NEW_USER_EMAIL, "password": _NEW_USER_PASSWORD},
         headers=admin_auth,
     )
-    r = client.post("/token", data={"username": _NEW_USER_EMAIL, "password": _NEW_USER_PASSWORD})
+    r = client.post(
+        "/token",
+        data={"username": _NEW_USER_EMAIL, "password": _NEW_USER_PASSWORD},
+    )
     user_auth = {"Authorization": f"Bearer {r.json()['access_token']}"}
     return client, admin_auth, user_auth
 
@@ -257,7 +274,9 @@ class TestPermissions:
 
     def test_plain_user_cannot_create_project(self, ctx_with_plain_user):
         client, _, user_auth = ctx_with_plain_user
-        r = client.post("/projects", json={"name": "My Project"}, headers=user_auth)
+        r = client.post(
+            "/projects", json={"name": "My Project"}, headers=user_auth
+        )
         assert r.status_code == 403
 
     def test_make_project_manager_updates_user_list(self, ctx_with_plain_user):
@@ -270,11 +289,15 @@ class TestPermissions:
     def test_project_manager_can_create_project(self, ctx_with_plain_user):
         client, admin_auth, user_auth = ctx_with_plain_user
         self._set_permissions(client, admin_auth, can_manage=True)
-        r = client.post("/projects", json={"name": "My Project"}, headers=user_auth)
+        r = client.post(
+            "/projects", json={"name": "My Project"}, headers=user_auth
+        )
         assert r.status_code == 201
         assert r.json()["name"] == "My Project"
 
-    def test_remove_project_manager_updates_user_list(self, ctx_with_plain_user):
+    def test_remove_project_manager_updates_user_list(
+        self, ctx_with_plain_user
+    ):
         client, admin_auth, _ = ctx_with_plain_user
         self._set_permissions(client, admin_auth, can_manage=True)
         self._set_permissions(client, admin_auth, can_manage=False)
@@ -282,11 +305,15 @@ class TestPermissions:
         user = next(u for u in r.json() if u["email"] == _NEW_USER_EMAIL)
         assert user["can_manage"] is False
 
-    def test_removing_can_manage_revokes_project_creation(self, ctx_with_plain_user):
+    def test_removing_can_manage_revokes_project_creation(
+        self, ctx_with_plain_user
+    ):
         client, admin_auth, user_auth = ctx_with_plain_user
         self._set_permissions(client, admin_auth, can_manage=True)
         self._set_permissions(client, admin_auth, can_manage=False)
-        r = client.post("/projects", json={"name": "My Project"}, headers=user_auth)
+        r = client.post(
+            "/projects", json={"name": "My Project"}, headers=user_auth
+        )
         assert r.status_code == 403
 
 
@@ -312,7 +339,8 @@ class TestPassphraseSuggestion:
             headers=auth,
         )
         r = client.post(
-            "/token", data={"username": _NEW_USER_EMAIL, "password": _NEW_USER_PASSWORD}
+            "/token",
+            data={"username": _NEW_USER_EMAIL, "password": _NEW_USER_PASSWORD},
         )
         plain_auth = {"Authorization": f"Bearer {r.json()['access_token']}"}
         r = client.get("/admin/passphrase-suggestion", headers=plain_auth)
