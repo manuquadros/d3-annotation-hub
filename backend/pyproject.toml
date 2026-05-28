@@ -7,11 +7,12 @@ readme = "README.md"
 requires-python = ">=3.12"
 license = "GPL-3.0-or-later"
 dependencies = [
-  "cryptography>=46.0.3",
-  "fastapi[standard]>=0.115.12",
+  "cryptography>=46.0.7",
+  "fastapi[standard]>=0.136.1",
   "multimethod>=2.0",
   "pydantic>=2.11.4",
-  "pyjwt>=2.10.1",
+  "pyjwt>=2.12.0",
+  "starlette>=1.1.0",
   "sqlmodel>=0.0.24",
   "tokenizers>=0.21.1",
   "uvicorn>=0.34.2",
@@ -68,6 +69,7 @@ fmt-check = "ruff format --check ."
 test = "pytest"
 docs-build.shell = "sphinx-apidoc -o docs/api src/ahbackend --force && sphinx-build docs docs/_build/html"
 docs-serve = "sphinx-autobuild docs docs/_build/html --open-browser"
+audit = "pip-audit"
 
 [[tool.pdm.source]]
 name = "private"
