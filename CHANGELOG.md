@@ -21,6 +21,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Retrieve PubMed abstract when fulltext is not available via PMC.
 - Show a progress bar when importing (potentially large) ontologies.
 
+### Fixed
+
+- Fix internal database error when deleting an ontology that has associated properties or project assignments.
+- Project managers who also hold the annotator role can now see the annotation queue in the sidebar.
+
 ## [0.1.3] - 2026-05-13
 
 ### Added

@@ -200,28 +200,6 @@
                         </button>
                     </nav>
 
-                    {#if !data.isSuperuser && !data.isCurator && !data.isProjectManager && data.currentProjectId !== null}
-                        <nav class="queue-wrapper">
-                            <p class="title">Annotation Queue</p>
-                            <AnnotationQueue
-                                projectId={data.currentProjectId}
-                            />
-                        </nav>
-                    {/if}
-
-                    {#if data.isCurator}
-                        <nav>
-                            <p class="title">Curation</p>
-                            <a
-                                class="with-icon"
-                                href="/curate?project={data.currentProjectId}"
-                            >
-                                <i class="ph ph-check-square"></i>
-                                Curation Queue
-                            </a>
-                        </nav>
-                    {/if}
-
                     {#if (data.isSuperuser || data.isProjectManager) && data.currentProjectId !== null}
                         <nav>
                             <p class="title">Management</p>
@@ -253,6 +231,28 @@
                                     Admin
                                 </a>
                             {/if}
+                        </nav>
+                    {/if}
+
+                    {#if !data.isSuperuser && !data.isCurator && data.isAnnotator && data.currentProjectId !== null}
+                        <nav class="queue-wrapper">
+                            <p class="title">Annotation Queue</p>
+                            <AnnotationQueue
+                                projectId={data.currentProjectId}
+                            />
+                        </nav>
+                    {/if}
+
+                    {#if data.isCurator}
+                        <nav>
+                            <p class="title">Curation</p>
+                            <a
+                                class="with-icon"
+                                href="/curate?project={data.currentProjectId}"
+                            >
+                                <i class="ph ph-check-square"></i>
+                                Curation Queue
+                            </a>
                         </nav>
                     {/if}
                 </div>

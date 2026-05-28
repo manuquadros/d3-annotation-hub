@@ -1,5 +1,6 @@
 <script lang="ts">
     import { untrack } from "svelte";
+    import { invalidateAll } from "$app/navigation";
     import "$lib/styles/management.css";
 
     interface Member {
@@ -29,6 +30,9 @@
     let { data } = $props();
 
     let members = $state<Member[]>(untrack(() => data.members));
+    $effect(() => {
+        members = data.members;
+    });
 
     let searchEmail = $state("");
     let suggestions = $state<UserHit[]>([]);
@@ -108,13 +112,17 @@
     }
 
     function handleInputBlur() {
-        setTimeout(() => { showDropdown = false; }, 150);
+        setTimeout(() => {
+            showDropdown = false;
+        }, 150);
     }
 
     async function copyPassphrase() {
         await navigator.clipboard.writeText(newPassword);
         passphraseCopied = true;
-        setTimeout(() => { passphraseCopied = false; }, 2000);
+        setTimeout(() => {
+            passphraseCopied = false;
+        }, 2000);
     }
 
     async function handleAdd(e: SubmitEvent) {
@@ -125,7 +133,8 @@
         addError = null;
         addedPassword = null;
 
-        const email = lookup.status === "not_found" ? newUserEmail.trim() : lookup.email;
+        const email =
+            lookup.status === "not_found" ? newUserEmail.trim() : lookup.email;
         const payload: Record<string, string> = { email, role: selectedRole };
         if (lookup.status === "not_found" && newPassword) {
             payload.password = newPassword;
@@ -138,13 +147,20 @@
                 body: JSON.stringify(payload),
             });
             if (!res.ok) {
-                const d = await res.json().catch(() => ({ detail: res.statusText }));
+                const d = await res
+                    .json()
+                    .catch(() => ({ detail: res.statusText }));
                 addError = d.detail ?? res.statusText;
                 return;
             }
-            const member: Member & { generated_password?: string } = await res.json();
-            addedPassword = member.generated_password ?? (lookup.status === "not_found" ? newPassword : null);
-            const listRes = await fetch(`/api/projects/${data.projectId}/members`);
+            const member: Member & { generated_password?: string } =
+                await res.json();
+            addedPassword =
+                member.generated_password ??
+                (lookup.status === "not_found" ? newPassword : null);
+            const listRes = await fetch(
+                `/api/projects/${data.projectId}/members`,
+            );
             if (listRes.ok) members = await listRes.json();
             searchEmail = "";
             newPassword = "";
@@ -182,12 +198,16 @@
             const updated: Member = await res.json();
             member.roles = updated.roles;
         }
+        await invalidateAll();
     }
 
     async function handleRemoveUser(userId: string) {
-        const res = await fetch(`/api/projects/${data.projectId}/members/${userId}`, {
-            method: "DELETE",
-        });
+        const res = await fetch(
+            `/api/projects/${data.projectId}/members/${userId}`,
+            {
+                method: "DELETE",
+            },
+        );
         if (!res.ok) {
             toggleError = "Failed to remove user.";
             return;
@@ -197,7 +217,9 @@
     }
 
     function roleLabel(role: string): string {
-        return role === "manager" ? "Manager" : role.charAt(0).toUpperCase() + role.slice(1);
+        return role === "manager"
+            ? "Manager"
+            : role.charAt(0).toUpperCase() + role.slice(1);
     }
 </script>
 
@@ -214,7 +236,8 @@
                     bind:value={searchEmail}
                     oninput={handleSearchInput}
                     onblur={handleInputBlur}
-                    onfocus={() => searchEmail.trim().length >= 2 && (showDropdown = true)}
+                    onfocus={() =>
+                        searchEmail.trim().length >= 2 && (showDropdown = true)}
                     placeholder="Search by email…"
                     disabled={submitting || lookup.status !== "idle"}
                     autocomplete="off"
@@ -251,7 +274,8 @@
                         onmousedown={selectCreateNew}
                     >
                         <i class="ph ph-user-plus"></i>
-                        Create new account for <strong>{searchEmail.trim()}</strong>
+                        Create new account for
+                        <strong>{searchEmail.trim()}</strong>
                     </li>
                 </ul>
             {/if}
@@ -260,7 +284,9 @@
         {#if lookup.status === "found"}
             <p class="hint">User <strong>{lookup.email}</strong> found.</p>
         {:else if lookup.status === "not_found"}
-            <p class="warn">No account found. Fill in the details below to create one.</p>
+            <p class="warn">
+                No account found. Fill in the details below to create one.
+            </p>
         {:else if lookup.status === "error"}
             <p class="error">{lookup.message}</p>
         {/if}
@@ -283,7 +309,11 @@
 
                 <div class="field">
                     <label for="role">Role</label>
-                    <select id="role" bind:value={selectedRole} disabled={submitting}>
+                    <select
+                        id="role"
+                        bind:value={selectedRole}
+                        disabled={submitting}
+                    >
                         <option value="annotator">Annotator</option>
                         <option value="curator">Curator</option>
                     </select>
@@ -308,7 +338,11 @@
                                 disabled={submitting || !newPassword}
                                 onclick={copyPassphrase}
                             >
-                                <i class="ph {passphraseCopied ? 'ph-check' : 'ph-clipboard'}"></i>
+                                <i
+                                    class="ph {passphraseCopied
+                                        ? 'ph-check'
+                                        : 'ph-clipboard'}"
+                                ></i>
                             </button>
                             <button
                                 type="button"
@@ -316,7 +350,9 @@
                                 title="Generate new passphrase"
                                 disabled={submitting}
                                 onclick={async () => {
-                                    const res = await fetch(`/api/admin/passphrase-suggestion`);
+                                    const res = await fetch(
+                                        `/api/admin/passphrase-suggestion`,
+                                    );
                                     if (res.ok) newPassword = await res.json();
                                 }}
                             >
@@ -330,7 +366,11 @@
                     <p class="error">{addError}</p>
                 {/if}
 
-                <button type="submit" class="btn primary filled" disabled={submitting}>
+                <button
+                    type="submit"
+                    class="btn primary filled"
+                    disabled={submitting}
+                >
                     {submitting
                         ? "Adding…"
                         : lookup.status === "not_found"
@@ -342,7 +382,10 @@
 
         {#if addedPassword}
             <div class="generated-password">
-                <p>User added. Share this passphrase — it will not be shown again:</p>
+                <p>
+                    User added. Share this passphrase — it will not be shown
+                    again:
+                </p>
                 <code>{addedPassword}</code>
             </div>
         {/if}
@@ -369,18 +412,28 @@
                             <td>
                                 <div class="role-toggles">
                                     {#each PROJECT_ROLES as role (role)}
-                                        {@const active = member.roles.includes(role)}
+                                        {@const active =
+                                            member.roles.includes(role)}
                                         <button
-                                            class="btn small {active ? 'secondary filled' : 'muted'}"
-                                            onclick={() => handleToggleRole(member, role)}
-                                            title="{active ? 'Remove' : 'Add'} {roleLabel(role)} role"
+                                            class="btn small {active
+                                                ? 'secondary filled'
+                                                : 'muted'}"
+                                            onclick={() =>
+                                                handleToggleRole(member, role)}
+                                            title="{active
+                                                ? 'Remove'
+                                                : 'Add'} {roleLabel(role)} role"
                                         >
-                                            <i class="ph {ROLE_ICONS[role]}"></i>
+                                            <i class="ph {ROLE_ICONS[role]}"
+                                            ></i>
                                             {roleLabel(role)}
                                         </button>
                                     {/each}
                                     {#if member.roles.includes("manager")}
-                                        <button class="btn small muted filled" disabled>
+                                        <button
+                                            class="btn small muted filled"
+                                            disabled
+                                        >
                                             <i class="ph ph-briefcase"></i>
                                             Manager
                                         </button>
@@ -389,20 +442,29 @@
                             </td>
                             <td class="actions">
                                 {#if confirmRemoveUserId === member.user_id}
-                                    <span class="confirm-text">Remove from project?</span>
+                                    <span class="confirm-text"
+                                        >Remove from project?</span
+                                    >
                                     <button
                                         class="btn small danger filled"
-                                        onclick={() => handleRemoveUser(member.user_id)}
-                                    >Yes</button>
+                                        onclick={() =>
+                                            handleRemoveUser(member.user_id)}
+                                        >Yes</button
+                                    >
                                     <button
                                         class="btn small muted"
-                                        onclick={() => (confirmRemoveUserId = null)}
-                                    >Cancel</button>
+                                        onclick={() =>
+                                            (confirmRemoveUserId = null)}
+                                        >Cancel</button
+                                    >
                                 {:else}
                                     <button
                                         class="btn small danger"
-                                        onclick={() => (confirmRemoveUserId = member.user_id)}
-                                    >Remove user</button>
+                                        onclick={() =>
+                                            (confirmRemoveUserId =
+                                                member.user_id)}
+                                        >Remove user</button
+                                    >
                                 {/if}
                             </td>
                         </tr>
@@ -580,5 +642,4 @@
         flex-wrap: wrap;
         align-items: center;
     }
-
 </style>
