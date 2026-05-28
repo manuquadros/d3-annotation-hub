@@ -1,5 +1,7 @@
 <script lang="ts">
     import { untrack } from "svelte";
+    import OntologyImportForm from "$lib/components/OntologyImportForm.svelte";
+    import type { ImportedResult } from "$lib/components/OntologyImportForm.svelte";
 
     interface Ontology {
         ontology_id: number;
@@ -13,85 +15,6 @@
         entity_id: string;
         preferred_name: string;
         kind: string;
-    }
-
-    interface ImportResult {
-        ontology_id: number;
-        entities: number;
-        triples: number;
-        properties: number;
-    }
-
-    type StepStatus = "pending" | "active" | "done" | "error";
-
-    interface StepCounts {
-        loaded: number;
-        total: number;
-    }
-
-    interface ImportStep {
-        step: string;
-        label: string;
-        status: StepStatus;
-        counts: StepCounts;
-    }
-
-    const STEP_ORDER = [
-        "parse",
-        "store_ontology",
-        "load_entities",
-        "load_triples",
-        "load_properties",
-    ] as const;
-
-    const STEP_LABELS: Record<string, string> = {
-        parse: "Parse OWL file",
-        store_ontology: "Store ontology metadata",
-        load_entities: "Load classes",
-        load_triples: "Load triples",
-        load_properties: "Load properties",
-    };
-
-    function computeOverallPct(steps: ImportStep[]): number {
-        if (steps.length === 0) return 0;
-        let points = 0;
-        for (const s of steps) {
-            if (s.status === "done") {
-                points += 1;
-            } else if (s.status === "active" && s.counts.total > 0) {
-                points += s.counts.loaded / s.counts.total;
-            }
-        }
-        return Math.round((points / steps.length) * 100);
-    }
-
-    async function* readSSE(
-        body: ReadableStream<Uint8Array>,
-    ): AsyncGenerator<{ event: string; data: string }> {
-        const reader = body.getReader();
-        const decoder = new TextDecoder();
-        let buffer = "";
-        try {
-            while (true) {
-                const { done, value } = await reader.read();
-                if (done) break;
-                buffer += decoder.decode(value, { stream: true });
-                const messages = buffer.split("\n\n");
-                buffer = messages.pop() ?? "";
-                for (const message of messages) {
-                    if (!message.trim()) continue;
-                    let eventType = "message";
-                    let dataLine = "";
-                    for (const line of message.split("\n")) {
-                        if (line.startsWith("event: ")) eventType = line.slice(7).trim();
-                        if (line.startsWith("data: ")) dataLine = line.slice(6).trim();
-                    }
-                    if (dataLine) yield { event: eventType, data: dataLine };
-                }
-            }
-        } finally {
-            reader.releaseLock();
-        }
     }
 
     interface ProjectMember {
@@ -308,99 +231,9 @@
     }
 
 
-    let file = $state<File | null>(null);
-    let name = $state("");
-    let prefix = $state("");
-    let baseIri = $state("");
-    let version = $state("");
-
-    let submitting = $state(false);
-    let result = $state<ImportResult | null>(null);
-    let errorMessage = $state<string | null>(null);
-    let importSteps = $state<ImportStep[]>([]);
-    let overallPct = $derived(computeOverallPct(importSteps));
-
-    async function handleSubmit(e: SubmitEvent) {
-        e.preventDefault();
-        if (!file) return;
-
-        submitting = true;
-        result = null;
-        errorMessage = null;
-        importSteps = STEP_ORDER.map((step) => ({
-            step,
-            label: STEP_LABELS[step],
-            status: "pending" as StepStatus,
-            counts: { loaded: 0, total: 0 },
-        }));
-
-        const form = new FormData();
-        form.append("file", file);
-        form.append("name", name);
-        form.append("prefix", prefix);
-        form.append("base_iri", baseIri);
-        if (version) form.append("version", version);
-
-        try {
-            const res = await fetch("/api/admin/ontology", { method: "POST", body: form });
-
-            if (!res.ok || !res.body) {
-                const detail = await res.json().catch(() => ({ detail: res.statusText }));
-                errorMessage = detail.detail ?? res.statusText;
-                importSteps = [];
-                return;
-            }
-
-            for await (const { event, data } of readSSE(res.body)) {
-                if (event === "progress") {
-                    const p = JSON.parse(data) as { step: string; loaded: number; total: number };
-                    importSteps = importSteps.map((s) => {
-                        if (s.step === p.step) {
-                            const done = p.loaded >= p.total && p.total > 0;
-                            return { ...s, status: done ? "done" : "active", counts: { loaded: p.loaded, total: p.total } };
-                        }
-                        if (
-                            s.status === "active" &&
-                            STEP_ORDER.indexOf(s.step as (typeof STEP_ORDER)[number]) <
-                                STEP_ORDER.indexOf(p.step as (typeof STEP_ORDER)[number])
-                        ) {
-                            return { ...s, status: "done" };
-                        }
-                        return s;
-                    });
-                } else if (event === "complete") {
-                    result = JSON.parse(data) as ImportResult;
-                    importSteps = importSteps.map((s) => ({ ...s, status: "done" }));
-                    const listRes = await fetch("/api/admin/ontology");
-                    if (listRes.ok) ontologies = await listRes.json();
-                    file = null;
-                    name = "";
-                    prefix = "";
-                    baseIri = "";
-                    version = "";
-                } else if (event === "error") {
-                    const { detail } = JSON.parse(data) as { detail: string };
-                    importSteps = importSteps.map((s) =>
-                        s.status === "active" ? { ...s, status: "error" } : s,
-                    );
-                    errorMessage = detail;
-                    break;
-                }
-            }
-            if (!result && !errorMessage) {
-                errorMessage = "Import was interrupted before completing — check the database for partial data.";
-                importSteps = importSteps.map((s) =>
-                    s.status === "active" ? { ...s, status: "error" } : s,
-                );
-            }
-        } catch (err) {
-            errorMessage = String(err);
-            importSteps = importSteps.map((s) =>
-                s.status === "active" ? { ...s, status: "error" } : s,
-            );
-        } finally {
-            submitting = false;
-        }
+    async function handleImported(_result: ImportedResult) {
+        const listRes = await fetch("/api/admin/ontology");
+        if (listRes.ok) ontologies = await listRes.json();
     }
 
     let viewingId = $state<number | null>(null);
@@ -563,9 +396,11 @@
 
     let confirmDeleteId = $state<number | null>(null);
     let deleting = $state(false);
+    let deleteError = $state<string | null>(null);
 
     async function handleDelete(ontologyId: number) {
         deleting = true;
+        deleteError = null;
         try {
             const res = await fetch(`/api/admin/ontology/${ontologyId}`, {
                 method: "DELETE",
@@ -576,10 +411,15 @@
                     viewingId = null;
                     entities = [];
                 }
+                confirmDeleteId = null;
+            } else {
+                const body = await res.json().catch(() => ({ detail: res.statusText }));
+                deleteError = body.detail ?? res.statusText;
             }
+        } catch (err) {
+            deleteError = String(err);
         } finally {
             deleting = false;
-            confirmDeleteId = null;
         }
     }
 </script>
@@ -943,114 +783,7 @@
 
         <section class="card">
             <h2>Import OWL Ontology</h2>
-            <form onsubmit={handleSubmit}>
-                <div class="field">
-                    <label for="owl-file">OWL file</label>
-                    <input
-                        id="owl-file"
-                        type="file"
-                        accept=".owl,.rdf,.ttl,.nt,.n3,.jsonld"
-                        onchange={(e) => {
-                            file = (e.currentTarget as HTMLInputElement).files?.[0] ?? null;
-                            if (file && !name) name = file.name.replace(/\.[^.]+$/, "");
-                        }}
-                        required
-                    />
-                </div>
-
-                <div class="field-row">
-                    <div class="field">
-                        <label for="onto-name">Name</label>
-                        <input
-                            id="onto-name"
-                            type="text"
-                            bind:value={name}
-                            placeholder="NCBI Taxonomy"
-                            required
-                        />
-                    </div>
-                    <div class="field">
-                        <label for="onto-prefix">Prefix</label>
-                        <input
-                            id="onto-prefix"
-                            type="text"
-                            bind:value={prefix}
-                            placeholder="NCBITaxon"
-                            required
-                        />
-                    </div>
-                </div>
-
-                <div class="field">
-                    <label for="onto-version"
-                        >Version <span class="optional">(optional)</span></label
-                    >
-                    <input
-                        id="onto-version"
-                        type="text"
-                        bind:value={version}
-                        placeholder="2024-01-01"
-                    />
-                </div>
-
-                <div class="field">
-                    <label for="base-iri">
-                        Base IRI <span class="optional"
-                            >(leave empty for OBO Foundry ontologies)</span
-                        >
-                    </label>
-                    <input
-                        id="base-iri"
-                        type="text"
-                        bind:value={baseIri}
-                        placeholder="https://example.org/ontology/"
-                    />
-                </div>
-
-                {#if importSteps.length > 0}
-                    <div class="import-progress">
-                        <progress value={overallPct} max={100}></progress>
-                        <span class="pct">{overallPct}%</span>
-                    </div>
-                    <div class="import-steps">
-                        {#each importSteps as s (s.step)}
-                            <div class="import-step {s.status}">
-                                <span class="step-icon">
-                                    {#if s.status === "done"}✓
-                                    {:else if s.status === "error"}✗
-                                    {:else if s.status === "active"}…
-                                    {:else}·{/if}
-                                </span>
-                                <span class="step-label">{s.label}</span>
-                                {#if s.status === "active" && s.counts.total > 1}
-                                    <span class="step-count"
-                                        >{s.counts.loaded.toLocaleString()}/{s.counts.total.toLocaleString()}</span
-                                    >
-                                {/if}
-                            </div>
-                        {/each}
-                    </div>
-                {/if}
-
-                {#if errorMessage}
-                    <p class="error">{errorMessage}</p>
-                {/if}
-
-                {#if result}
-                    <p class="success">
-                        Imported {result.entities.toLocaleString()} entities,
-                        {result.triples.toLocaleString()} triples, and
-                        {result.properties.toLocaleString()} properties
-                        (ontology #{result.ontology_id}).
-                    </p>
-                {/if}
-
-                <div class="actions">
-                    <button type="submit" class="btn primary filled" disabled={submitting || !file}>
-                        {submitting ? "Importing…" : "Import"}
-                    </button>
-                </div>
-            </form>
+            <OntologyImportForm onimported={handleImported} />
         </section>
 
         <section class="card">
@@ -1077,19 +810,31 @@
                                 <td>{onto.version ?? "—"}</td>
                                 <td class="actions-cell">
                                     {#if confirmDeleteId === onto.ontology_id}
-                                        <span class="confirm-prompt">Remove?</span>
-                                        <button
-                                            class="btn small danger filled"
-                                            disabled={deleting}
-                                            onclick={() => handleDelete(onto.ontology_id)}
-                                        >
-                                            {deleting ? "…" : "Yes"}
-                                        </button>
-                                        <button
-                                            class="btn small muted"
-                                            onclick={() => (confirmDeleteId = null)}
-                                            >Cancel</button
-                                        >
+                                        {#if deleteError}
+                                            <span class="delete-error">{deleteError}</span>
+                                            <button
+                                                class="btn small muted"
+                                                onclick={() => {
+                                                    confirmDeleteId = null;
+                                                    deleteError = null;
+                                                }}
+                                                >Dismiss</button
+                                            >
+                                        {:else}
+                                            <span class="confirm-prompt">Remove?</span>
+                                            <button
+                                                class="btn small danger filled"
+                                                disabled={deleting}
+                                                onclick={() => handleDelete(onto.ontology_id)}
+                                            >
+                                                {deleting ? "…" : "Yes"}
+                                            </button>
+                                            <button
+                                                class="btn small muted"
+                                                onclick={() => (confirmDeleteId = null)}
+                                                >Cancel</button
+                                            >
+                                        {/if}
                                     {:else}
                                         <button
                                             class="btn small muted"
@@ -1370,12 +1115,6 @@
         margin-bottom: 1rem;
     }
 
-    .field-row {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 1rem;
-    }
-
     label {
         display: block;
         font-size: 0.8rem;
@@ -1386,16 +1125,8 @@
         margin-bottom: 0.3rem;
     }
 
-    .optional {
-        font-weight: 400;
-        text-transform: none;
-        letter-spacing: 0;
-        color: #888;
-    }
-
     input[type="text"],
     input[type="email"],
-    input[type="file"],
     select {
         width: 100%;
         padding: 0.4rem 0.6rem;
@@ -1403,73 +1134,6 @@
         border-radius: 4px;
         font-size: 0.875rem;
         box-sizing: border-box;
-    }
-
-    input[type="file"] {
-        padding: 0.3rem;
-    }
-
-    .import-progress {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        margin: 0.75rem 0 0.25rem;
-    }
-
-    .import-progress progress {
-        flex: 1;
-        height: 6px;
-    }
-
-    .import-progress .pct {
-        font-size: 0.8rem;
-        color: #888;
-        min-width: 2.5rem;
-        text-align: right;
-    }
-
-    .import-steps {
-        display: flex;
-        flex-direction: column;
-        gap: 0.25rem;
-        margin: 0 0 0.5rem;
-        font-size: 0.825rem;
-    }
-
-    .import-step {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        color: #bbb;
-    }
-
-    .import-step.active {
-        color: #333;
-        font-weight: 600;
-    }
-
-    .import-step.done {
-        color: #080;
-    }
-
-    .import-step.error {
-        color: #c00;
-    }
-
-    .step-icon {
-        width: 1rem;
-        text-align: center;
-    }
-
-    .step-count {
-        margin-left: auto;
-        font-variant-numeric: tabular-nums;
-        color: #888;
-        font-weight: 400;
-    }
-
-    .actions {
-        margin-top: 1.2rem;
     }
 
     .error {
@@ -1538,6 +1202,12 @@
         font-size: 0.8rem;
         color: #666;
         margin-right: 0.2rem;
+    }
+
+    .delete-error {
+        font-size: 0.8rem;
+        color: var(--color-error, #c00);
+        margin-right: 0.4rem;
     }
 
     code {

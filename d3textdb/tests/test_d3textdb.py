@@ -1,8 +1,11 @@
 from datetime import datetime, timezone
 
-from d3textdb import D3TextDB
+import pytest
+
+from d3textdb import D3TextDB, OntologyInUseError
 from d3textdb.schema import (
     Entity,
+    EntityAnnotation,
     Pointer,
     Reference,
     ReferenceAnnotation,
@@ -648,3 +651,112 @@ def test_get_entity_types_ranks_prefix_match_before_contains_match() -> None:
     assert names[0] == "Bacteria", f"Expected 'Bacteria' first, got: {names}"
     assert "Anaerobic Bacteria" in names
     assert "16S (Bacterial)" in names
+
+
+def _make_ontology_with_annotations(db: D3TextDB) -> tuple[int, int]:
+    """Create an ontology with two entities, store an annotation using one of them.
+
+    Returns (ontology_id, project_id).
+    """
+    ontology_id = db.store_ontology("Test Ontology", "TEST", "http://test.org/")
+    db.load_ontology_entities(
+        ontology_id,
+        [
+            EntityAnnotation(entity_id="TEST:1", preferred_name="Alpha", kind="d3o:Enzyme", synonyms=[]),
+            EntityAnnotation(entity_id="TEST:2", preferred_name="Beta",  kind="d3o:Strain", synonyms=[]),
+        ],
+    )
+
+    user = User(email="tester@example.com")
+    db.create_user(user, "password")
+    project_id = db.create_project("Test Project")
+
+    ref = Reference(
+        pubmed_id=99999,
+        pmc_open=False,
+        authors="A. Test",
+        title="Test Paper",
+        journal="Test J.",
+        volume="1",
+        pages="1-2",
+        year=2024,
+        abstract="Abstract.",
+    )
+    annotation = ReferenceAnnotation(
+        user=user,
+        reference=ref,
+        pointers=[Pointer(entity_id="TEST:1", reference_id=None, offset=0, length=5)],
+        relations=[],
+        completed=False,
+        last_updated=_NOW,
+        project_id=project_id,
+    )
+    db.store_annotation(annotation)
+
+    return ontology_id, project_id
+
+
+def test_delete_ontology_raises_when_annotations_exist() -> None:
+    """Deleting an ontology whose entities are referenced by Pointer rows must raise."""
+    db = D3TextDB()
+    ontology_id, _ = _make_ontology_with_annotations(db)
+
+    with pytest.raises(OntologyInUseError):
+        db.delete_ontology(ontology_id)
+
+
+def test_delete_ontology_raises_when_relation_references_entity() -> None:
+    """Deleting an ontology whose entities are referenced by Relation rows must raise."""
+    db = D3TextDB()
+    ontology_id = db.store_ontology("Rel Ontology", "REL", "http://rel.org/")
+    db.load_ontology_entities(
+        ontology_id,
+        [
+            EntityAnnotation(entity_id="REL:1", preferred_name="Subject", kind="d3o:Enzyme", synonyms=[]),
+            EntityAnnotation(entity_id="REL:2", preferred_name="Object",  kind="d3o:Strain", synonyms=[]),
+        ],
+    )
+
+    user = User(email="reltest@example.com")
+    db.create_user(user, "password")
+    project_id = db.create_project("Rel Project")
+
+    ref = Reference(
+        pubmed_id=88888,
+        pmc_open=False,
+        authors="B. Test",
+        title="Relation Test",
+        journal="Test J.",
+        volume="1",
+        pages="1-2",
+        year=2024,
+        abstract="Abstract.",
+    )
+    annotation = ReferenceAnnotation(
+        user=user,
+        reference=ref,
+        pointers=[
+            Pointer(entity_id="REL:1", reference_id=None, offset=0, length=3),
+            Pointer(entity_id="REL:2", reference_id=None, offset=10, length=3),
+        ],
+        relations=[Relation(predicate="d3o:HasEnzyme", subject="REL:1", object="REL:2")],
+        completed=False,
+        last_updated=_NOW,
+        project_id=project_id,
+    )
+    db.store_annotation(annotation)
+
+    with pytest.raises(OntologyInUseError):
+        db.delete_ontology(ontology_id)
+
+
+def test_delete_ontology_succeeds_without_annotations() -> None:
+    """An ontology with no annotations must be deleted cleanly."""
+    db = D3TextDB()
+    ontology_id = db.store_ontology("Clean Ontology", "CLN", "http://clean.org/")
+    db.load_ontology_entities(
+        ontology_id,
+        [EntityAnnotation(entity_id="CLN:1", preferred_name="Gamma", kind="d3o:Enzyme", synonyms=[])],
+    )
+
+    db.delete_ontology(ontology_id)  # must not raise

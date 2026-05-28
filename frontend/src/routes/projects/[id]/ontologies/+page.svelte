@@ -1,18 +1,15 @@
 <script lang="ts">
     import { untrack } from "svelte";
     import "$lib/styles/management.css";
+    import OntologyImportForm from "$lib/components/OntologyImportForm.svelte";
+    import type { ImportedResult } from "$lib/components/OntologyImportForm.svelte";
+
     interface Ontology {
         ontology_id: number;
         name: string;
         prefix: string;
-        uri: string;
+        uri: string | null;
         version: string | null;
-    }
-
-    interface ImportResult {
-        ontology_id: number;
-        entities: number;
-        triples: number;
     }
 
     let { data } = $props();
@@ -20,65 +17,25 @@
     let projectOntologies = $state<Ontology[]>(untrack(() => data.projectOntologies));
     const allOntologies: Ontology[] = untrack(() => data.allOntologies);
 
-    let file = $state<File | null>(null);
-    let name = $state("");
-    let prefix = $state("");
-    let baseIri = $state("");
-    let version = $state("");
-    let submitting = $state(false);
-    let importResult = $state<ImportResult | null>(null);
-    let importError = $state<string | null>(null);
-
-    async function handleImport(e: SubmitEvent) {
-        e.preventDefault();
-        if (!file) return;
-        submitting = true;
-        importResult = null;
-        importError = null;
-        try {
-            const fd = new FormData();
-            fd.append("file", file);
-            fd.append("name", name);
-            fd.append("prefix", prefix);
-            fd.append("base_iri", baseIri);
-            if (version) fd.append("version", version);
-
-            const res = await fetch("/api/admin/ontology", {
-                method: "POST",
-                body: fd,
-            });
-            if (!res.ok) {
-                const d = await res.json().catch(() => ({ detail: res.statusText }));
-                importError = d.detail ?? res.statusText;
-                return;
-            }
-            const result: ImportResult = await res.json();
-            importResult = result;
-
-            await fetch(
-                `/api/projects/${data.projectId}/ontologies/${result.ontology_id}`,
-                { method: "POST" },
-            );
-
-            projectOntologies = [
-                ...projectOntologies,
-                {
-                    ontology_id: result.ontology_id,
-                    name,
-                    prefix,
-                    uri: baseIri,
-                    version: version || null,
-                },
-            ];
-
-            file = null;
-            name = "";
-            prefix = "";
-            baseIri = "";
-            version = "";
-        } finally {
-            submitting = false;
+    async function handleImported(result: ImportedResult) {
+        const res = await fetch(
+            `/api/projects/${data.projectId}/ontologies/${result.ontology_id}`,
+            { method: "POST" },
+        );
+        if (!res.ok) {
+            const body = await res.json().catch(() => ({ detail: res.statusText }));
+            throw new Error(body.detail ?? res.statusText);
         }
+        projectOntologies = [
+            ...projectOntologies,
+            {
+                ontology_id: result.ontology_id,
+                name: result.name,
+                prefix: result.prefix,
+                uri: result.uri,
+                version: result.version,
+            },
+        ];
     }
 
     let selectedOntologyId = $state<number | null>(null);
@@ -196,67 +153,11 @@
 
     <section class="card">
         <h2>Import OWL ontology</h2>
-        <form onsubmit={handleImport}>
-            <div class="field">
-                <label for="ont-file">OWL file</label>
-                <input
-                    id="ont-file"
-                    type="file"
-                    accept=".owl,.rdf,.xml,.ttl"
-                    required
-                    onchange={(e) => {
-                        file = (e.target as HTMLInputElement).files?.[0] ?? null;
-                    }}
-                />
-            </div>
-            <div class="fields-row">
-                <div class="field">
-                    <label for="ont-name">Name</label>
-                    <input id="ont-name" type="text" bind:value={name} required placeholder="NCBI Taxonomy" />
-                </div>
-                <div class="field">
-                    <label for="ont-prefix">Prefix</label>
-                    <input id="ont-prefix" type="text" bind:value={prefix} required placeholder="NCBITaxon" />
-                </div>
-            </div>
-            <div class="fields-row">
-                <div class="field">
-                    <label for="ont-iri">Base IRI <span class="optional">(optional)</span></label>
-                    <input id="ont-iri" type="text" bind:value={baseIri} placeholder="http://purl.obolibrary.org/obo/" />
-                </div>
-                <div class="field">
-                    <label for="ont-version">Version <span class="optional">(optional)</span></label>
-                    <input id="ont-version" type="text" bind:value={version} placeholder="2024-01-01" />
-                </div>
-            </div>
-
-            {#if importError}
-                <p class="error">{importError}</p>
-            {/if}
-            {#if importResult}
-                <p class="success">
-                    Imported {importResult.entities} entities and {importResult.triples} triples.
-                    Ontology assigned to this project.
-                </p>
-            {/if}
-
-            <button type="submit" class="btn primary filled" disabled={submitting}>
-                {submitting ? "Importing…" : "Import and assign"}
-            </button>
-        </form>
+        <OntologyImportForm submitLabel="Import and assign" onimported={handleImported} />
     </section>
 </div>
 
 <style>
-    .field {
-        flex: 1;
-    }
-
-    .fields-row {
-        display: flex;
-        gap: 1rem;
-    }
-
     .assign-row {
         display: flex;
         align-items: center;
@@ -271,23 +172,6 @@
         border: 1px solid #ccc;
         border-radius: 4px;
         font-size: 0.9rem;
-    }
-
-    input[type="text"],
-    input[type="file"] {
-        padding: 0.4rem 0.5rem;
-        border: 1px solid #ccc;
-        border-radius: 4px;
-        font-size: 0.9rem;
-        width: 100%;
-        box-sizing: border-box;
-    }
-
-    .optional {
-        font-weight: 400;
-        text-transform: none;
-        letter-spacing: 0;
-        color: #888;
     }
 
     td.uri {

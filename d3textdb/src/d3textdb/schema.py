@@ -51,11 +51,6 @@ class SqliteDatetime(TypeDecorator):
         return None if value is None else pendulum.parse(value)
 
 
-# ---------------------------------------------------------------------------
-# Ontology tables
-# ---------------------------------------------------------------------------
-
-
 class Ontology(SQLModel, table=True):
     """An ontology whose entities are available for annotation."""
 
@@ -64,11 +59,6 @@ class Ontology(SQLModel, table=True):
     prefix: str = Field(index=True, unique=True)  # e.g. "NCBITaxon"
     uri: str  # canonical IRI / namespace
     version: str | None = None
-
-
-# ---------------------------------------------------------------------------
-# Project tables
-# ---------------------------------------------------------------------------
 
 
 class Project(SQLModel, table=True):
@@ -145,11 +135,6 @@ class UserLastProject(SQLModel, table=True):
     project_id: int = Field(foreign_key="project.project_id")
 
 
-# ---------------------------------------------------------------------------
-# Entity / name tables
-# ---------------------------------------------------------------------------
-
-
 class Entity(SQLModel, table=True):
     """A canonical entity (gene, taxon, chemical, …) or an annotator proposal.
 
@@ -203,11 +188,6 @@ class EntityName(SQLModel, table=True):
     entity_id: int = Field(foreign_key="entity.entity_id")
     name_id: int = Field(foreign_key="name.id")
     is_preferred: bool = False
-
-
-# ---------------------------------------------------------------------------
-# Ontology triple table
-# ---------------------------------------------------------------------------
 
 
 class OntologyProperty(SQLModel, table=True):
@@ -272,11 +252,6 @@ class Triple(SQLModel, table=True):
     object_literal: str | None = None  # for data properties / definitions
 
 
-# ---------------------------------------------------------------------------
-# Literature reference
-# ---------------------------------------------------------------------------
-
-
 class Reference(SQLModel, table=True):
     __table_args__ = (
         UniqueConstraint("pubmed_id"),
@@ -297,13 +272,6 @@ class Reference(SQLModel, table=True):
     year: int
     abstract: str | None = None
     body: str | None = None
-
-
-# ---------------------------------------------------------------------------
-# Annotation tables
-# Pointer and Relation reference Entity by curie (str) so that
-# frontend-generated temporary IDs and CURIE-based IDs use the same column.
-# ---------------------------------------------------------------------------
 
 
 class Pointer(SQLModel, table=True):
@@ -367,11 +335,6 @@ class UserRelationReference(SQLModel, table=True):
     relation: Relation = Relationship(back_populates="relation_references")
 
 
-# ---------------------------------------------------------------------------
-# User / auth tables
-# ---------------------------------------------------------------------------
-
-
 class User(SQLModel, table=True):
     """Represents a user (annotator, curator, or project manager)."""
 
@@ -410,11 +373,6 @@ class UserAuth(SQLModel, table=True):
     disabled: bool = Field(default=False)
 
 
-# ---------------------------------------------------------------------------
-# In-memory draft types
-# ---------------------------------------------------------------------------
-
-
 class Annotation(TypedDict):
     """A single annotation state: the complete set of pointers and relations
     at one point in the editing history."""
@@ -434,11 +392,6 @@ class AnnotationHistory(TypedDict):
     reference_id: int
     states: list[Annotation]
     saved: pendulum.DateTime | None
-
-
-# ---------------------------------------------------------------------------
-# Persistent annotation state log
-# ---------------------------------------------------------------------------
 
 
 class AnnotationState(SQLModel, table=True):
@@ -503,11 +456,6 @@ class StateRelation(SQLModel, table=True):
     )
 
 
-# ---------------------------------------------------------------------------
-# Immutable annotation snapshots
-# ---------------------------------------------------------------------------
-
-
 class AnnotationSnapshot(SQLModel, table=True):
     """Immutable record created when a user marks their annotation as complete,
     provided the content hash differs from the previous snapshot for the same
@@ -566,11 +514,6 @@ class SnapshotRelation(SQLModel, table=True):
     relation_id: int = Field(
         foreign_key="relation.relation_id", primary_key=True
     )
-
-
-# ---------------------------------------------------------------------------
-# Curated annotation (curator output)
-# ---------------------------------------------------------------------------
 
 
 class CuratedAnnotation(SQLModel, table=True):
@@ -660,11 +603,6 @@ class CurationDecision(SQLModel, table=True):
     decided_at: datetime = Field(
         sa_column=Column(SqliteDatetime, nullable=False)
     )
-
-
-# ---------------------------------------------------------------------------
-# Read models (returned by D3TextDB query methods)
-# ---------------------------------------------------------------------------
 
 
 class EntityAnnotation(BaseModel):

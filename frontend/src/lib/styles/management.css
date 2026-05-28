@@ -73,6 +73,19 @@
     color: #444;
 }
 
+.field-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+}
+
+.optional {
+    font-weight: 400;
+    text-transform: none;
+    letter-spacing: 0;
+    color: #888;
+}
+
 /* ── Tables ────────────────────────────────────────────────────────────────── */
 
 .page table {

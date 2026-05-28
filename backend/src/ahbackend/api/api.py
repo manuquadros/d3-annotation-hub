@@ -5,6 +5,7 @@ import string
 import uuid
 from typing import TYPE_CHECKING, Annotated, Literal
 
+from d3textdb import OntologyInUseError
 from d3textdb.owl import parse_owl
 from d3textdb.schema import (
     EntityAnnotation,
@@ -521,7 +522,10 @@ def remove_ontology(
     current_user: Annotated[User, Depends(users.get_current_admin)],
 ) -> dict:
     """Delete an ontology and all its entities, names, and triples."""
-    delete_ontology(ontology_id)
+    try:
+        delete_ontology(ontology_id)
+    except OntologyInUseError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
     return {"ok": True}
 
 

@@ -11,7 +11,7 @@ try:
 except ModuleNotFoundError:
     pass
 
-from .d3textdb import D3TextDB
+from .d3textdb import D3TextDB, OntologyInUseError
 from .owl import ParsedOntology, ParsedProperty, ParsedTriple, parse_owl
 
 try:

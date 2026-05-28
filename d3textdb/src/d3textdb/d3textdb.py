@@ -85,6 +85,11 @@ def _content_hash(pointers: list[Pointer], relations: list[Relation]) -> str:
     return hashlib.sha256(payload.encode()).hexdigest()
 
 
+class OntologyInUseError(Exception):
+    """Raised when an ontology cannot be deleted because annotations exist
+    that reference its entities."""
+
+
 class D3TextDB:
     def __init__(
         self,
@@ -2288,8 +2293,40 @@ class D3TextDB:
             )
 
     def delete_ontology(self, ontology_id: int) -> None:
-        """Delete an ontology and cascade-remove its entities, names, and triples."""
+        """Delete an ontology and cascade-remove its entities, names, and triples.
+
+        Raises OntologyInUseError if any Pointer or Relation rows reference the
+        ontology's entities — the ontology must be free of annotations first.
+        """
         with Session(self.engine) as session:
+            entity_curies = select(Entity.curie).where(
+                Entity.ontology_id == ontology_id
+            )
+            annotation_count = session.scalar(
+                select(func.count()).where(
+                    or_(
+                        exists(
+                            select(Pointer.entity_id).where(
+                                Pointer.entity_id.in_(entity_curies)
+                            )
+                        ),
+                        exists(
+                            select(Relation.relation_id).where(
+                                or_(
+                                    Relation.subject.in_(entity_curies),
+                                    Relation.object.in_(entity_curies),
+                                )
+                            )
+                        ),
+                    )
+                )
+            )
+            if annotation_count:
+                raise OntologyInUseError(
+                    "This ontology has annotations referencing its entities "
+                    "and cannot be deleted. Remove the annotations first."
+                )
+
             entity_ids: list[int] = list(
                 session.scalars(
                     select(Entity.entity_id).where(
