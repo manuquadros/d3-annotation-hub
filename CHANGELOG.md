@@ -20,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Retrieve PubMed abstract when fulltext is not available via PMC.
 - Show a progress bar when importing (potentially large) ontologies.
+- Extract metadata from the ontology file to populate the import fields.
 
 ### Fixed
 

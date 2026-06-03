@@ -104,11 +104,157 @@ beforeEach(() => {
     vi.restoreAllMocks();
 });
 
+function peekResponse(meta: {
+    name?: string | null;
+    prefix?: string | null;
+    base_iri?: string | null;
+    version?: string | null;
+}): Response {
+    return new Response(
+        JSON.stringify({ name: null, prefix: null, base_iri: null, version: null, ...meta }),
+        { status: 200 },
+    );
+}
+
+function selectFile(
+    fileInput: HTMLInputElement,
+    file: File,
+): Promise<boolean> {
+    Object.defineProperty(fileInput, "files", { value: [file], configurable: true });
+    return fireEvent.change(fileInput);
+}
+
+describe("OntologyImportForm — peek auto-fill", () => {
+    test("typing in the name field prevents a later peek response from overwriting it", async () => {
+        let resolvePeek!: (r: Response) => void;
+        vi.spyOn(globalThis, "fetch").mockImplementation(
+            () => new Promise<Response>((r) => { resolvePeek = r; }),
+        );
+
+        const { getByLabelText, container } = render(OntologyImportForm);
+        const nameInput = getByLabelText(/name/i) as HTMLInputElement;
+        const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement;
+
+        // File selected — name auto-set from filename, peek in-flight
+        await selectFile(fileInput, new File([""], "myfile.owl"));
+        expect(nameInput.value).toBe("myfile");
+
+        // User types before peek resolves
+        await fireEvent.input(nameInput, { target: { value: "My Typed Name" } });
+
+        // Peek resolves with a different label
+        resolvePeek(peekResponse({ name: "OWL Ontology Label" }));
+        await new Promise((r) => setTimeout(r, 0));
+
+        expect(nameInput.value).toBe("My Typed Name");
+    });
+
+    test("nameAutoSet is reset when file input is cleared, preventing stale overwrite on next selection", async () => {
+        let resolveFirst!: (r: Response) => void;
+        let resolveSecond!: (r: Response) => void;
+        vi.spyOn(globalThis, "fetch")
+            .mockImplementationOnce(() => new Promise<Response>((r) => { resolveFirst = r; }))
+            .mockImplementationOnce(() => new Promise<Response>((r) => { resolveSecond = r; }));
+
+        const { getByLabelText, container } = render(OntologyImportForm);
+        const nameInput = getByLabelText(/name/i) as HTMLInputElement;
+        const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement;
+
+        // Select file A — name auto-set, nameAutoSet=true
+        await selectFile(fileInput, new File([""], "file-a.owl"));
+
+        // Peek A resolves with no name — nameAutoSet stays true without the V2 fix
+        resolveFirst(peekResponse({ name: null }));
+        await new Promise((r) => setTimeout(r, 0));
+
+        // User clears the file
+        Object.defineProperty(fileInput, "files", { value: [], configurable: true });
+        await fireEvent.change(fileInput);
+        // After fix: autoFilled cleared here, so peek can no longer override user input
+
+        // User types a name (would not reset nameAutoSet if file clear didn't)
+        await fireEvent.input(nameInput, { target: { value: "My Custom Name" } });
+
+        // Select file B — peek resolves with a label
+        await selectFile(fileInput, new File([""], "file-b.owl"));
+        resolveSecond(peekResponse({ name: "B Ontology Label" }));
+        await new Promise((r) => setTimeout(r, 0));
+
+        // User's typed name must not be overwritten
+        expect(nameInput.value).toBe("My Custom Name");
+    });
+
+    test("re-selecting a file repopulates auto-filled fields but preserves user-typed fields", async () => {
+        let resolveA!: (r: Response) => void;
+        let resolveB!: (r: Response) => void;
+        vi.spyOn(globalThis, "fetch")
+            .mockImplementationOnce(() => new Promise<Response>((r) => { resolveA = r; }))
+            .mockImplementationOnce(() => new Promise<Response>((r) => { resolveB = r; }));
+
+        const { getByLabelText, container } = render(OntologyImportForm);
+        const nameInput = getByLabelText(/name/i) as HTMLInputElement;
+        const prefixInput = getByLabelText(/prefix/i) as HTMLInputElement;
+        const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement;
+
+        // Select file A — peek fills name and prefix
+        await selectFile(fileInput, new File([""], "file-a.owl"));
+        resolveA(peekResponse({ name: "A Ontology", prefix: "A_PREFIX" }));
+        await new Promise((r) => setTimeout(r, 0));
+        expect(nameInput.value).toBe("A Ontology");
+        expect(prefixInput.value).toBe("A_PREFIX");
+
+        // User edits prefix — locks that field against future auto-fill
+        await fireEvent.input(prefixInput, { target: { value: "MY_PREFIX" } });
+
+        // Select file B without clearing first
+        await selectFile(fileInput, new File([""], "file-b.owl"));
+        resolveB(peekResponse({ name: "B Ontology", prefix: "B_PREFIX" }));
+        await new Promise((r) => setTimeout(r, 0));
+
+        // Auto-filled name was cleared and repopulated from file B
+        expect(nameInput.value).toBe("B Ontology");
+        // User-typed prefix was not touched
+        expect(prefixInput.value).toBe("MY_PREFIX");
+    });
+
+    test("stale peek response from a previously selected file is discarded", async () => {
+        let resolveA!: (r: Response) => void;
+        let resolveB!: (r: Response) => void;
+        vi.spyOn(globalThis, "fetch")
+            .mockImplementationOnce(() => new Promise<Response>((r) => { resolveA = r; }))
+            .mockImplementationOnce(() => new Promise<Response>((r) => { resolveB = r; }));
+
+        const { getByLabelText, container } = render(OntologyImportForm);
+        const nameInput = getByLabelText(/name/i) as HTMLInputElement;
+        const prefixInput = getByLabelText(/prefix/i) as HTMLInputElement;
+        const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement;
+
+        // Select file A — peek A starts (slow)
+        await selectFile(fileInput, new File([""], "file-a.owl"));
+
+        // Select file B before A resolves — peek B starts, peekSeq incremented
+        await selectFile(fileInput, new File([""], "file-b.owl"));
+
+        // B resolves first: name "B Ontology", no prefix
+        resolveB(peekResponse({ name: "B Ontology", prefix: null }));
+        await new Promise((r) => setTimeout(r, 0));
+        expect(nameInput.value).toBe("B Ontology");
+
+        // A resolves late: tries to set a different name and a prefix
+        resolveA(peekResponse({ name: "A Ontology", prefix: "A_PREFIX" }));
+        await new Promise((r) => setTimeout(r, 0));
+
+        // Stale response must have been ignored entirely
+        expect(nameInput.value).toBe("B Ontology");
+        expect(prefixInput.value).toBe(""); // A's prefix not applied
+    });
+});
+
 describe("OntologyImportForm — callback error handling", () => {
     test("form fields are retained when onimported throws", async () => {
-        vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
-            makeSseStream([COMPLETE_EVENT]),
-        );
+        vi.spyOn(globalThis, "fetch")
+            .mockResolvedValueOnce(peekResponse({}))     // peek on file select
+            .mockResolvedValueOnce(makeSseStream([COMPLETE_EVENT]));
 
         const onimported = vi.fn().mockRejectedValue(new Error("Assign failed"));
 
@@ -137,9 +283,9 @@ describe("OntologyImportForm — callback error handling", () => {
     });
 
     test("error from onimported shows errorMessage", async () => {
-        vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
-            makeSseStream([COMPLETE_EVENT]),
-        );
+        vi.spyOn(globalThis, "fetch")
+            .mockResolvedValueOnce(peekResponse({}))
+            .mockResolvedValueOnce(makeSseStream([COMPLETE_EVENT]));
 
         const onimported = vi.fn().mockRejectedValue(new Error("409 Conflict"));
 
@@ -157,9 +303,9 @@ describe("OntologyImportForm — callback error handling", () => {
     });
 
     test("form fields are cleared after successful import when onimported resolves", async () => {
-        vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
-            makeSseStream([COMPLETE_EVENT]),
-        );
+        vi.spyOn(globalThis, "fetch")
+            .mockResolvedValueOnce(peekResponse({}))
+            .mockResolvedValueOnce(makeSseStream([COMPLETE_EVENT]));
 
         const onimported = vi.fn().mockResolvedValue(undefined);
 

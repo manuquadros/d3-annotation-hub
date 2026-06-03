@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import io
+import re
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -17,6 +19,16 @@ OBO_IN_OWL = Namespace("http://www.geneontology.org/formats/oboInOwl#")
 _OWL_NS = "http://www.w3.org/2002/07/owl#"
 _RDFS_NS = "http://www.w3.org/2000/01/rdf-schema#"
 _XML_NS = "http://www.w3.org/XML/1998/namespace"
+
+_STANDARD_PREFIXES = frozenset({
+    "", "owl", "rdf", "rdfs", "xsd", "dc", "dcterms", "skos",
+    "obo", "oboInOwl",
+})
+
+# Number of leading bytes that peek_ontology_metadata needs to find the header.
+# Callers must upload/read exactly this many bytes; the frontend's PEEK_BYTES
+# constant in OntologyImportForm.svelte must be kept in sync with this value.
+PEEK_BYTES = 65536
 
 # OBO synonym annotation properties, in roughly decreasing specificity
 SYNONYM_PREDICATES = [
@@ -66,6 +78,16 @@ class ParsedOntology:
     entities: list[EntityAnnotation] = field(default_factory=list)
     triples: list[ParsedTriple] = field(default_factory=list)
     properties: list[ParsedProperty] = field(default_factory=list)
+
+
+@dataclass
+class OntologyMetadata:
+    """Ontology-level metadata extracted from an OWL file header."""
+
+    name: str | None = None
+    prefix: str | None = None
+    base_iri: str | None = None
+    version: str | None = None
 
 
 def iri_to_curie(iri: str, prefix: str, base_iri: str) -> str:
@@ -425,6 +447,147 @@ def _parse_owl_rdflib(
         )
 
     return result
+
+
+def _peek_owl_xml_meta(content: bytes) -> OntologyMetadata:
+    # Tags that signal the end of the header section (start of class/property body)
+    _HEADER_END_TAGS = frozenset({
+        f"{{{_OWL_NS}}}Declaration",
+        f"{{{_OWL_NS}}}SubClassOf",
+        f"{{{_OWL_NS}}}EquivalentClasses",
+        f"{{{_OWL_NS}}}DisjointClasses",
+        f"{{{_OWL_NS}}}AnnotationAssertion",
+        f"{{{_OWL_NS}}}ObjectPropertyDomain",
+        f"{{{_OWL_NS}}}ObjectPropertyRange",
+    })
+
+    base_iri: str | None = None
+    version_iri: str | None = None
+    name: str | None = None
+    version: str | None = None
+    candidates: list[tuple[str, str]] = []
+
+    depth = 0
+    in_top_annotation = False
+    current_prop: str | None = None
+    current_literal: str | None = None
+
+    try:
+        for event, elem in ET.iterparse(io.BytesIO(content), events=("start", "end")):
+            tag = elem.tag
+            if event == "start":
+                depth += 1
+                if depth == 1 and tag == f"{{{_OWL_NS}}}Ontology":
+                    base_iri = elem.get("ontologyIRI") or elem.get(f"{{{_XML_NS}}}base") or None
+                    version_iri = elem.get("versionIRI") or None
+                elif depth == 2:
+                    if tag in _HEADER_END_TAGS:
+                        break  # past the header — no more metadata to find
+                    if tag == f"{{{_OWL_NS}}}Prefix":
+                        pfx_name = elem.get("name", "")
+                        pfx_iri = elem.get("IRI", "")
+                        if pfx_name and pfx_name not in _STANDARD_PREFIXES:
+                            candidates.append((pfx_name, pfx_iri))
+                    elif tag == f"{{{_OWL_NS}}}Annotation":
+                        in_top_annotation = True
+                        current_prop = None
+                        current_literal = None
+                elif in_top_annotation:
+                    if tag == f"{{{_OWL_NS}}}AnnotationProperty":
+                        prop_iri = elem.get("abbreviatedIRI") or elem.get("IRI", "")
+                        if prop_iri in ("rdfs:label", f"{_RDFS_NS}label"):
+                            current_prop = "label"
+                        elif prop_iri in ("owl:versionInfo", f"{_OWL_NS}versionInfo"):
+                            current_prop = "version"
+            elif event == "end":
+                if in_top_annotation:
+                    if tag == f"{{{_OWL_NS}}}Literal" and current_prop:
+                        current_literal = elem.text
+                    elif tag == f"{{{_OWL_NS}}}Annotation" and depth == 2:
+                        in_top_annotation = False
+                        if current_prop == "label" and current_literal and name is None:
+                            name = current_literal
+                        elif current_prop == "version" and current_literal and version is None:
+                            version = current_literal
+                depth -= 1
+    except ET.ParseError:
+        pass  # truncated input — use whatever was extracted before the cut
+
+    if version is None and version_iri:
+        m = re.search(r"(\d{4}-\d{2}-\d{2}|\d+\.\d+(?:\.\d+)*)", version_iri)
+        if m:
+            version = m.group(1)
+
+    prefix: str | None = None
+    if candidates:
+        if base_iri:
+            # Prefer the candidate whose IRI is the longest prefix of the ontology IRI
+            # (finds the ontology's own namespace rather than an imported one)
+            iri_match = max(
+                ((n, i) for n, i in candidates if i and base_iri.startswith(i)),
+                key=lambda x: len(x[1]),
+                default=None,
+            )
+            prefix = iri_match[0] if iri_match else candidates[0][0]
+        else:
+            prefix = candidates[0][0]
+
+    return OntologyMetadata(name=name, prefix=prefix, base_iri=base_iri, version=version)
+
+
+def _peek_owl_rdflib_meta(content: bytes, fmt: str) -> OntologyMetadata:
+    g = Graph()
+    g.parse(io.BytesIO(content), format=fmt)
+
+    onto_iri: str | None = None
+    for subj in g.subjects(RDF.type, OWL.Ontology):
+        if isinstance(subj, URIRef):
+            onto_iri = str(subj)
+            break
+
+    name: str | None = None
+    version: str | None = None
+
+    if onto_iri:
+        onto_ref = URIRef(onto_iri)
+        for obj in g.objects(onto_ref, RDFS.label):
+            name = str(obj)
+            break
+        for obj in g.objects(onto_ref, OWL.versionInfo):
+            version = str(obj)
+            break
+
+    # Longest-match: prefer the most specific namespace IRI that is a prefix of
+    # the ontology IRI, to avoid false positives from parent namespaces.
+    prefix: str | None = None
+    if onto_iri:
+        best_pfx: str | None = None
+        best_ns_len = 0
+        for pfx, ns in g.namespaces():
+            pfx_str = str(pfx)
+            ns_str = str(ns)
+            if (pfx_str and pfx_str not in _STANDARD_PREFIXES
+                    and onto_iri.startswith(ns_str)
+                    and len(ns_str) > best_ns_len):
+                best_pfx = pfx_str
+                best_ns_len = len(ns_str)
+        prefix = best_pfx
+
+    return OntologyMetadata(name=name, prefix=prefix, base_iri=onto_iri, version=version)
+
+
+def peek_ontology_metadata(content: bytes) -> OntologyMetadata:
+    """Extract ontology-level metadata from an OWL file without full parsing.
+
+    Returns best-effort results; any field may be ``None`` if not found.
+    Never raises — returns an empty :class:`OntologyMetadata` on any error.
+    """
+    try:
+        if _is_owl_xml(content):
+            return _peek_owl_xml_meta(content)
+        return _peek_owl_rdflib_meta(content, _rdflib_format(content))
+    except Exception:
+        return OntologyMetadata()
 
 
 def parse_owl(

@@ -6,7 +6,7 @@ import uuid
 from typing import TYPE_CHECKING, Annotated, Literal
 
 from d3textdb import OntologyInUseError
-from d3textdb.owl import parse_owl
+from d3textdb.owl import parse_owl, peek_ontology_metadata
 from d3textdb.schema import (
     EntityAnnotation,
     Ontology,
@@ -235,6 +235,29 @@ def get_ontologies(
 ) -> list[Ontology]:
     """List all ontologies loaded into the database."""
     return list_ontologies()
+
+
+class OntologyPeek(BaseModel):
+    name: str | None = None
+    prefix: str | None = None
+    base_iri: str | None = None
+    version: str | None = None
+
+
+@app.post("/admin/ontology/peek")
+async def peek_ontology(
+    current_user: Annotated[User, Depends(users.get_current_admin)],
+    file: UploadFile,
+) -> OntologyPeek:
+    """Extract ontology metadata from an uploaded OWL file without importing it."""
+    content = await file.read(65536)
+    meta = peek_ontology_metadata(content)
+    return OntologyPeek(
+        name=meta.name,
+        prefix=meta.prefix,
+        base_iri=meta.base_iri,
+        version=meta.version,
+    )
 
 
 @app.post("/admin/ontology/import")

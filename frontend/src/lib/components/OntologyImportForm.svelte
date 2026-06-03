@@ -72,6 +72,41 @@
     let prefix = $state("");
     let baseIri = $state("");
     let version = $state("");
+    // Tracks which fields were auto-filled from the filename or peek vs. typed
+    // by the user. Auto-filled fields are cleared when a new file is selected
+    // so the new file's peek can repopulate them; user-typed fields are not.
+    let autoFilled = new Set<"name" | "prefix" | "baseIri" | "version">();
+    // Monotonically increasing counter; each peekFile call captures the value
+    // at call time and checks it before applying results to discard stale
+    // responses from previously selected files.
+    let peekSeq = 0;
+
+    // OWL headers (IRI, prefix declarations, rdfs:label) are always in the
+    // first few KB; 64 KB is far more than needed and avoids uploading the
+    // whole file just for a metadata peek.
+    const PEEK_BYTES = 65536;
+
+    async function peekFile(f: File) {
+        const mySeq = ++peekSeq;
+        const form = new FormData();
+        form.append("file", f.slice(0, PEEK_BYTES), f.name);
+        try {
+            const res = await fetch("/api/admin/ontology/peek", { method: "POST", body: form });
+            if (mySeq !== peekSeq) return;
+            if (!res.ok) return;
+            const meta: { name: string | null; prefix: string | null; base_iri: string | null; version: string | null } =
+                await res.json();
+            // Re-check after the json() await: a newer file may have been selected
+            // while the body was being read, which would make this response stale.
+            if (mySeq !== peekSeq) return;
+            if (meta.name && (!name || autoFilled.has("name"))) { name = meta.name; autoFilled.add("name"); }
+            if (meta.prefix && (!prefix || autoFilled.has("prefix"))) { prefix = meta.prefix; autoFilled.add("prefix"); }
+            if (meta.version && (!version || autoFilled.has("version"))) { version = meta.version; autoFilled.add("version"); }
+            if (meta.base_iri && (!baseIri || autoFilled.has("baseIri"))) { baseIri = meta.base_iri; autoFilled.add("baseIri"); }
+        } catch {
+            // best-effort; form still works without it
+        }
+    }
 
     let submitting = $state(false);
     let result = $state<ImportedResult | null>(null);
@@ -82,6 +117,7 @@
     async function handleSubmit(e: SubmitEvent) {
         e.preventDefault();
         if (!file) return;
+        ++peekSeq;
 
         submitting = true;
         result = null;
@@ -149,6 +185,7 @@
                     prefix = "";
                     baseIri = "";
                     version = "";
+                    autoFilled.clear();
                 } else if (event === "error") {
                     const { detail } = JSON.parse(data) as { detail: string };
                     importSteps = importSteps.map((s) =>
@@ -187,8 +224,20 @@
                 type="file"
                 accept=".owl,.rdf,.ttl,.nt,.n3,.jsonld,.xml"
                 onchange={(e) => {
-                    file = (e.currentTarget as HTMLInputElement).files?.[0] ?? null;
-                    if (file && !name) name = file.name.replace(/\.[^.]+$/, "");
+                    const newFile = (e.currentTarget as HTMLInputElement).files?.[0] ?? null;
+                    if (newFile) {
+                        if (autoFilled.has("name")) name = "";
+                        if (autoFilled.has("prefix")) prefix = "";
+                        if (autoFilled.has("baseIri")) baseIri = "";
+                        if (autoFilled.has("version")) version = "";
+                        autoFilled.clear();
+                        file = newFile;
+                        if (!name) { name = file.name.replace(/\.[^.]+$/, ""); autoFilled.add("name"); }
+                        peekFile(file);
+                    } else {
+                        file = null;
+                        autoFilled.clear();
+                    }
                 }}
                 required
             />
@@ -205,6 +254,7 @@
                 type="text"
                 class="form-control small"
                 bind:value={name}
+                oninput={() => { autoFilled.delete("name"); }}
                 placeholder="NCBI Taxonomy"
                 required
             />
@@ -216,6 +266,7 @@
                 type="text"
                 class="form-control small"
                 bind:value={prefix}
+                oninput={() => { autoFilled.delete("prefix"); }}
                 placeholder="NCBITaxon"
                 required
             />
@@ -229,6 +280,7 @@
             type="text"
             class="form-control small"
             bind:value={version}
+            oninput={() => { autoFilled.delete("version"); }}
             placeholder="2024-01-01"
         />
     </div>
@@ -242,6 +294,7 @@
             type="text"
             class="form-control small"
             bind:value={baseIri}
+            oninput={() => { autoFilled.delete("baseIri"); }}
             placeholder="https://example.org/ontology/"
         />
     </div>
