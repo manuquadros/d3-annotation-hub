@@ -15,6 +15,8 @@
 
     let isLoginPage = $derived($page.url.pathname === "/login");
 
+    /* global __APP_VERSION__ */
+
     /**
      * @typedef {{ label: string, href?: string }} Crumb
      * @type {Crumb[]}

@@ -29,10 +29,7 @@
 
     let { data } = $props();
 
-    let members = $state<Member[]>(untrack(() => data.members));
-    $effect(() => {
-        members = data.members;
-    });
+    let members = $derived<Member[]>(untrack(() => data.members));
 
     let searchEmail = $state("");
     let suggestions = $state<UserHit[]>([]);
