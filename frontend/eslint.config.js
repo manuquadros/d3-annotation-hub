@@ -6,7 +6,7 @@ import svelte from "eslint-plugin-svelte";
 
 /** @type {import('eslint').Linter.Config[]} */
 export default [
-    { ignores: ["static/digidive/", ".svelte-kit/", "coverage/"] },
+    { ignores: ["static/digidive/", ".svelte-kit/", "coverage/", "build/"] },
     {
         files: ["**/*.ts"],
         plugins: { tsdoc },

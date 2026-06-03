@@ -21,10 +21,16 @@ function changelogPlugin(): Plugin {
             if (id !== resolvedId) return;
             let html: string;
             try {
-                const md = readFileSync(resolve(__dirname, "../CHANGELOG.md"), "utf-8");
+                const md = readFileSync(
+                    resolve(__dirname, "../CHANGELOG.md"),
+                    "utf-8",
+                );
                 html = marked.parse(md, { async: false });
             } catch (e) {
-                console.warn("vite-plugin-changelog: could not read CHANGELOG.md", e);
+                console.warn(
+                    "vite-plugin-changelog: could not read CHANGELOG.md",
+                    e,
+                );
                 html = "<p>Changelog not available.</p>";
             }
             return `export const html = ${JSON.stringify(html)};`;
@@ -34,7 +40,9 @@ function changelogPlugin(): Plugin {
 
 function appVersion(): string {
     try {
-        return execSync("git describe --tags --always", { encoding: "utf8" }).trim();
+        return execSync("git describe --tags --always", {
+            encoding: "utf8",
+        }).trim();
     } catch {
         return "dev";
     }

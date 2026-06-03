@@ -5,8 +5,14 @@ import type { PageLoad } from "./$types";
 type Destination = "annotate" | "curate" | "manage" | "admin";
 
 export const load: PageLoad = async ({ fetch, url, parent }) => {
-    const { currentProjectId, isAdmin, isSuperuser, isCurator, isAnnotator, isProjectManager } =
-        await parent();
+    const {
+        currentProjectId,
+        isAdmin,
+        isSuperuser,
+        isCurator,
+        isAnnotator,
+        isProjectManager,
+    } = await parent();
 
     const canManageProjects = isAdmin && !isSuperuser;
 
@@ -37,12 +43,17 @@ export const load: PageLoad = async ({ fetch, url, parent }) => {
 
     if (!ref) {
         if (destination === "admin") redirect(302, "/admin");
-        if (destination === "manage") redirect(302, `/projects/${currentProjectId}`);
-        if (destination === "curate") redirect(302, `/curate?project=${currentProjectId}`);
+        if (destination === "manage")
+            redirect(302, `/projects/${currentProjectId}`);
+        if (destination === "curate")
+            redirect(302, `/curate?project=${currentProjectId}`);
         const queue = await fetchQueue(currentProjectId, fetch);
         const first = queue.find((item) => !item.completed) ?? queue[0];
         if (!first) return { documentData: null };
-        redirect(302, `/?ref=${encodeURIComponent(first.ref)}&project=${currentProjectId}`);
+        redirect(
+            302,
+            `/?ref=${encodeURIComponent(first.ref)}&project=${currentProjectId}`,
+        );
     }
 
     const documentData = await fetchReference(ref, currentProjectId, fetch);
