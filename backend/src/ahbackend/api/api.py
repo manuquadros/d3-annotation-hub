@@ -6,7 +6,7 @@ import uuid
 from typing import TYPE_CHECKING, Annotated, Literal
 
 from d3textdb import OntologyInUseError
-from d3textdb.owl import parse_owl, peek_ontology_metadata
+from d3textdb.owl import MAX_PEEK_BYTES, parse_owl, peek_ontology_metadata
 from d3textdb.schema import (
     EntityAnnotation,
     Ontology,
@@ -18,6 +18,7 @@ from d3textdb.schema import (
     Verdict,
 )
 from fastapi import Body, Depends, FastAPI, Form, HTTPException, UploadFile
+from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, ConfigDict, EmailStr
@@ -250,8 +251,14 @@ async def peek_ontology(
     file: UploadFile,
 ) -> OntologyPeek:
     """Extract ontology metadata from an uploaded OWL file without importing it."""
-    content = await file.read(65536)
-    meta = peek_ontology_metadata(content)
+    # Non-XML serializations (Turtle, RDF/XML, JSON-LD) require a complete
+    # document to parse, so read the whole file up to the cap. Reading one extra
+    # byte lets us detect files that exceed it and skip the (potentially slow)
+    # parse rather than truncating and failing.
+    content = await file.read(MAX_PEEK_BYTES + 1)
+    if len(content) > MAX_PEEK_BYTES:
+        return OntologyPeek()
+    meta = await run_in_threadpool(peek_ontology_metadata, content)
     return OntologyPeek(
         name=meta.name,
         prefix=meta.prefix,

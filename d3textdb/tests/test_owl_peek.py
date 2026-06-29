@@ -176,3 +176,23 @@ def test_peek_corrupt_bytes_returns_empty_metadata() -> None:
 def test_peek_empty_bytes_returns_empty_metadata() -> None:
     meta = peek_ontology_metadata(b"")
     assert meta == OntologyMetadata()
+
+
+def test_peek_rejects_entity_expansion_bomb() -> None:
+    """A billion-laughs entity bomb must not be expanded; metadata comes back empty."""
+    bomb = (
+        b'<?xml version="1.0"?>\n'
+        b'<!DOCTYPE lolz [\n'
+        b'  <!ENTITY a "AAAAAAAAAA">\n'
+        b'  <!ENTITY b "&a;&a;&a;&a;&a;&a;&a;&a;&a;&a;">\n'
+        b'  <!ENTITY c "&b;&b;&b;&b;&b;&b;&b;&b;&b;&b;">\n'
+        b']>\n'
+        b'<Ontology xmlns="http://www.w3.org/2002/07/owl#" ontologyIRI="https://example.org/o/">\n'
+        b'  <Annotation>\n'
+        b'    <AnnotationProperty abbreviatedIRI="rdfs:label"/>\n'
+        b'    <Literal>&c;</Literal>\n'
+        b'  </Annotation>\n'
+        b'</Ontology>'
+    )
+    meta = peek_ontology_metadata(bomb)
+    assert meta == OntologyMetadata()

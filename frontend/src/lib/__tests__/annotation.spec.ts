@@ -10,7 +10,15 @@ function makePointers(
     return Map(
         spans.map((span, i) => [
             `ptr_${i}`,
-            { entity_id: "e1", reference_id: 1, field: "body" as const, exact_text: "", prefix_text: "", suffix_text: "", ...span },
+            {
+                entity_id: "e1",
+                reference_id: 1,
+                field: "body" as const,
+                exact_text: "",
+                prefix_text: "",
+                suffix_text: "",
+                ...span,
+            },
         ]),
     );
 }

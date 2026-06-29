@@ -81,15 +81,17 @@
     // responses from previously selected files.
     let peekSeq = 0;
 
-    // OWL headers (IRI, prefix declarations, rdfs:label) are always in the
-    // first few KB; 64 KB is far more than needed and avoids uploading the
-    // whole file just for a metadata peek.
-    const PEEK_BYTES = 65536;
+    // Turtle/RDF-XML/JSON-LD ontologies can only be parsed as a whole, so the
+    // entire file is sent for the metadata peek. Files larger than this are not
+    // peeked (the user fills the fields manually) to avoid a large upload and a
+    // slow parse. Must match d3textdb.owl.MAX_PEEK_BYTES.
+    const MAX_PEEK_BYTES = 50 * 1024 * 1024;
 
     async function peekFile(f: File) {
         const mySeq = ++peekSeq;
+        if (f.size > MAX_PEEK_BYTES) return;
         const form = new FormData();
-        form.append("file", f.slice(0, PEEK_BYTES), f.name);
+        form.append("file", f, f.name);
         try {
             const res = await fetch("/api/admin/ontology/peek", { method: "POST", body: form });
             if (mySeq !== peekSeq) return;

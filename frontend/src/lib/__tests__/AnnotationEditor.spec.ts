@@ -59,7 +59,9 @@ describe("AnnotationEditor — edit-entity mode", () => {
         const annotationState = makeState();
 
         const { container } = render(AnnotationEditor, {
-            props: { editorState: { mode: "edit-entity", entityId: "entity-1" } },
+            props: {
+                editorState: { mode: "edit-entity", entityId: "entity-1" },
+            },
             context: new Map([["annotationState", annotationState]]),
         });
 

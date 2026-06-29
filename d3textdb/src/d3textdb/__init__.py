@@ -12,7 +12,7 @@ except ModuleNotFoundError:
     pass
 
 from .d3textdb import D3TextDB, OntologyInUseError
-from .owl import OntologyMetadata, ParsedOntology, ParsedProperty, ParsedTriple, parse_owl, peek_ontology_metadata
+from .owl import MAX_PEEK_BYTES, OntologyMetadata, ParsedOntology, ParsedProperty, ParsedTriple, parse_owl, peek_ontology_metadata
 
 try:
     import stackprinter
@@ -31,6 +31,7 @@ except ModuleNotFoundError:
 
 __all__ = [
     "D3TextDB",
+    "MAX_PEEK_BYTES",
     "OntologyMetadata",
     "ParsedOntology",
     "ParsedProperty",

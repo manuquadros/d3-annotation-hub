@@ -9,6 +9,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import BinaryIO
 
+from defusedxml.ElementTree import iterparse as _safe_iterparse
 from rdflib import OWL, RDF, RDFS, SKOS, Graph, Namespace, URIRef
 
 from .schema import EntityAnnotation
@@ -25,10 +26,14 @@ _STANDARD_PREFIXES = frozenset({
     "obo", "oboInOwl",
 })
 
-# Number of leading bytes that peek_ontology_metadata needs to find the header.
-# Callers must upload/read exactly this many bytes; the frontend's PEEK_BYTES
-# constant in OntologyImportForm.svelte must be kept in sync with this value.
-PEEK_BYTES = 65536
+# Upper bound on how many bytes peek_ontology_metadata will read and parse.
+# OWL/XML metadata lives in the header and is streamed cheaply (parsing stops at
+# the first body element), but the rdflib formats (RDF/XML, Turtle, JSON-LD)
+# require a complete, well-formed document, so the whole file up to this size is
+# parsed. Larger files skip the peek and the user fills the import fields
+# manually. The frontend's MAX_PEEK_BYTES constant in OntologyImportForm.svelte
+# must be kept in sync with this value.
+MAX_PEEK_BYTES = 50 * 1024 * 1024
 
 # OBO synonym annotation properties, in roughly decreasing specificity
 SYNONYM_PREDICATES = [
@@ -473,7 +478,9 @@ def _peek_owl_xml_meta(content: bytes) -> OntologyMetadata:
     current_literal: str | None = None
 
     try:
-        for event, elem in ET.iterparse(io.BytesIO(content), events=("start", "end")):
+        # _safe_iterparse forbids entity expansion (billion-laughs / XXE) on
+        # the uploaded file, which a plain ET.iterparse would be vulnerable to.
+        for event, elem in _safe_iterparse(io.BytesIO(content), events=("start", "end")):
             tag = elem.tag
             if event == "start":
                 depth += 1

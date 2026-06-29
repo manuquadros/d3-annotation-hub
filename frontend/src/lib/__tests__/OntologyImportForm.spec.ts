@@ -77,13 +77,17 @@ describe("computeOverallPct", () => {
     });
 });
 
-function makeSseStream(events: Array<{ event: string; data: object }>): Response {
+function makeSseStream(
+    events: Array<{ event: string; data: object }>,
+): Response {
     const encoder = new TextEncoder();
     const body = new ReadableStream({
         start(controller) {
             for (const { event, data } of events) {
                 controller.enqueue(
-                    encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`),
+                    encoder.encode(
+                        `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`,
+                    ),
                 );
             }
             controller.close();
@@ -111,16 +115,22 @@ function peekResponse(meta: {
     version?: string | null;
 }): Response {
     return new Response(
-        JSON.stringify({ name: null, prefix: null, base_iri: null, version: null, ...meta }),
+        JSON.stringify({
+            name: null,
+            prefix: null,
+            base_iri: null,
+            version: null,
+            ...meta,
+        }),
         { status: 200 },
     );
 }
 
-function selectFile(
-    fileInput: HTMLInputElement,
-    file: File,
-): Promise<boolean> {
-    Object.defineProperty(fileInput, "files", { value: [file], configurable: true });
+function selectFile(fileInput: HTMLInputElement, file: File): Promise<boolean> {
+    Object.defineProperty(fileInput, "files", {
+        value: [file],
+        configurable: true,
+    });
     return fireEvent.change(fileInput);
 }
 
@@ -128,19 +138,26 @@ describe("OntologyImportForm — peek auto-fill", () => {
     test("typing in the name field prevents a later peek response from overwriting it", async () => {
         let resolvePeek!: (r: Response) => void;
         vi.spyOn(globalThis, "fetch").mockImplementation(
-            () => new Promise<Response>((r) => { resolvePeek = r; }),
+            () =>
+                new Promise<Response>((r) => {
+                    resolvePeek = r;
+                }),
         );
 
         const { getByLabelText, container } = render(OntologyImportForm);
         const nameInput = getByLabelText(/name/i) as HTMLInputElement;
-        const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement;
+        const fileInput = container.querySelector(
+            'input[type="file"]',
+        ) as HTMLInputElement;
 
         // File selected — name auto-set from filename, peek in-flight
         await selectFile(fileInput, new File([""], "myfile.owl"));
         expect(nameInput.value).toBe("myfile");
 
         // User types before peek resolves
-        await fireEvent.input(nameInput, { target: { value: "My Typed Name" } });
+        await fireEvent.input(nameInput, {
+            target: { value: "My Typed Name" },
+        });
 
         // Peek resolves with a different label
         resolvePeek(peekResponse({ name: "OWL Ontology Label" }));
@@ -153,12 +170,24 @@ describe("OntologyImportForm — peek auto-fill", () => {
         let resolveFirst!: (r: Response) => void;
         let resolveSecond!: (r: Response) => void;
         vi.spyOn(globalThis, "fetch")
-            .mockImplementationOnce(() => new Promise<Response>((r) => { resolveFirst = r; }))
-            .mockImplementationOnce(() => new Promise<Response>((r) => { resolveSecond = r; }));
+            .mockImplementationOnce(
+                () =>
+                    new Promise<Response>((r) => {
+                        resolveFirst = r;
+                    }),
+            )
+            .mockImplementationOnce(
+                () =>
+                    new Promise<Response>((r) => {
+                        resolveSecond = r;
+                    }),
+            );
 
         const { getByLabelText, container } = render(OntologyImportForm);
         const nameInput = getByLabelText(/name/i) as HTMLInputElement;
-        const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement;
+        const fileInput = container.querySelector(
+            'input[type="file"]',
+        ) as HTMLInputElement;
 
         // Select file A — name auto-set, nameAutoSet=true
         await selectFile(fileInput, new File([""], "file-a.owl"));
@@ -168,12 +197,17 @@ describe("OntologyImportForm — peek auto-fill", () => {
         await new Promise((r) => setTimeout(r, 0));
 
         // User clears the file
-        Object.defineProperty(fileInput, "files", { value: [], configurable: true });
+        Object.defineProperty(fileInput, "files", {
+            value: [],
+            configurable: true,
+        });
         await fireEvent.change(fileInput);
         // After fix: autoFilled cleared here, so peek can no longer override user input
 
         // User types a name (would not reset nameAutoSet if file clear didn't)
-        await fireEvent.input(nameInput, { target: { value: "My Custom Name" } });
+        await fireEvent.input(nameInput, {
+            target: { value: "My Custom Name" },
+        });
 
         // Select file B — peek resolves with a label
         await selectFile(fileInput, new File([""], "file-b.owl"));
@@ -188,13 +222,25 @@ describe("OntologyImportForm — peek auto-fill", () => {
         let resolveA!: (r: Response) => void;
         let resolveB!: (r: Response) => void;
         vi.spyOn(globalThis, "fetch")
-            .mockImplementationOnce(() => new Promise<Response>((r) => { resolveA = r; }))
-            .mockImplementationOnce(() => new Promise<Response>((r) => { resolveB = r; }));
+            .mockImplementationOnce(
+                () =>
+                    new Promise<Response>((r) => {
+                        resolveA = r;
+                    }),
+            )
+            .mockImplementationOnce(
+                () =>
+                    new Promise<Response>((r) => {
+                        resolveB = r;
+                    }),
+            );
 
         const { getByLabelText, container } = render(OntologyImportForm);
         const nameInput = getByLabelText(/name/i) as HTMLInputElement;
         const prefixInput = getByLabelText(/prefix/i) as HTMLInputElement;
-        const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement;
+        const fileInput = container.querySelector(
+            'input[type="file"]',
+        ) as HTMLInputElement;
 
         // Select file A — peek fills name and prefix
         await selectFile(fileInput, new File([""], "file-a.owl"));
@@ -221,13 +267,25 @@ describe("OntologyImportForm — peek auto-fill", () => {
         let resolveA!: (r: Response) => void;
         let resolveB!: (r: Response) => void;
         vi.spyOn(globalThis, "fetch")
-            .mockImplementationOnce(() => new Promise<Response>((r) => { resolveA = r; }))
-            .mockImplementationOnce(() => new Promise<Response>((r) => { resolveB = r; }));
+            .mockImplementationOnce(
+                () =>
+                    new Promise<Response>((r) => {
+                        resolveA = r;
+                    }),
+            )
+            .mockImplementationOnce(
+                () =>
+                    new Promise<Response>((r) => {
+                        resolveB = r;
+                    }),
+            );
 
         const { getByLabelText, container } = render(OntologyImportForm);
         const nameInput = getByLabelText(/name/i) as HTMLInputElement;
         const prefixInput = getByLabelText(/prefix/i) as HTMLInputElement;
-        const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement;
+        const fileInput = container.querySelector(
+            'input[type="file"]',
+        ) as HTMLInputElement;
 
         // Select file A — peek A starts (slow)
         await selectFile(fileInput, new File([""], "file-a.owl"));
@@ -253,24 +311,38 @@ describe("OntologyImportForm — peek auto-fill", () => {
 describe("OntologyImportForm — callback error handling", () => {
     test("form fields are retained when onimported throws", async () => {
         vi.spyOn(globalThis, "fetch")
-            .mockResolvedValueOnce(peekResponse({}))     // peek on file select
+            .mockResolvedValueOnce(peekResponse({})) // peek on file select
             .mockResolvedValueOnce(makeSseStream([COMPLETE_EVENT]));
 
-        const onimported = vi.fn().mockRejectedValue(new Error("Assign failed"));
+        const onimported = vi
+            .fn()
+            .mockRejectedValue(new Error("Assign failed"));
 
-        const { getByLabelText, findByText, container } = render(OntologyImportForm, {
-            props: { onimported },
-        });
+        const { getByLabelText, findByText, container } = render(
+            OntologyImportForm,
+            {
+                props: { onimported },
+            },
+        );
 
         const nameInput = getByLabelText(/name/i) as HTMLInputElement;
         const prefixInput = getByLabelText(/prefix/i) as HTMLInputElement;
-        const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement;
+        const fileInput = container.querySelector(
+            'input[type="file"]',
+        ) as HTMLInputElement;
 
-        await fireEvent.input(nameInput, { target: { value: "Test Ontology" } });
+        await fireEvent.input(nameInput, {
+            target: { value: "Test Ontology" },
+        });
         await fireEvent.input(prefixInput, { target: { value: "TEST" } });
 
-        const file = new File(["content"], "test.owl", { type: "application/rdf+xml" });
-        Object.defineProperty(fileInput, "files", { value: [file], configurable: true });
+        const file = new File(["content"], "test.owl", {
+            type: "application/rdf+xml",
+        });
+        Object.defineProperty(fileInput, "files", {
+            value: [file],
+            configurable: true,
+        });
         await fireEvent.change(fileInput);
 
         await fireEvent.submit(container.querySelector("form")!);
@@ -289,11 +361,20 @@ describe("OntologyImportForm — callback error handling", () => {
 
         const onimported = vi.fn().mockRejectedValue(new Error("409 Conflict"));
 
-        const { findByText, container } = render(OntologyImportForm, { props: { onimported } });
+        const { findByText, container } = render(OntologyImportForm, {
+            props: { onimported },
+        });
 
-        const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement;
-        const file = new File(["content"], "test.owl", { type: "application/rdf+xml" });
-        Object.defineProperty(fileInput, "files", { value: [file], configurable: true });
+        const fileInput = container.querySelector(
+            'input[type="file"]',
+        ) as HTMLInputElement;
+        const file = new File(["content"], "test.owl", {
+            type: "application/rdf+xml",
+        });
+        Object.defineProperty(fileInput, "files", {
+            value: [file],
+            configurable: true,
+        });
         await fireEvent.change(fileInput);
 
         await fireEvent.submit(container.querySelector("form")!);
@@ -309,16 +390,26 @@ describe("OntologyImportForm — callback error handling", () => {
 
         const onimported = vi.fn().mockResolvedValue(undefined);
 
-        const { getByLabelText, findByText, container } = render(OntologyImportForm, {
-            props: { onimported },
-        });
+        const { getByLabelText, findByText, container } = render(
+            OntologyImportForm,
+            {
+                props: { onimported },
+            },
+        );
 
         const nameInput = getByLabelText(/name/i) as HTMLInputElement;
         await fireEvent.input(nameInput, { target: { value: "My Ontology" } });
 
-        const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement;
-        const file = new File(["content"], "test.owl", { type: "application/rdf+xml" });
-        Object.defineProperty(fileInput, "files", { value: [file], configurable: true });
+        const fileInput = container.querySelector(
+            'input[type="file"]',
+        ) as HTMLInputElement;
+        const file = new File(["content"], "test.owl", {
+            type: "application/rdf+xml",
+        });
+        Object.defineProperty(fileInput, "files", {
+            value: [file],
+            configurable: true,
+        });
         await fireEvent.change(fileInput);
 
         await fireEvent.submit(container.querySelector("form")!);

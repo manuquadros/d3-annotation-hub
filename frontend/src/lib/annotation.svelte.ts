@@ -27,8 +27,14 @@ function buildTextQuoteSelector(
 ): { exact_text: string; prefix_text: string; suffix_text: string } {
     return {
         exact_text: plainText.slice(offset, offset + length),
-        prefix_text: plainText.slice(Math.max(0, offset - CONTEXT_SIZE), offset),
-        suffix_text: plainText.slice(offset + length, offset + length + CONTEXT_SIZE),
+        prefix_text: plainText.slice(
+            Math.max(0, offset - CONTEXT_SIZE),
+            offset,
+        ),
+        suffix_text: plainText.slice(
+            offset + length,
+            offset + length + CONTEXT_SIZE,
+        ),
     };
 }
 
@@ -39,8 +45,14 @@ function commonPrefixLength(a: string, b: string): number {
 }
 
 function commonSuffixLength(a: string, b: string): number {
-    let i = a.length - 1, j = b.length - 1, count = 0;
-    while (i >= 0 && j >= 0 && a[i] === b[j]) { i--; j--; count++; }
+    let i = a.length - 1,
+        j = b.length - 1,
+        count = 0;
+    while (i >= 0 && j >= 0 && a[i] === b[j]) {
+        i--;
+        j--;
+        count++;
+    }
     return count;
 }
 
@@ -73,7 +85,10 @@ export function resolvePointerOffset(
     const occurrences = allOccurrences(plainText, pointer.exact_text);
     if (occurrences.length === 0) return null;
     if (occurrences.length === 1) {
-        return { offset: occurrences[0].offset, length: pointer.exact_text.length };
+        return {
+            offset: occurrences[0].offset,
+            length: pointer.exact_text.length,
+        };
     }
 
     // Disambiguate by prefix/suffix overlap score.
@@ -81,8 +96,14 @@ export function resolvePointerOffset(
     let best: { offset: number; length: number } | null = null;
     for (const { offset } of occurrences) {
         const length = pointer.exact_text.length;
-        const actualPrefix = plainText.slice(Math.max(0, offset - CONTEXT_SIZE), offset);
-        const actualSuffix = plainText.slice(offset + length, offset + length + CONTEXT_SIZE);
+        const actualPrefix = plainText.slice(
+            Math.max(0, offset - CONTEXT_SIZE),
+            offset,
+        );
+        const actualSuffix = plainText.slice(
+            offset + length,
+            offset + length + CONTEXT_SIZE,
+        );
         const score =
             commonSuffixLength(pointer.prefix_text, actualPrefix) +
             commonPrefixLength(pointer.suffix_text, actualSuffix);
@@ -179,7 +200,10 @@ export class AnnotationState {
     }
 
     #getPlainText(field: "abstract" | "body"): string {
-        const html = field === "abstract" ? this.reference.abstract : this.reference.body;
+        const html =
+            field === "abstract"
+                ? this.reference.abstract
+                : this.reference.body;
         if (!html) return "";
         const tempDiv = globalThis.document?.createElement("div");
         if (!tempDiv) return "";
@@ -229,11 +253,16 @@ export class AnnotationState {
 
         // Propagate to all other identical uncovered occurrences in the same field.
         const searchText = offsets[0]
-            ? plainText.slice(offsets[0].offset, offsets[0].offset + offsets[0].length)
+            ? plainText.slice(
+                  offsets[0].offset,
+                  offsets[0].offset + offsets[0].length,
+              )
             : "";
         if (searchText) {
             const candidates = allOccurrences(plainText, searchText);
-            const fieldPointers = this.pointers.filter((p) => p.field === field);
+            const fieldPointers = this.pointers.filter(
+                (p) => p.field === field,
+            );
             const extras = uncoveredOffsets(candidates, fieldPointers);
             let propagated = this.pointers;
             for (const { offset, length } of extras) {
@@ -296,7 +325,9 @@ export class AnnotationState {
         const searchText = trimmed;
         if (searchText) {
             const candidates = allOccurrences(plainText, searchText);
-            const fieldPointers = this.pointers.filter((p) => p.field === field);
+            const fieldPointers = this.pointers.filter(
+                (p) => p.field === field,
+            );
             const extras = uncoveredOffsets(candidates, fieldPointers);
             let propagated = this.pointers;
             for (const { offset, length } of extras) {
@@ -506,11 +537,16 @@ export class AnnotationState {
 
         // Propagate to all other identical uncovered occurrences in the same field.
         const searchText = offsets[0]
-            ? plainText.slice(offsets[0].offset, offsets[0].offset + offsets[0].length)
+            ? plainText.slice(
+                  offsets[0].offset,
+                  offsets[0].offset + offsets[0].length,
+              )
             : "";
         if (searchText) {
             const candidates = allOccurrences(plainText, searchText);
-            const fieldPointers = this.pointers.filter((p) => p.field === field);
+            const fieldPointers = this.pointers.filter(
+                (p) => p.field === field,
+            );
             const extras = uncoveredOffsets(candidates, fieldPointers);
             let propagated = this.pointers;
             for (const { offset, length } of extras) {
@@ -629,7 +665,10 @@ export function extractSentence(
     return { text: raw.trim(), start: start + leadingSpaces };
 }
 
-const _sanitizeCache = new WeakMap<HTMLDivElement, { html: string; sanitized: string }>();
+const _sanitizeCache = new WeakMap<
+    HTMLDivElement,
+    { html: string; sanitized: string }
+>();
 
 /**
  * Renders annotated HTML into `elem`, highlighting only pointers that belong
