@@ -1,0 +1,71 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  frontend:
+    name: Frontend tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - run: pnpm install --frozen-lockfile
+
+      # Unit tests only. E2E (playwright) needs a live backend and is excluded.
+      - run: pnpm test:cov
+
+  backend:
+    name: Backend tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pdm-project/setup-pdm@v4
+        with:
+          python-version: "3.13"
+          cache: true
+
+      # xmlparser and pdfparser are public GitHub repos fetched over HTTPS;
+      # d3textdb and apiadapters are local path deps tracked in this monorepo.
+      - run: pdm install
+
+      # config + SSH keys are loaded at import time and are not in the repo.
+      # The DB is monkeypatched in tests, so an ephemeral EdDSA keypair is
+      # sufficient — JWT sign/verify just needs a matching key pair.
+      - name: Provision test config and ephemeral keys
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keygen -t ed25519 -N "" -C ci -f ~/.ssh/d3annotation
+          cp ~/.ssh/d3annotation.pub src/ahbackend/config/d3annotation.pub
+          cat > config.toml <<'TOML'
+          [authentication]
+          access_token_expire_minutes = 15
+          algorithm = "EdDSA"
+          D3HUB_PKPATH = "~/.ssh/d3annotation"
+          cookie_secure = false
+          TOML
+
+      - run: pdm run test-cov

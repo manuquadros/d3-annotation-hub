@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+# Pre-push gate: run backend + frontend unit tests; block the push if any fail.
+# Override:  git push --no-verify     or     SKIP_TESTS=1 git push
+# CI (.github/workflows/ci.yml) re-runs these in a clean environment — this hook
+# is the fast local mirror, not a replacement for that consistency check.
+set -uo pipefail
+
+if [ -n "${SKIP_TESTS:-}" ]; then
+  echo "pre-push: SKIP_TESTS set — skipping tests."
+  exit 0
+fi
+
+ROOT="$(git rev-parse --show-toplevel)"
+fail=0
+
+echo "pre-push ▸ backend (pdm run test)"
+( cd "$ROOT/backend" && pdm run test ) || fail=1
+
+# Call vitest directly rather than `pnpm test`: git hooks have no TTY, and
+# `pnpm test` aborts (ERR_PNPM_ABORTED_REMOVE_MODULES_DIR_NO_TTY) if node_modules
+# ever drifts from the lockfile — which would fail the push spuriously.
+echo "pre-push ▸ frontend (vitest run)"
+if [ -x "$ROOT/frontend/node_modules/.bin/vitest" ]; then
+  ( cd "$ROOT/frontend" && node_modules/.bin/vitest run ) || fail=1
+else
+  echo "  vitest not found — run 'pnpm install' in frontend/ first."
+  fail=1
+fi
+
+if [ "$fail" -ne 0 ]; then
+  echo "pre-push: FAILED — push aborted (override with --no-verify)."
+  exit 1
+fi
+echo "pre-push: all tests passed."
