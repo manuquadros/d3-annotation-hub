@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Email notification for users added to a project.
 - Fix import of large ontologies.
 - Flag references that have already been annotated when adding a document to a project.
+- Curation only allows renaming the CURIE of proposed (unconfirmed) entities; renaming a confirmed entity is now rejected.
 
 ## [0.1.4]
 

@@ -754,7 +754,7 @@ def archive_one_project(
     project_id: int,
     current_user: Annotated[User, Depends(users.get_current_admin)],
 ) -> None:
-    """Soft-delete a project (superuser only)."""
+    """Soft-delete (archive) a project. Requires the can_manage permission."""
     project = get_project(project_id)
     if project is None or project.archived_at is not None:
         raise HTTPException(status_code=404, detail="Project not found")
@@ -1224,7 +1224,15 @@ def curator_rename_entity_curie(
 
     Only unconfirmed (proposed) entities may be renamed via this endpoint.
     """
-    _curator_or_superuser(project_id, current_user)
+    _require_curator(project_id, current_user)
+    entities = get_entities_by_curies([curie])
+    if not entities:
+        raise HTTPException(status_code=404, detail="Entity not found")
+    if entities[0].confirmed:
+        raise HTTPException(
+            status_code=409,
+            detail="Only proposed (unconfirmed) entities can be renamed",
+        )
     update_entity_curie(curie, body.new_curie)
 
 
@@ -1439,7 +1447,7 @@ def can_curate_project(user_auth: UserAuth | None, roles: list[str]) -> bool:
     return "curator" in roles or "manager" in roles
 
 
-def _curator_or_superuser(project_id: int, current_user: User) -> None:
+def _require_curator(project_id: int, current_user: User) -> None:
     user_auth = get_user_auth(current_user.user_id)
     roles = get_user_project_roles(current_user.user_id, project_id)
     if not can_curate_project(user_auth, roles):
@@ -1457,7 +1465,7 @@ def annotator_snapshots(
     Also includes entity metadata (name, kind) for every CURIE referenced in
     any pointer, so the frontend can display meaningful labels.
     """
-    _curator_or_superuser(project_id, current_user)
+    _require_curator(project_id, current_user)
     ref = get_reference_by_id(reference_id)
     if ref is None:
         raise HTTPException(status_code=404, detail="Reference not found")
@@ -1584,7 +1592,7 @@ def save_curated(
     Replaces any previous curated annotation by the same curator for this
     (project, reference) pair.
     """
-    _curator_or_superuser(project_id, current_user)
+    _require_curator(project_id, current_user)
     pointers = [
         Pointer(
             reference_id=p.reference_id,

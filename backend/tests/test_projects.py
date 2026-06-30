@@ -39,9 +39,7 @@ def plain_auth(db, client, login):
 
 
 def _create_project(client, auth, name="Test Project", **kwargs) -> int:
-    r = client.post(
-        "/projects", json={"name": name, **kwargs}, headers=auth
-    )
+    r = client.post("/projects", json={"name": name, **kwargs}, headers=auth)
     assert r.status_code == 201, r.text
     return r.json()["project_id"]
 
@@ -83,9 +81,7 @@ class TestCreateProject:
         assert member["roles"] == ["manager"]
 
     def test_plain_user_cannot_create_project(self, plain_auth, client):
-        r = client.post(
-            "/projects", json={"name": "Nope"}, headers=plain_auth
-        )
+        r = client.post("/projects", json={"name": "Nope"}, headers=plain_auth)
         assert r.status_code == 403
 
     def test_unauthenticated_request_is_rejected(self):
@@ -231,9 +227,7 @@ class TestLookupAndSearch:
         client, auth = manager
         db.create_user(DbUser(email=_MEMBER_EMAIL), _MEMBER_PASSWORD)
         pid = _create_project(client, auth)
-        r = client.get(
-            f"/projects/{pid}/users/search?q=member", headers=auth
-        )
+        r = client.get(f"/projects/{pid}/users/search?q=member", headers=auth)
         assert r.status_code == 200
         emails = {u["email"] for u in r.json()}
         assert _MEMBER_EMAIL in emails
@@ -330,6 +324,24 @@ class TestAddMember:
         )
         assert r.status_code == 403
 
+    def test_annotator_and_curator_are_mutually_exclusive(self, manager, db):
+        client, auth = manager
+        db.create_user(DbUser(email=_MEMBER_EMAIL), _MEMBER_PASSWORD)
+        pid = _create_project(client, auth)
+        client.post(
+            f"/projects/{pid}/members",
+            json={"email": _MEMBER_EMAIL, "role": "annotator"},
+            headers=auth,
+        )
+        # Assigning curator replaces the annotator role rather than adding it.
+        r = client.post(
+            f"/projects/{pid}/members",
+            json={"email": _MEMBER_EMAIL, "role": "curator"},
+            headers=auth,
+        )
+        assert r.status_code == 201
+        assert r.json()["roles"] == ["curator"]
+
 
 class TestRemoveMember:
     def test_remove_all_roles_drops_the_member(self, manager, db):
@@ -343,9 +355,7 @@ class TestRemoveMember:
         )
         user_id = _member(_members(client, auth, pid), _MEMBER_EMAIL)["user_id"]
 
-        r = client.delete(
-            f"/projects/{pid}/members/{user_id}", headers=auth
-        )
+        r = client.delete(f"/projects/{pid}/members/{user_id}", headers=auth)
         assert r.status_code == 204
         assert _member(_members(client, auth, pid), _MEMBER_EMAIL) is None
 
@@ -358,9 +368,9 @@ class TestRemoveMember:
             json={"email": _MANAGER_EMAIL, "role": "annotator"},
             headers=auth,
         )
-        user_id = _member(
-            _members(client, auth, pid), _MANAGER_EMAIL
-        )["user_id"]
+        user_id = _member(_members(client, auth, pid), _MANAGER_EMAIL)[
+            "user_id"
+        ]
 
         r = client.delete(
             f"/projects/{pid}/members/{user_id}/annotator", headers=auth
@@ -371,9 +381,7 @@ class TestRemoveMember:
 
     def test_non_manager_cannot_remove_member(self, manager, plain_auth, db):
         client, auth = manager
-        user_id = db.create_user(
-            DbUser(email=_MEMBER_EMAIL), _MEMBER_PASSWORD
-        )
+        user_id = db.create_user(DbUser(email=_MEMBER_EMAIL), _MEMBER_PASSWORD)
         pid = _create_project(client, auth)
         r = client.delete(
             f"/projects/{pid}/members/{user_id}", headers=plain_auth

@@ -482,3 +482,32 @@ class TestRenameEntityCurie:
             json={"new_curie": _NEW_CURIE},
         )
         assert r.status_code == 401
+
+    def test_cannot_rename_a_confirmed_entity(self, project, db, client, login):
+        project_id, _ = project
+        db.store_proposed_entity(
+            project_id, "Beta strain", _OLD_CURIE, "Strain"
+        )
+        db.confirm_entity(_OLD_CURIE)
+        curator_auth = login(_CURATOR_EMAIL, _CURATOR_PASSWORD)
+
+        r = client.patch(
+            f"/projects/{project_id}/curation/entity-curie?curie={_OLD_CURIE}",
+            json={"new_curie": _NEW_CURIE},
+            headers=curator_auth,
+        )
+        assert r.status_code == 409
+        # The CURIE is unchanged.
+        assert (
+            db.get_entities_by_curies([_OLD_CURIE])[0].entity_id == _OLD_CURIE
+        )
+
+    def test_renaming_unknown_entity_returns_404(self, project, client, login):
+        project_id, _ = project
+        curator_auth = login(_CURATOR_EMAIL, _CURATOR_PASSWORD)
+        r = client.patch(
+            f"/projects/{project_id}/curation/entity-curie?curie=NOPE:9999",
+            json={"new_curie": _NEW_CURIE},
+            headers=curator_auth,
+        )
+        assert r.status_code == 404

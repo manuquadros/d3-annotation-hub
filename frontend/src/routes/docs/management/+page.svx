@@ -59,9 +59,10 @@ navigating away.
 ### Changing roles
 
 Each member row shows **Annotator** and **Curator** as toggle buttons. A filled
-button means the user currently holds that role — click it to remove the role.
-An outline button means they do not — click it to add the role. Changes take
-effect immediately.
+button means the user currently holds that role. A member is either an annotator
+or a curator for a project, not both — selecting one role automatically replaces
+the other. Click an outline button to assign that role; click a filled button to
+remove it entirely. Changes take effect immediately.
 
 ### Removing a user from the project
 
