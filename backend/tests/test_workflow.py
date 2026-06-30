@@ -1,22 +1,15 @@
 """Integration tests for the core annotator workflow.
 
 Exercises the full request path against a real in-memory SQLite database.
-``transform_article`` (XML rendering) is replaced with a no-op so the tests
-don't depend on well-formed JATS XML fixture data.
+Shared fixtures (``db``, ``client``, ``login``) live in ``conftest.py``.
 """
 
 import json
 
 import pytest
-from fastapi.testclient import TestClient
-
-import ahbackend.api.api as api_module
-import ahbackend.db.operations as operations_module
-import ahbackend.db.queries as queries_module
-from ahbackend.api.api import app
-from d3textdb import D3TextDB
 from d3textdb.schema import Reference
 from d3textdb.schema import User as DbUser
+from fastapi.testclient import TestClient
 
 _EMAIL = "alice@test.example"
 _PASSWORD = "hunter2-test"
@@ -24,16 +17,11 @@ _PMID = 99999999
 
 
 @pytest.fixture()
-def ctx(monkeypatch):
+def ctx(db, client):
     """Fresh in-memory DB: one annotator, one project, one reference."""
-    test_db = D3TextDB()
-    monkeypatch.setattr(queries_module, "annodb", test_db)
-    monkeypatch.setattr(operations_module, "annodb", test_db)
-    monkeypatch.setattr(api_module, "transform_article", lambda x: x or "")
-
-    user_id = test_db.create_user(DbUser(email=_EMAIL), _PASSWORD)
-    project_id = test_db.create_project("Test Project", required_annotators=1)
-    test_db.add_project_member(project_id, user_id, "annotator")
+    user_id = db.create_user(DbUser(email=_EMAIL), _PASSWORD)
+    project_id = db.create_project("Test Project", required_annotators=1)
+    db.add_project_member(project_id, user_id, "annotator")
 
     ref = Reference(
         pubmed_id=_PMID,
@@ -45,16 +33,10 @@ def ctx(monkeypatch):
         year=2024,
         abstract="Short abstract.",
     )
-    ref_id = test_db.store_reference(ref)
-    test_db.add_reference_to_project(project_id, ref_id)
+    ref_id = db.store_reference(ref)
+    db.add_reference_to_project(project_id, ref_id)
 
-    return TestClient(app), project_id
-
-
-def _login(client: TestClient) -> dict:
-    r = client.post("/token", data={"username": _EMAIL, "password": _PASSWORD})
-    assert r.status_code == 200, r.text
-    return {"Authorization": f"Bearer {r.json()['access_token']}"}
+    return client, project_id
 
 
 def _fetch_annotation(client: TestClient, auth: dict, project_id: int) -> dict:
@@ -107,9 +89,9 @@ class TestLogin:
 
 
 class TestAnnotationQueue:
-    def test_shows_reference_as_not_completed(self, ctx):
+    def test_shows_reference_as_not_completed(self, ctx, login):
         client, project_id = ctx
-        auth = _login(client)
+        auth = login(_EMAIL, _PASSWORD)
         r = client.get(f"/projects/{project_id}/queue", headers=auth)
         assert r.status_code == 200
         items = r.json()
@@ -117,9 +99,9 @@ class TestAnnotationQueue:
         assert items[0]["ref"] == str(_PMID)
         assert items[0]["completed"] is False
 
-    def test_mark_complete_updates_status(self, ctx):
+    def test_mark_complete_updates_status(self, ctx, login):
         client, project_id = ctx
-        auth = _login(client)
+        auth = login(_EMAIL, _PASSWORD)
         r = client.post(
             f"/projects/{project_id}/queue/complete?ref={_PMID}", headers=auth
         )
@@ -128,9 +110,9 @@ class TestAnnotationQueue:
         r = client.get(f"/projects/{project_id}/queue", headers=auth)
         assert r.json()[0]["completed"] is True
 
-    def test_unmark_complete_reverts_status(self, ctx):
+    def test_unmark_complete_reverts_status(self, ctx, login):
         client, project_id = ctx
-        auth = _login(client)
+        auth = login(_EMAIL, _PASSWORD)
         client.post(
             f"/projects/{project_id}/queue/complete?ref={_PMID}", headers=auth
         )
@@ -144,18 +126,18 @@ class TestAnnotationQueue:
 
 
 class TestFetchAndSave:
-    def test_fresh_reference_has_no_annotations(self, ctx):
+    def test_fresh_reference_has_no_annotations(self, ctx, login):
         client, project_id = ctx
-        auth = _login(client)
+        auth = login(_EMAIL, _PASSWORD)
         ann = _fetch_annotation(client, auth, project_id)
         assert ann["reference"]["pubmed_id"] == _PMID
         assert ann["pointers"] == []
         assert ann["relations"] == []
         assert ann["completed"] is False
 
-    def test_saved_pointer_round_trips(self, ctx):
+    def test_saved_pointer_round_trips(self, ctx, login):
         client, project_id = ctx
-        auth = _login(client)
+        auth = login(_EMAIL, _PASSWORD)
         ann = _fetch_annotation(client, auth, project_id)
         ref_id = ann["reference"]["reference_id"]
 
@@ -182,9 +164,9 @@ class TestFetchAndSave:
         assert fetched["pointers"][0]["entity_id"] == "TEST:001"
         assert fetched["pointers"][0]["offset"] == 10
 
-    def test_saved_relation_round_trips(self, ctx):
+    def test_saved_relation_round_trips(self, ctx, login):
         client, project_id = ctx
-        auth = _login(client)
+        auth = login(_EMAIL, _PASSWORD)
         ann = _fetch_annotation(client, auth, project_id)
         ref_id = ann["reference"]["reference_id"]
 
@@ -231,10 +213,10 @@ class TestFetchAndSave:
         assert fetched["relations"][0]["predicate"] == "produces"
         assert fetched["relations"][0]["subject"] == "TEST:001"
 
-    def test_second_save_replaces_first(self, ctx):
+    def test_second_save_replaces_first(self, ctx, login):
         """Saving twice with different content keeps only the latest state."""
         client, project_id = ctx
-        auth = _login(client)
+        auth = login(_EMAIL, _PASSWORD)
         ann = _fetch_annotation(client, auth, project_id)
         ref_id = ann["reference"]["reference_id"]
 
@@ -267,10 +249,10 @@ class TestFetchAndSave:
 
 
 class TestFullWorkflow:
-    def test_annotate_save_complete_golden_path(self, ctx):
+    def test_annotate_save_complete_golden_path(self, ctx, login):
         """Login → fetch → annotate → save → mark complete → verify queue."""
         client, project_id = ctx
-        auth = _login(client)
+        auth = login(_EMAIL, _PASSWORD)
 
         # Fetch empty annotation
         ann = _fetch_annotation(client, auth, project_id)

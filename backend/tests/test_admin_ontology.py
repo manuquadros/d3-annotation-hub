@@ -5,18 +5,17 @@ database via FastAPI's TestClient, focusing on the protection that prevents
 deletion when annotations reference the ontology's entities.
 """
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
-from fastapi.testclient import TestClient
-
-import ahbackend.api.api as api_module
-import ahbackend.db.operations as operations_module
-import ahbackend.db.queries as queries_module
-from ahbackend.api.api import app
 from d3textdb import D3TextDB
-from d3textdb.schema import EntityAnnotation, Pointer, Reference, ReferenceAnnotation
-from d3textdb.schema import Relation
+from d3textdb.schema import (
+    EntityAnnotation,
+    Pointer,
+    Reference,
+    ReferenceAnnotation,
+    Relation,
+)
 from d3textdb.schema import User as DbUser
 
 _ADMIN_EMAIL = "admin@ontology-test.example"
@@ -34,31 +33,26 @@ _REF = Reference(
     year=2024,
     abstract="Abstract.",
 )
-_NOW = datetime(2025, 1, 1, tzinfo=timezone.utc)
+_NOW = datetime(2025, 1, 1, tzinfo=UTC)
 
 
 @pytest.fixture()
-def ctx(monkeypatch):
+def ctx(db, client, login):
     """Fresh in-memory DB: one admin (can_manage), one annotator, one reference."""
-    test_db = D3TextDB()
-    monkeypatch.setattr(queries_module, "annodb", test_db)
-    monkeypatch.setattr(operations_module, "annodb", test_db)
-    monkeypatch.setattr(api_module, "transform_article", lambda x: x or "")
-
     # get_current_admin checks can_manage, not is_super_user
-    test_db.create_user(DbUser(email=_ADMIN_EMAIL), _ADMIN_PASSWORD, can_manage=True)
-    annotator_id = test_db.create_user(DbUser(email=_ANNOTATOR_EMAIL), _ANNOTATOR_PASSWORD)
-    project_id = test_db.create_project("Ontology Test Project", required_annotators=1)
-    test_db.add_project_member(project_id, annotator_id, "annotator")
-    ref_id = test_db.store_reference(_REF)
-    test_db.add_reference_to_project(project_id, ref_id)
+    db.create_user(DbUser(email=_ADMIN_EMAIL), _ADMIN_PASSWORD, can_manage=True)
+    annotator_id = db.create_user(
+        DbUser(email=_ANNOTATOR_EMAIL), _ANNOTATOR_PASSWORD
+    )
+    project_id = db.create_project(
+        "Ontology Test Project", required_annotators=1
+    )
+    db.add_project_member(project_id, annotator_id, "annotator")
+    ref_id = db.store_reference(_REF)
+    db.add_reference_to_project(project_id, ref_id)
 
-    client = TestClient(app)
-    r = client.post("/token", data={"username": _ADMIN_EMAIL, "password": _ADMIN_PASSWORD})
-    assert r.status_code == 200, r.text
-    admin_auth = {"Authorization": f"Bearer {r.json()['access_token']}"}
-
-    return client, admin_auth, test_db, project_id, annotator_id, ref_id
+    admin_auth = login(_ADMIN_EMAIL, _ADMIN_PASSWORD)
+    return client, admin_auth, db, project_id, annotator_id, ref_id
 
 
 def _annotate_with_entity(
@@ -160,12 +154,11 @@ class TestDeleteOntology:
         ids = [o["ontology_id"] for o in r.json()]
         assert ontology_id in ids
 
-    def test_non_admin_cannot_delete_ontology(self, ctx):
+    def test_non_admin_cannot_delete_ontology(self, ctx, login):
         client, _, test_db, *_ = ctx
 
         ontology_id = test_db.store_ontology("Other Ontology", "OTHER", "http://other.org/")
 
-        r = client.post("/token", data={"username": _ANNOTATOR_EMAIL, "password": _ANNOTATOR_PASSWORD})
-        annotator_auth = {"Authorization": f"Bearer {r.json()['access_token']}"}
+        annotator_auth = login(_ANNOTATOR_EMAIL, _ANNOTATOR_PASSWORD)
         r = client.delete(f"/admin/ontologies/{ontology_id}", headers=annotator_auth)
         assert r.status_code == 403

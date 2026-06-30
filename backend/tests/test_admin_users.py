@@ -6,15 +6,11 @@ via FastAPI's TestClient.
 """
 
 import pytest
-from fastapi.testclient import TestClient
-
-import ahbackend.api.api as api_module
-import ahbackend.db.operations as operations_module
-import ahbackend.db.queries as queries_module
-from ahbackend.api.api import app
-from d3textdb import D3TextDB
 from d3textdb.schema import Reference
 from d3textdb.schema import User as DbUser
+from fastapi.testclient import TestClient
+
+from ahbackend.api.api import app
 
 _ADMIN_EMAIL = "admin@test.example"
 _ADMIN_PASSWORD = "admin-secret"
@@ -23,23 +19,12 @@ _NEW_USER_PASSWORD = "initial-passphrase"
 
 
 @pytest.fixture()
-def ctx(monkeypatch):
+def ctx(db, client, login):
     """Fresh in-memory DB with one superuser. Returns (client, auth_headers)."""
-    test_db = D3TextDB()
-    monkeypatch.setattr(queries_module, "annodb", test_db)
-    monkeypatch.setattr(operations_module, "annodb", test_db)
-    monkeypatch.setattr(api_module, "transform_article", lambda x: x or "")
-
-    test_db.create_user(
+    db.create_user(
         DbUser(email=_ADMIN_EMAIL), _ADMIN_PASSWORD, is_super_user=True
     )
-
-    client = TestClient(app)
-    r = client.post(
-        "/token", data={"username": _ADMIN_EMAIL, "password": _ADMIN_PASSWORD}
-    )
-    assert r.status_code == 200, r.text
-    auth = {"Authorization": f"Bearer {r.json()['access_token']}"}
+    auth = login(_ADMIN_EMAIL, _ADMIN_PASSWORD)
     return client, auth
 
 
@@ -135,16 +120,13 @@ class TestCreateUser:
 
 
 @pytest.fixture()
-def ctx_with_member(ctx):
+def ctx_with_member(ctx, db):
     """Extends ctx with a regular user who is a member of a project."""
     client, auth = ctx
-    test_db = queries_module.annodb
-    user_id = test_db.create_user(
-        DbUser(email=_NEW_USER_EMAIL), _NEW_USER_PASSWORD
-    )
-    project_id = test_db.create_project("Test Project", required_annotators=1)
-    test_db.add_project_member(project_id, user_id, "annotator")
-    return client, auth, test_db, project_id
+    user_id = db.create_user(DbUser(email=_NEW_USER_EMAIL), _NEW_USER_PASSWORD)
+    project_id = db.create_project("Test Project", required_annotators=1)
+    db.add_project_member(project_id, user_id, "annotator")
+    return client, auth, db, project_id
 
 
 class TestRemoveUser:
@@ -236,7 +218,7 @@ class TestRemoveUser:
 
 
 @pytest.fixture()
-def ctx_with_plain_user(ctx):
+def ctx_with_plain_user(ctx, login):
     """Extends ctx with a plain user (no can_manage, no is_super_user).
 
     Returns (client, admin_auth, user_auth) where user_auth is a Bearer
@@ -248,11 +230,7 @@ def ctx_with_plain_user(ctx):
         json={"email": _NEW_USER_EMAIL, "password": _NEW_USER_PASSWORD},
         headers=admin_auth,
     )
-    r = client.post(
-        "/token",
-        data={"username": _NEW_USER_EMAIL, "password": _NEW_USER_PASSWORD},
-    )
-    user_auth = {"Authorization": f"Bearer {r.json()['access_token']}"}
+    user_auth = login(_NEW_USER_EMAIL, _NEW_USER_PASSWORD)
     return client, admin_auth, user_auth
 
 
