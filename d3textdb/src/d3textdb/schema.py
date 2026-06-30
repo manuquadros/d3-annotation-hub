@@ -25,6 +25,13 @@ class Verdict(str, enum.Enum):
     rejected = "rejected"
 
 
+class PdfIngestStatus(str, enum.Enum):
+    pending = "pending"
+    leased = "leased"
+    done = "done"
+    failed = "failed"
+
+
 class SqliteUUID(TypeDecorator):
     impl = BINARY(16)
     cache_ok = True
@@ -272,6 +279,50 @@ class Reference(SQLModel, table=True):
     year: int
     abstract: str | None = None
     body: str | None = None
+
+
+class PdfIngestJob(SQLModel, table=True):
+    """One parse of a distinct PDF into a (global) Reference, run by the worker.
+
+    Keyed on ``pdf_sha256`` (one job per distinct PDF, ever): a Reference is
+    shared across projects, so the article is OCR'd once, not once per project.
+    Which projects requested it lives in ``PdfJobProject``; the worker links the
+    resulting Reference to all of them on completion, and every subscribed
+    manager sees this one shared status. Keys on the *source* bytes, never the
+    parsed HTML — OCR output is non-deterministic, so hashing the render would
+    never dedup.
+    """
+
+    __tablename__ = "pdf_ingest_job"
+
+    job_id: int | None = Field(default=None, primary_key=True)
+    pdf_sha256: str = Field(unique=True)
+    source_path: str
+    status: PdfIngestStatus = Field(default=PdfIngestStatus.pending)
+    attempts: int = Field(default=0)
+    error: str | None = None
+    reference_id: int | None = Field(
+        default=None, foreign_key="reference.reference_id"
+    )
+    leased_at: datetime | None = None
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc)
+    )
+    # onupdate so a status transition advances updated_at on its own — the worker
+    # never has to remember to set it.
+    updated_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc),
+        sa_column_kwargs={"onupdate": lambda: datetime.now(timezone.utc)},
+    )
+
+
+class PdfJobProject(SQLModel, table=True):
+    """Association: which projects requested a given PDF ingest job."""
+
+    __tablename__ = "pdf_job_project"
+
+    job_id: int = Field(foreign_key="pdf_ingest_job.job_id", primary_key=True)
+    project_id: int = Field(foreign_key="project.project_id", primary_key=True)
 
 
 class Pointer(SQLModel, table=True):

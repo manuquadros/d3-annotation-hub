@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "D3 Annotation Hub Backend"
 authors = [{ name = "Emanuel Souza de Quadros" }]
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.13"
 license = "GPL-3.0-or-later"
 dependencies = [
   "cryptography>=46.0.7",
@@ -17,6 +17,7 @@ dependencies = [
   "tokenizers>=0.21.1",
   "uvicorn>=0.34.2",
   "xmlparser @ git+https://github.com/manuquadros/xmlparser.git@master",
+  "pdfparser @ git+https://github.com/manuquadros/pdfparser.git@main",
   "gunicorn>=25.3.0",
   "tomlkit>=0.14.0",
   "xkcdpass>=1.30.0",
@@ -86,7 +87,7 @@ testpaths = ["tests"]
 
 [tool.ruff]
 line-length = 80
-target-version = "py312"
+target-version = "py313"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "W", "UP", "B", "SIM", "TCH", "C90"]

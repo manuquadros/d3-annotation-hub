@@ -42,6 +42,7 @@ from .schema import (
     Name,
     Ontology,
     OntologyProperty,
+    PdfJobProject,
     Pointer,
     Project,
     ProjectMembership,
@@ -1158,6 +1159,13 @@ class D3TextDB:
             session.execute(
                 sa_delete(ProjectReference).where(
                     ProjectReference.project_id == project_id
+                )
+            )
+            # Drop this project's PDF-ingest subscriptions; the shared
+            # PdfIngestJob rows are global and stay for other projects.
+            session.execute(
+                sa_delete(PdfJobProject).where(
+                    PdfJobProject.project_id == project_id
                 )
             )
             session.execute(
