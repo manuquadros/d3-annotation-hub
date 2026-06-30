@@ -60,6 +60,12 @@ export default defineConfig({
         bail: 1,
         coverage: {
             provider: "v8",
+            include: ["src/**/*.{ts,svelte}"],
+            exclude: [
+                "src/**/*.spec.ts",
+                "src/**/*.d.ts",
+                "src/lib/__tests__/**",
+            ],
         },
     },
 });

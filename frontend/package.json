@@ -12,6 +12,7 @@
         "lint": "prettier --check . && eslint .",
         "format": "prettier --write .",
         "test": "vitest run",
+        "test:cov": "vitest run --coverage",
         "test:ui": "vitest --ui",
         "test:watch": "vitest --reporter=verbose",
         "build:docs": "typedoc",
