@@ -214,8 +214,10 @@
             if (node === range.startContainer) {
                 const rawText = range.toString();
                 const trimmedText = rawText.trim();
-                const leadingSpaces = rawText.length - rawText.trimStart().length;
-                const selectionOffset = offset + range.startOffset + leadingSpaces;
+                const leadingSpaces =
+                    rawText.length - rawText.trimStart().length;
+                const selectionOffset =
+                    offset + range.startOffset + leadingSpaces;
                 const length = trimmedText.length;
                 if (length > 0) {
                     pendingRange = { offset: selectionOffset, length };
@@ -260,10 +262,12 @@
         searchLoading = true;
         const controller = new AbortController();
         const timer = setTimeout(() => {
-            searchEntities(q, 20, undefined, controller.signal).then((results) => {
-                searchResults = results;
-                searchLoading = false;
-            }).catch(() => {});
+            searchEntities(q, 20, undefined, controller.signal)
+                .then((results) => {
+                    searchResults = results;
+                    searchLoading = false;
+                })
+                .catch(() => {});
         }, 300);
         return () => {
             clearTimeout(timer);
@@ -289,7 +293,12 @@
             );
         } else {
             if (!selectedKind || !preferredName.trim()) return;
-            annotationState.add(selectedKind, preferredName.trim(), [{ offset, length }], field);
+            annotationState.add(
+                selectedKind,
+                preferredName.trim(),
+                [{ offset, length }],
+                field,
+            );
         }
         close();
     }
@@ -494,7 +503,9 @@
         {/if}
 
         <div class="actions">
-            <button class="btn primary filled" onclick={confirmCreate}>Confirm</button>
+            <button class="btn primary filled" onclick={confirmCreate}
+                >Confirm</button
+            >
             <button class="btn secondary" onclick={close}>Cancel</button>
         </div>
     {:else if editorState.mode === "edit-pointer"}
@@ -588,8 +599,10 @@
             <button class="btn primary filled" onclick={confirmEditPointer}
                 >Confirm</button
             >
-            <button class="btn danger filled" style="margin-left: auto" onclick={deletePointer}
-                >Delete highlight</button
+            <button
+                class="btn danger filled"
+                style="margin-left: auto"
+                onclick={deletePointer}>Delete highlight</button
             >
             <button class="btn secondary" onclick={close}>Cancel</button>
         </div>
@@ -653,8 +666,10 @@
             <button class="btn primary filled" onclick={confirmEditEntity}
                 >Confirm</button
             >
-            <button class="btn danger filled" style="margin-left: auto" onclick={deleteEntity}
-                >Delete entity</button
+            <button
+                class="btn danger filled"
+                style="margin-left: auto"
+                onclick={deleteEntity}>Delete entity</button
             >
             <button class="btn secondary" onclick={close}>Cancel</button>
         </div>
@@ -673,7 +688,10 @@
                         onclick={() => toggleMention(i)}
                     >
                         {collapsedMentions.has(i) ? "▸" : "▾"}
-                        {plainTextForField(p.field).slice(p.offset, p.offset + p.length)}
+                        {plainTextForField(p.field).slice(
+                            p.offset,
+                            p.offset + p.length,
+                        )}
                     </button>
                     {#if !collapsedMentions.has(i)}
                         <div class="sentence-preview">
@@ -931,5 +949,4 @@
         margin-top: 1.5rem;
         margin-bottom: 1rem;
     }
-
 </style>

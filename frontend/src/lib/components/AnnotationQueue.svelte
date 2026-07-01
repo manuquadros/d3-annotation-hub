@@ -2,7 +2,11 @@
     import { onMount } from "svelte";
     import { goto } from "$app/navigation";
     import { page } from "$app/stores";
-    import { fetchQueue, markQueueItemComplete, markQueueItemIncomplete } from "$lib/api";
+    import {
+        fetchQueue,
+        markQueueItemComplete,
+        markQueueItemIncomplete,
+    } from "$lib/api";
     import type { QueueItem } from "$lib/api";
 
     let { projectId }: { projectId: number } = $props();
@@ -171,7 +175,9 @@
         opacity: 0;
         font-size: 0.9rem;
         line-height: 1;
-        transition: opacity 0.15s, background-color 0.15s;
+        transition:
+            opacity 0.15s,
+            background-color 0.15s;
     }
 
     .queue-row:hover .check-btn,

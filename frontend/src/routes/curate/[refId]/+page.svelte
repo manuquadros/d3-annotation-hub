@@ -4,7 +4,10 @@
     import { untrack } from "svelte";
     import type { PageData } from "./$types";
     import type { PointerOut, RelationOut } from "./+page.server";
-    import { resolvePointerOffset, createRangeFromOffsets } from "$lib/annotation.svelte";
+    import {
+        resolvePointerOffset,
+        createRangeFromOffsets,
+    } from "$lib/annotation.svelte";
     import DOMPurify from "dompurify";
     import type { Pointer } from "$lib/types.ts";
 
@@ -153,18 +156,15 @@
         p: PointerOut,
         window = 60,
     ): { before: string; match: string; after: string } {
-        const pt =
-            p.field === "abstract" ? abstractPlainText : bodyPlainText;
+        const pt = p.field === "abstract" ? abstractPlainText : bodyPlainText;
         const start = p.offset;
         const end = p.offset + p.length;
         const beforeStart = Math.max(0, start - window);
         const afterEnd = Math.min(pt.length, end + window);
         return {
-            before:
-                (beforeStart > 0 ? "…" : "") + pt.slice(beforeStart, start),
+            before: (beforeStart > 0 ? "…" : "") + pt.slice(beforeStart, start),
             match: pt.slice(start, end) || p.exact_text || "",
-            after:
-                pt.slice(end, afterEnd) + (afterEnd < pt.length ? "…" : ""),
+            after: pt.slice(end, afterEnd) + (afterEnd < pt.length ? "…" : ""),
         };
     }
 
@@ -480,8 +480,8 @@
     let autosaved = $state(false);
 
     function buildCurationPayload() {
-        const pointers: PointerOut[] = [...selectedPointers].map((k) =>
-            pointerData.get(k)!,
+        const pointers: PointerOut[] = [...selectedPointers].map(
+            (k) => pointerData.get(k)!,
         );
         const relations: RelationOut[] = [...selectedRelations].map(
             (k) => relationData.get(k)!,
@@ -800,11 +800,10 @@
                                             <ul class="mention-list">
                                                 {#each mentionGroupsByEntity.get(entityId) ?? [] as group (group.displayText)}
                                                     {@const gAccepted =
-                                                        group.keys.some(
-                                                            (k) =>
-                                                                selectedPointers.has(
-                                                                    k,
-                                                                ),
+                                                        group.keys.some((k) =>
+                                                            selectedPointers.has(
+                                                                k,
+                                                            ),
                                                         )}
                                                     <li class="mention-group">
                                                         <div
@@ -1035,11 +1034,7 @@
                     <div
                         class="article-text"
                         {@attach (el) =>
-                            renderField(
-                                el,
-                                reference.body,
-                                bodySpansByOffset,
-                            )}
+                            renderField(el, reference.body, bodySpansByOffset)}
                     ></div>
                 {/if}
 
@@ -1606,5 +1601,4 @@
         color: var(--text-muted, #888);
         margin-left: auto;
     }
-
 </style>

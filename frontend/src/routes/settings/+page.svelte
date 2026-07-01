@@ -25,7 +25,9 @@
                 }),
             });
             if (!res.ok) {
-                const d = await res.json().catch(() => ({ detail: res.statusText }));
+                const d = await res
+                    .json()
+                    .catch(() => ({ detail: res.statusText }));
                 error = d.detail ?? res.statusText;
             } else {
                 success = true;
@@ -87,7 +89,11 @@
             {/if}
 
             <div class="actions">
-                <button type="submit" class="btn primary filled" disabled={pending}>
+                <button
+                    type="submit"
+                    class="btn primary filled"
+                    disabled={pending}
+                >
                     {pending ? "Saving…" : "Change Password"}
                 </button>
             </div>

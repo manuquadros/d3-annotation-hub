@@ -1,9 +1,9 @@
 <script lang="ts">
     export type SaveStatus =
-        | { type: 'idle' }
-        | { type: 'saving' }
-        | { type: 'saved', timestamp: Date }
-        | { type: 'error', message: string };
+        | { type: "idle" }
+        | { type: "saving" }
+        | { type: "saved"; timestamp: Date }
+        | { type: "error"; message: string };
 
     interface Props {
         status: SaveStatus;
@@ -13,18 +13,19 @@
     let { status, onRetry }: Props = $props();
 
     function formatTime(date: Date): string {
-        const hours = date.getHours().toString().padStart(2, '0');
-        const minutes = date.getMinutes().toString().padStart(2, '0');
+        const hours = date.getHours().toString().padStart(2, "0");
+        const minutes = date.getMinutes().toString().padStart(2, "0");
         return `${hours}:${minutes}`;
     }
 </script>
 
 <div class="save-indicator">
-    {#if status.type === 'saving'}
+    {#if status.type === "saving"}
         <span class="status saving">Saving…</span>
-    {:else if status.type === 'saved'}
-        <span class="status saved">Saved at {formatTime(status.timestamp)}</span>
-    {:else if status.type === 'error'}
+    {:else if status.type === "saved"}
+        <span class="status saved">Saved at {formatTime(status.timestamp)}</span
+        >
+    {:else if status.type === "error"}
         <button class="status error" onclick={onRetry}>
             Error – click to retry
         </button>

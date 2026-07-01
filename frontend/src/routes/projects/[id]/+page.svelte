@@ -20,7 +20,10 @@
             </div>
             <div class="card-body">
                 <h2>Documents</h2>
-                <p>Add or remove references from the project's annotation queue.</p>
+                <p>
+                    Add or remove references from the project's annotation
+                    queue.
+                </p>
             </div>
             <i class="ph ph-arrow-right card-arrow"></i>
         </a>
@@ -31,7 +34,10 @@
             </div>
             <div class="card-body">
                 <h2>Ontologies</h2>
-                <p>Import OWL ontologies or assign existing ones to this project.</p>
+                <p>
+                    Import OWL ontologies or assign existing ones to this
+                    project.
+                </p>
             </div>
             <i class="ph ph-arrow-right card-arrow"></i>
         </a>
@@ -42,7 +48,10 @@
             </div>
             <div class="card-body">
                 <h2>Users</h2>
-                <p>Add annotators and curators, or remove existing project members.</p>
+                <p>
+                    Add annotators and curators, or remove existing project
+                    members.
+                </p>
             </div>
             <i class="ph ph-arrow-right card-arrow"></i>
         </a>
@@ -79,7 +88,10 @@
         border-radius: 10px;
         text-decoration: none;
         color: inherit;
-        transition: border-color 0.15s, box-shadow 0.15s, transform 0.15s;
+        transition:
+            border-color 0.15s,
+            box-shadow 0.15s,
+            transform 0.15s;
     }
 
     .card:hover {

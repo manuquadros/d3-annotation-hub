@@ -59,7 +59,9 @@
                 name_filter: entityNameFilter,
                 type_filter: entityTypeFilter,
             });
-            const res = await fetch(`/api/admin/ontology/${ontology.ontology_id}?${qs}`);
+            const res = await fetch(
+                `/api/admin/ontology/${ontology.ontology_id}?${qs}`,
+            );
             if (!res.ok) return;
             const d = await res.json();
             entities = d.entities ?? [];
@@ -76,7 +78,10 @@
             const _c = entityCurieFilter;
             const _n = entityNameFilter;
             const _t = entityTypeFilter;
-            if (initialEntityRun) { initialEntityRun = false; return; }
+            if (initialEntityRun) {
+                initialEntityRun = false;
+                return;
+            }
             clearTimeout(entityFilterTimer);
             entityFilterTimer = setTimeout(() => loadEntitiesPage(0), 300);
         });
@@ -123,7 +128,10 @@
             const _s = tripleSubjectFilter;
             const _p = triplePredicateFilter;
             const _o = tripleObjectFilter;
-            if (initialTripleRun) { initialTripleRun = false; return; }
+            if (initialTripleRun) {
+                initialTripleRun = false;
+                return;
+            }
             clearTimeout(tripleFilterTimer);
             tripleFilterTimer = setTimeout(() => loadTriplesPage(0), 300);
         });
@@ -140,9 +148,13 @@
         properties.filter(
             (p) =>
                 (!propCurieFilter ||
-                    p.curie.toLowerCase().includes(propCurieFilter.toLowerCase())) &&
+                    p.curie
+                        .toLowerCase()
+                        .includes(propCurieFilter.toLowerCase())) &&
                 (!propLabelFilter ||
-                    p.label.toLowerCase().includes(propLabelFilter.toLowerCase())) &&
+                    p.label
+                        .toLowerCase()
+                        .includes(propLabelFilter.toLowerCase())) &&
                 (!propDomainFilter ||
                     (p.domain_curie ?? "")
                         .toLowerCase()
@@ -215,14 +227,17 @@
                 <tbody>
                     {#if entities.length === 0}
                         <tr>
-                            <td colspan="3" class="empty">No matching classes.</td>
+                            <td colspan="3" class="empty"
+                                >No matching classes.</td
+                            >
                         </tr>
                     {:else}
                         {#each entities as e (e.entity_id)}
                             <tr>
                                 <td><code>{e.entity_id}</code></td>
                                 <td>{e.preferred_name}</td>
-                                <td><span class="type-badge">{e.kind}</span></td>
+                                <td><span class="type-badge">{e.kind}</span></td
+                                >
                             </tr>
                         {/each}
                     {/if}
@@ -311,7 +326,9 @@
                 <tbody>
                     {#if filteredProperties.length === 0}
                         <tr>
-                            <td colspan="4" class="empty">No matching properties.</td>
+                            <td colspan="4" class="empty"
+                                >No matching properties.</td
+                            >
                         </tr>
                     {:else}
                         {#each filteredProperties as p (p.curie)}
@@ -373,7 +390,9 @@
                 <tbody>
                     {#if triples.length === 0}
                         <tr>
-                            <td colspan="3" class="empty">No matching triples.</td>
+                            <td colspan="3" class="empty"
+                                >No matching triples.</td
+                            >
                         </tr>
                     {:else}
                         {#each triples as t, i (i)}

@@ -51,7 +51,11 @@
     </aside>
 
     <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-    <article class="docs-content" onclick={handleContentClick} onkeydown={handleContentClick}>
+    <article
+        class="docs-content"
+        onclick={handleContentClick}
+        onkeydown={handleContentClick}
+    >
         {@render children()}
     </article>
 </div>
@@ -115,16 +119,56 @@
         min-width: 0;
     }
 
-    .docs-content :global(h1) { font-size: 1.75rem; margin-bottom: 1rem; }
-    .docs-content :global(h2) { font-size: 1.3rem; margin-top: 2rem; margin-bottom: 0.75rem; }
-    .docs-content :global(h3) { font-size: 1.1rem; margin-top: 1.5rem; margin-bottom: 0.5rem; }
-    .docs-content :global(p)  { line-height: 1.7; margin-bottom: 1rem; }
-    .docs-content :global(ul), .docs-content :global(ol) { padding-left: 1.5rem; margin-bottom: 1rem; }
-    .docs-content :global(li) { margin-bottom: 0.25rem; line-height: 1.6; }
-    .docs-content :global(code) { font-size: 0.875em; background: var(--color-bg-code, #f4f4f4); padding: 0.15em 0.35em; border-radius: 3px; }
-    .docs-content :global(pre) { background: var(--color-bg-code, #f4f4f4); padding: 1rem; border-radius: 6px; overflow-x: auto; margin-bottom: 1rem; }
-    .docs-content :global(pre code) { background: none; padding: 0; }
-    .docs-content :global(img) { display: block; width: 80%; margin: 1rem auto; cursor: zoom-in; }
+    .docs-content :global(h1) {
+        font-size: 1.75rem;
+        margin-bottom: 1rem;
+    }
+    .docs-content :global(h2) {
+        font-size: 1.3rem;
+        margin-top: 2rem;
+        margin-bottom: 0.75rem;
+    }
+    .docs-content :global(h3) {
+        font-size: 1.1rem;
+        margin-top: 1.5rem;
+        margin-bottom: 0.5rem;
+    }
+    .docs-content :global(p) {
+        line-height: 1.7;
+        margin-bottom: 1rem;
+    }
+    .docs-content :global(ul),
+    .docs-content :global(ol) {
+        padding-left: 1.5rem;
+        margin-bottom: 1rem;
+    }
+    .docs-content :global(li) {
+        margin-bottom: 0.25rem;
+        line-height: 1.6;
+    }
+    .docs-content :global(code) {
+        font-size: 0.875em;
+        background: var(--color-bg-code, #f4f4f4);
+        padding: 0.15em 0.35em;
+        border-radius: 3px;
+    }
+    .docs-content :global(pre) {
+        background: var(--color-bg-code, #f4f4f4);
+        padding: 1rem;
+        border-radius: 6px;
+        overflow-x: auto;
+        margin-bottom: 1rem;
+    }
+    .docs-content :global(pre code) {
+        background: none;
+        padding: 0;
+    }
+    .docs-content :global(img) {
+        display: block;
+        width: 80%;
+        margin: 1rem auto;
+        cursor: zoom-in;
+    }
 
     .lightbox {
         position: fixed;

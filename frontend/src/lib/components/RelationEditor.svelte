@@ -2,7 +2,11 @@
     import { getContext, onMount } from "svelte";
     import { AnnotationState } from "$lib/annotation.svelte";
     import type { EditorState } from "$lib/types.ts";
-    import { fetchProjectProperties, fetchEntityTypes, submitProposedProperty } from "$lib/api.ts";
+    import {
+        fetchProjectProperties,
+        fetchEntityTypes,
+        submitProposedProperty,
+    } from "$lib/api.ts";
     import type { PropertyOption, KindOption } from "$lib/api.ts";
     import { getLabelColor, getContrastColor } from "$lib/colors.ts";
 
@@ -21,7 +25,9 @@
     let entityTypes = $state<KindOption[]>([]);
 
     onMount(() => {
-        fetchProjectProperties(annotationState.project_id).then((p) => (allProperties = p));
+        fetchProjectProperties(annotationState.project_id).then(
+            (p) => (allProperties = p),
+        );
         fetchEntityTypes().then((k) => (entityTypes = k));
     });
 
@@ -173,7 +179,9 @@
             <div
                 class="entity-chip"
                 style:background-color={getLabelColor(subjectEntity.kind)}
-                style:color={getContrastColor(getLabelColor(subjectEntity.kind))}
+                style:color={getContrastColor(
+                    getLabelColor(subjectEntity.kind),
+                )}
             >
                 <span class="entity-name">{subjectEntity.preferred_name}</span>
                 <span class="entity-kind">{kindLabel(subjectEntity.kind)}</span>
@@ -187,7 +195,11 @@
                 <span class="entity-name">{objectEntity.preferred_name}</span>
                 <span class="entity-kind">{kindLabel(objectEntity.kind)}</span>
             </div>
-            <button class="swap-btn" onclick={swapEntities} aria-label="Swap subject and object">
+            <button
+                class="swap-btn"
+                onclick={swapEntities}
+                aria-label="Swap subject and object"
+            >
                 <i class="ph ph-arrows-left-right"></i>
             </button>
         </div>
@@ -205,12 +217,16 @@
             </div>
 
             {#if allProperties.length === 0}
-                <p class="empty">No properties available for this project's ontologies.</p>
+                <p class="empty">
+                    No properties available for this project's ontologies.
+                </p>
             {:else if query.trim()}
                 <!-- Filtered results -->
                 {#if filteredProperties.length === 0}
                     <div class="no-results">
-                        <p>No properties matching <strong>"{query}"</strong>.</p>
+                        <p>
+                            No properties matching <strong>"{query}"</strong>.
+                        </p>
                         <button class="propose-link" onclick={openPropose}>
                             <i class="ph ph-plus-circle"></i>
                             Propose "{query}" as a new property
@@ -219,20 +235,38 @@
                 {:else}
                     <ul class="property-list">
                         {#each filteredProperties as prop (prop.curie)}
-                            {@const isRecent = annotationState.recentPredicates.includes(prop.curie)}
+                            {@const isRecent =
+                                annotationState.recentPredicates.includes(
+                                    prop.curie,
+                                )}
                             <li>
                                 <label class="property-option">
-                                    <input type="radio" name="relation-property" value={prop.curie} bind:group={selectedCurie} />
-                                    <span class="property-label">{prop.label}</span>
-                                    <span class="property-curie">{prop.curie}</span>
+                                    <input
+                                        type="radio"
+                                        name="relation-property"
+                                        value={prop.curie}
+                                        bind:group={selectedCurie}
+                                    />
+                                    <span class="property-label"
+                                        >{prop.label}</span
+                                    >
+                                    <span class="property-curie"
+                                        >{prop.curie}</span
+                                    >
                                     {#if prop.domain_curie || prop.range_curie}
                                         <span class="property-signature">
-                                            {prop.domain_curie ? kindLabel(prop.domain_curie) : "?"}
+                                            {prop.domain_curie
+                                                ? kindLabel(prop.domain_curie)
+                                                : "?"}
                                             →
-                                            {prop.range_curie ? kindLabel(prop.range_curie) : "?"}
+                                            {prop.range_curie
+                                                ? kindLabel(prop.range_curie)
+                                                : "?"}
                                         </span>
                                     {/if}
-                                    {#if isRecent}<span class="recent-badge">recent</span>{/if}
+                                    {#if isRecent}<span class="recent-badge"
+                                            >recent</span
+                                        >{/if}
                                 </label>
                             </li>
                         {/each}
@@ -245,14 +279,27 @@
                         {#each recentProperties as prop (prop.curie)}
                             <li>
                                 <label class="property-option">
-                                    <input type="radio" name="relation-property" value={prop.curie} bind:group={selectedCurie} />
-                                    <span class="property-label">{prop.label}</span>
-                                    <span class="property-curie">{prop.curie}</span>
+                                    <input
+                                        type="radio"
+                                        name="relation-property"
+                                        value={prop.curie}
+                                        bind:group={selectedCurie}
+                                    />
+                                    <span class="property-label"
+                                        >{prop.label}</span
+                                    >
+                                    <span class="property-curie"
+                                        >{prop.curie}</span
+                                    >
                                     {#if prop.domain_curie || prop.range_curie}
                                         <span class="property-signature">
-                                            {prop.domain_curie ? kindLabel(prop.domain_curie) : "?"}
+                                            {prop.domain_curie
+                                                ? kindLabel(prop.domain_curie)
+                                                : "?"}
                                             →
-                                            {prop.range_curie ? kindLabel(prop.range_curie) : "?"}
+                                            {prop.range_curie
+                                                ? kindLabel(prop.range_curie)
+                                                : "?"}
                                         </span>
                                     {/if}
                                     <span class="recent-badge">recent</span>
@@ -267,14 +314,27 @@
                         {#each remainingProperties as prop (prop.curie)}
                             <li>
                                 <label class="property-option">
-                                    <input type="radio" name="relation-property" value={prop.curie} bind:group={selectedCurie} />
-                                    <span class="property-label">{prop.label}</span>
-                                    <span class="property-curie">{prop.curie}</span>
+                                    <input
+                                        type="radio"
+                                        name="relation-property"
+                                        value={prop.curie}
+                                        bind:group={selectedCurie}
+                                    />
+                                    <span class="property-label"
+                                        >{prop.label}</span
+                                    >
+                                    <span class="property-curie"
+                                        >{prop.curie}</span
+                                    >
                                     {#if prop.domain_curie || prop.range_curie}
                                         <span class="property-signature">
-                                            {prop.domain_curie ? kindLabel(prop.domain_curie) : "?"}
+                                            {prop.domain_curie
+                                                ? kindLabel(prop.domain_curie)
+                                                : "?"}
                                             →
-                                            {prop.range_curie ? kindLabel(prop.range_curie) : "?"}
+                                            {prop.range_curie
+                                                ? kindLabel(prop.range_curie)
+                                                : "?"}
                                         </span>
                                     {/if}
                                 </label>
@@ -285,17 +345,23 @@
             {/if}
 
             {#if query.trim() === "" || filteredProperties.length > 0}
-                <button class="propose-link propose-link--subtle" onclick={openPropose}>
+                <button
+                    class="propose-link propose-link--subtle"
+                    onclick={openPropose}
+                >
                     <i class="ph ph-plus-circle"></i>
                     Propose a new property
                 </button>
             {/if}
 
             <div class="actions">
-                <button class="btn primary filled" onclick={confirm} disabled={!selectedCurie}>Confirm</button>
+                <button
+                    class="btn primary filled"
+                    onclick={confirm}
+                    disabled={!selectedCurie}>Confirm</button
+                >
                 <button class="btn secondary" onclick={close}>Cancel</button>
             </div>
-
         {:else}
             <button class="back-link" onclick={backToSelect}>
                 <i class="ph ph-arrow-left"></i> Back to search
@@ -305,7 +371,9 @@
 
             <div class="propose-form">
                 <div class="form-field">
-                    <label for="prop-label">Label <span class="required">*</span></label>
+                    <label for="prop-label"
+                        >Label <span class="required">*</span></label
+                    >
                     <input
                         id="prop-label"
                         type="text"
@@ -318,7 +386,9 @@
                 <div class="form-field">
                     <label for="prop-curie">
                         CURIE
-                        <span class="optional">(optional — auto-generated if blank)</span>
+                        <span class="optional"
+                            >(optional — auto-generated if blank)</span
+                        >
                     </label>
                     <input
                         id="prop-curie"
@@ -330,7 +400,10 @@
 
                 <div class="form-row">
                     <div class="form-field">
-                        <label for="prop-domain">Domain <span class="optional">(optional)</span></label>
+                        <label for="prop-domain"
+                            >Domain <span class="optional">(optional)</span
+                            ></label
+                        >
                         <select id="prop-domain" bind:value={proposedDomain}>
                             <option value="">Any</option>
                             {#each entityTypes as k (k.curie)}
@@ -339,7 +412,10 @@
                         </select>
                     </div>
                     <div class="form-field">
-                        <label for="prop-range">Range <span class="optional">(optional)</span></label>
+                        <label for="prop-range"
+                            >Range <span class="optional">(optional)</span
+                            ></label
+                        >
                         <select id="prop-range" bind:value={proposedRange}>
                             <option value="">Any</option>
                             {#each entityTypes as k (k.curie)}
@@ -676,5 +752,4 @@
         gap: 0.5rem;
         margin-top: 1rem;
     }
-
 </style>

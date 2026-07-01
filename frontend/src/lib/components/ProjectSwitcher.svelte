@@ -37,7 +37,8 @@
 
 <div class="switcher" class:open>
     <button class="trigger" onclick={toggle} aria-expanded={open}>
-        <span class="project-label">{currentProject?.name ?? "No project"}</span>
+        <span class="project-label">{currentProject?.name ?? "No project"}</span
+        >
         <i class="ph ph-caret-up-down chevron"></i>
     </button>
 
@@ -63,7 +64,11 @@
 
             {#if isAdmin}
                 <div class="divider"></div>
-                <a class="item new-project" href="/projects/new" onclick={() => (open = false)}>
+                <a
+                    class="item new-project"
+                    href="/projects/new"
+                    onclick={() => (open = false)}
+                >
                     <i class="ph ph-plus"></i>
                     Create new project
                 </a>

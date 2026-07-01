@@ -1,6 +1,9 @@
 <script lang="ts">
     import "$lib/styles/management.css";
-    import { computeOverallPct, type ImportStep } from "$lib/utils/importProgress";
+    import {
+        computeOverallPct,
+        type ImportStep,
+    } from "$lib/utils/importProgress";
 
     export interface ImportedResult {
         ontology_id: number;
@@ -56,8 +59,10 @@
                     let eventType = "message";
                     let dataLine = "";
                     for (const line of message.split("\n")) {
-                        if (line.startsWith("event: ")) eventType = line.slice(7).trim();
-                        if (line.startsWith("data: ")) dataLine = line.slice(6).trim();
+                        if (line.startsWith("event: "))
+                            eventType = line.slice(7).trim();
+                        if (line.startsWith("data: "))
+                            dataLine = line.slice(6).trim();
                     }
                     if (dataLine) yield { event: eventType, data: dataLine };
                 }
@@ -93,18 +98,37 @@
         const form = new FormData();
         form.append("file", f, f.name);
         try {
-            const res = await fetch("/api/admin/ontology/peek", { method: "POST", body: form });
+            const res = await fetch("/api/admin/ontology/peek", {
+                method: "POST",
+                body: form,
+            });
             if (mySeq !== peekSeq) return;
             if (!res.ok) return;
-            const meta: { name: string | null; prefix: string | null; base_iri: string | null; version: string | null } =
-                await res.json();
+            const meta: {
+                name: string | null;
+                prefix: string | null;
+                base_iri: string | null;
+                version: string | null;
+            } = await res.json();
             // Re-check after the json() await: a newer file may have been selected
             // while the body was being read, which would make this response stale.
             if (mySeq !== peekSeq) return;
-            if (meta.name && (!name || autoFilled.has("name"))) { name = meta.name; autoFilled.add("name"); }
-            if (meta.prefix && (!prefix || autoFilled.has("prefix"))) { prefix = meta.prefix; autoFilled.add("prefix"); }
-            if (meta.version && (!version || autoFilled.has("version"))) { version = meta.version; autoFilled.add("version"); }
-            if (meta.base_iri && (!baseIri || autoFilled.has("baseIri"))) { baseIri = meta.base_iri; autoFilled.add("baseIri"); }
+            if (meta.name && (!name || autoFilled.has("name"))) {
+                name = meta.name;
+                autoFilled.add("name");
+            }
+            if (meta.prefix && (!prefix || autoFilled.has("prefix"))) {
+                prefix = meta.prefix;
+                autoFilled.add("prefix");
+            }
+            if (meta.version && (!version || autoFilled.has("version"))) {
+                version = meta.version;
+                autoFilled.add("version");
+            }
+            if (meta.base_iri && (!baseIri || autoFilled.has("baseIri"))) {
+                baseIri = meta.base_iri;
+                autoFilled.add("baseIri");
+            }
         } catch {
             // best-effort; form still works without it
         }
@@ -139,13 +163,23 @@
         form.append("base_iri", baseIri);
         if (version) form.append("version", version);
 
-        const snapshot = { name, prefix, uri: baseIri || null, version: version || null };
+        const snapshot = {
+            name,
+            prefix,
+            uri: baseIri || null,
+            version: version || null,
+        };
 
         try {
-            const res = await fetch("/api/admin/ontology", { method: "POST", body: form });
+            const res = await fetch("/api/admin/ontology", {
+                method: "POST",
+                body: form,
+            });
 
             if (!res.ok || !res.body) {
-                const detail = await res.json().catch(() => ({ detail: res.statusText }));
+                const detail = await res
+                    .json()
+                    .catch(() => ({ detail: res.statusText }));
                 errorMessage = detail.detail ?? res.statusText;
                 importSteps = [];
                 return;
@@ -153,7 +187,11 @@
 
             for await (const { event, data } of readSSE(res.body)) {
                 if (event === "progress") {
-                    const p = JSON.parse(data) as { step: string; loaded: number; total: number };
+                    const p = JSON.parse(data) as {
+                        step: string;
+                        loaded: number;
+                        total: number;
+                    };
                     importSteps = importSteps.map((s) => {
                         if (s.step === p.step) {
                             const done = p.loaded >= p.total && p.total > 0;
@@ -165,8 +203,12 @@
                         }
                         if (
                             s.status === "active" &&
-                            STEP_ORDER.indexOf(s.step as (typeof STEP_ORDER)[number]) <
-                                STEP_ORDER.indexOf(p.step as (typeof STEP_ORDER)[number])
+                            STEP_ORDER.indexOf(
+                                s.step as (typeof STEP_ORDER)[number],
+                            ) <
+                                STEP_ORDER.indexOf(
+                                    p.step as (typeof STEP_ORDER)[number],
+                                )
                         ) {
                             return { ...s, status: "done" };
                         }
@@ -180,7 +222,10 @@
                         properties: number;
                     };
                     result = { ...raw, ...snapshot };
-                    importSteps = importSteps.map((s) => ({ ...s, status: "done" }));
+                    importSteps = importSteps.map((s) => ({
+                        ...s,
+                        status: "done",
+                    }));
                     await onimported?.(result);
                     file = null;
                     name = "";
@@ -226,7 +271,9 @@
                 type="file"
                 accept=".owl,.rdf,.ttl,.nt,.n3,.jsonld,.xml"
                 onchange={(e) => {
-                    const newFile = (e.currentTarget as HTMLInputElement).files?.[0] ?? null;
+                    const newFile =
+                        (e.currentTarget as HTMLInputElement).files?.[0] ??
+                        null;
                     if (newFile) {
                         if (autoFilled.has("name")) name = "";
                         if (autoFilled.has("prefix")) prefix = "";
@@ -234,7 +281,10 @@
                         if (autoFilled.has("version")) version = "";
                         autoFilled.clear();
                         file = newFile;
-                        if (!name) { name = file.name.replace(/\.[^.]+$/, ""); autoFilled.add("name"); }
+                        if (!name) {
+                            name = file.name.replace(/\.[^.]+$/, "");
+                            autoFilled.add("name");
+                        }
                         peekFile(file);
                     } else {
                         file = null;
@@ -256,7 +306,9 @@
                 type="text"
                 class="form-control small"
                 bind:value={name}
-                oninput={() => { autoFilled.delete("name"); }}
+                oninput={() => {
+                    autoFilled.delete("name");
+                }}
                 placeholder="NCBI Taxonomy"
                 required
             />
@@ -268,7 +320,9 @@
                 type="text"
                 class="form-control small"
                 bind:value={prefix}
-                oninput={() => { autoFilled.delete("prefix"); }}
+                oninput={() => {
+                    autoFilled.delete("prefix");
+                }}
                 placeholder="NCBITaxon"
                 required
             />
@@ -276,27 +330,35 @@
     </div>
 
     <div class="field">
-        <label for="onto-version">Version <span class="optional">(optional)</span></label>
+        <label for="onto-version"
+            >Version <span class="optional">(optional)</span></label
+        >
         <input
             id="onto-version"
             type="text"
             class="form-control small"
             bind:value={version}
-            oninput={() => { autoFilled.delete("version"); }}
+            oninput={() => {
+                autoFilled.delete("version");
+            }}
             placeholder="2024-01-01"
         />
     </div>
 
     <div class="field">
         <label for="base-iri">
-            Base IRI <span class="optional">(leave empty for OBO Foundry ontologies)</span>
+            Base IRI <span class="optional"
+                >(leave empty for OBO Foundry ontologies)</span
+            >
         </label>
         <input
             id="base-iri"
             type="text"
             class="form-control small"
             bind:value={baseIri}
-            oninput={() => { autoFilled.delete("baseIri"); }}
+            oninput={() => {
+                autoFilled.delete("baseIri");
+            }}
             placeholder="https://example.org/ontology/"
         />
     </div>
@@ -334,13 +396,16 @@
         <p class="success">
             Imported {result.entities.toLocaleString()} entities,
             {result.triples.toLocaleString()} triples, and
-            {result.properties.toLocaleString()} properties
-            (ontology #{result.ontology_id}).
+            {result.properties.toLocaleString()} properties (ontology #{result.ontology_id}).
         </p>
     {/if}
 
     <div class="actions">
-        <button type="submit" class="btn primary filled" disabled={submitting || !file}>
+        <button
+            type="submit"
+            class="btn primary filled"
+            disabled={submitting || !file}
+        >
             {submitting ? "Importing…" : submitLabel}
         </button>
     </div>

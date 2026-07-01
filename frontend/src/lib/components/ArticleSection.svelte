@@ -34,7 +34,10 @@
      * Computes the plain-text offset of range.startContainer within the container,
      * using the same text-node walk as createRangeFromOffsets.
      */
-    function rangeToOffset(range: Range, containerElement: HTMLElement): number {
+    function rangeToOffset(
+        range: Range,
+        containerElement: HTMLElement,
+    ): number {
         const walker = containerElement.ownerDocument.createTreeWalker(
             containerElement,
             NodeFilter.SHOW_TEXT,
@@ -73,7 +76,13 @@
 
         const { start: sentenceStart } = extractSentence(plainText, offset);
 
-        editorStateCtx.value = { mode: "create", offset, length, sentenceStart, field };
+        editorStateCtx.value = {
+            mode: "create",
+            offset,
+            length,
+            sentenceStart,
+            field,
+        };
         window.getSelection()?.removeAllRanges();
     }
 </script>

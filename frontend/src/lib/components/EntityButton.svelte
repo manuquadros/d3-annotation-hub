@@ -28,7 +28,7 @@
     const textColor = $derived(getContrastColor(labelColor));
 
     function openEditor() {
-        editorStateCtx.value = { mode: 'edit-entity', entityId };
+        editorStateCtx.value = { mode: "edit-entity", entityId };
     }
 
     function handleDragStart(event: DragEvent) {
@@ -75,26 +75,39 @@
         let updatedPointers = annotationState.pointers;
         annotationState.pointers.forEach((pointer, key) => {
             if (pointer.entity_id === sourceEntityId) {
-                updatedPointers = updatedPointers.set(key, { ...pointer, entity_id: entityId });
+                updatedPointers = updatedPointers.set(key, {
+                    ...pointer,
+                    entity_id: entityId,
+                });
             }
         });
         annotationState.pointers = updatedPointers;
 
         let updatedRelations = annotationState.relations;
         annotationState.relations.forEach((relation) => {
-            if (relation.subject === sourceEntityId || relation.object === sourceEntityId) {
+            if (
+                relation.subject === sourceEntityId ||
+                relation.object === sourceEntityId
+            ) {
                 updatedRelations = updatedRelations.delete(relation);
                 updatedRelations = updatedRelations.add(
                     createRelation({
-                        subject: relation.subject === sourceEntityId ? entityId : relation.subject,
+                        subject:
+                            relation.subject === sourceEntityId
+                                ? entityId
+                                : relation.subject,
                         predicate: relation.predicate,
-                        object: relation.object === sourceEntityId ? entityId : relation.object,
+                        object:
+                            relation.object === sourceEntityId
+                                ? entityId
+                                : relation.object,
                     }),
                 );
             }
         });
         annotationState.relations = updatedRelations;
-        annotationState.entities = annotationState.entities.delete(sourceEntityId);
+        annotationState.entities =
+            annotationState.entities.delete(sourceEntityId);
     }
 </script>
 
@@ -156,7 +169,13 @@
     }
 
     @keyframes pulse {
-        0%, 100% { opacity: 1; }
-        50% { opacity: 0.6; transform: scale(1.02); }
+        0%,
+        100% {
+            opacity: 1;
+        }
+        50% {
+            opacity: 0.6;
+            transform: scale(1.02);
+        }
     }
 </style>

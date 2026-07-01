@@ -23,7 +23,9 @@
                 }),
             });
             if (!res.ok) {
-                const d = await res.json().catch(() => ({ detail: res.statusText }));
+                const d = await res
+                    .json()
+                    .catch(() => ({ detail: res.statusText }));
                 errorMessage = d.detail ?? res.statusText;
             } else {
                 const created = await res.json();
@@ -69,7 +71,9 @@
             </div>
 
             <div class="field field-narrow">
-                <label for="proj-annotators">Required annotators per document</label>
+                <label for="proj-annotators"
+                    >Required annotators per document</label
+                >
                 <input
                     id="proj-annotators"
                     type="number"
@@ -83,7 +87,11 @@
             {/if}
 
             <div class="actions">
-                <button type="submit" class="btn primary filled" disabled={submitting}>
+                <button
+                    type="submit"
+                    class="btn primary filled"
+                    disabled={submitting}
+                >
                     {submitting ? "Creating…" : "Create project"}
                 </button>
                 <a href="/admin" class="btn secondary">Cancel</a>
@@ -158,5 +166,4 @@
         align-items: center;
         margin-top: 1.5rem;
     }
-
 </style>

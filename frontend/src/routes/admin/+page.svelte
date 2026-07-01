@@ -48,17 +48,28 @@
     }
 
     async function setCanManage(u: UserRecord, can_manage: boolean) {
-        const res = await fetch(`/api/admin/users/${encodeURIComponent(u.email)}/permissions`, {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ is_super_user: u.is_super_user, can_manage }),
-        });
+        const res = await fetch(
+            `/api/admin/users/${encodeURIComponent(u.email)}/permissions`,
+            {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    is_super_user: u.is_super_user,
+                    can_manage,
+                }),
+            },
+        );
         if (res.ok) {
-            allUsers = allUsers.map((x) => (x.user_id === u.user_id ? { ...x, can_manage } : x));
+            allUsers = allUsers.map((x) =>
+                x.user_id === u.user_id ? { ...x, can_manage } : x,
+            );
         }
     }
 
-    let confirmAction = $state<{ userId: string; kind: "remove-manager" | "remove-user" } | null>(null);
+    let confirmAction = $state<{
+        userId: string;
+        kind: "remove-manager" | "remove-user";
+    } | null>(null);
 
     async function fetchPassphrase(): Promise<string> {
         const res = await fetch("/api/admin/passphrase-suggestion");
@@ -70,13 +81,17 @@
     let newUserPassphrase = $state("");
     let addUserPending = $state(false);
     let addUserError = $state<string | null>(null);
-    let addUserCreated = $state<{ email: string; passphrase: string } | null>(null);
+    let addUserCreated = $state<{ email: string; passphrase: string } | null>(
+        null,
+    );
     let passphraseNoticeCopied = $state(false);
 
     function copyPassphrase(text: string) {
         navigator.clipboard.writeText(text).then(() => {
             passphraseNoticeCopied = true;
-            setTimeout(() => { passphraseNoticeCopied = false; }, 2000);
+            setTimeout(() => {
+                passphraseNoticeCopied = false;
+            }, 2000);
         });
     }
 
@@ -114,16 +129,24 @@
             const res = await fetch("/api/admin/users", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ email: newUserEmail, password: newUserPassphrase }),
+                body: JSON.stringify({
+                    email: newUserEmail,
+                    password: newUserPassphrase,
+                }),
             });
             if (!res.ok) {
-                const d = await res.json().catch(() => ({ detail: res.statusText }));
+                const d = await res
+                    .json()
+                    .catch(() => ({ detail: res.statusText }));
                 addUserError = d.detail ?? res.statusText;
                 return;
             }
             const created: UserRecord = await res.json();
             allUsers = [...allUsers, created];
-            addUserCreated = { email: created.email, passphrase: newUserPassphrase };
+            addUserCreated = {
+                email: created.email,
+                passphrase: newUserPassphrase,
+            };
             showAddUser = false;
         } finally {
             addUserPending = false;
@@ -172,16 +195,24 @@
             const res = await fetch(`/api/projects/${projectId}/members`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ email: addMemberEmail, role: addMemberRole }),
+                body: JSON.stringify({
+                    email: addMemberEmail,
+                    role: addMemberRole,
+                }),
             });
             if (!res.ok) {
-                const d = await res.json().catch(() => ({ detail: res.statusText }));
+                const d = await res
+                    .json()
+                    .catch(() => ({ detail: res.statusText }));
                 addMemberError = d.detail ?? res.statusText;
             } else {
                 const member = await res.json();
-                if (member.generated_password) generatedPassword = member.generated_password;
+                if (member.generated_password)
+                    generatedPassword = member.generated_password;
                 const existing = projectMembers[projectId] ?? [];
-                const idx = existing.findIndex((m) => m.user_id === member.user_id);
+                const idx = existing.findIndex(
+                    (m) => m.user_id === member.user_id,
+                );
                 if (idx >= 0) {
                     projectMembers[projectId] = existing.map((m, i) =>
                         i === idx ? { ...m, roles: member.roles } : m,
@@ -189,7 +220,11 @@
                 } else {
                     projectMembers[projectId] = [
                         ...existing,
-                        { user_id: member.user_id, email: member.email, roles: member.roles },
+                        {
+                            user_id: member.user_id,
+                            email: member.email,
+                            roles: member.roles,
+                        },
                     ];
                 }
                 addMemberEmail = "";
@@ -199,7 +234,11 @@
         }
     }
 
-    async function handleRemoveMember(projectId: number, userId: string, role: string) {
+    async function handleRemoveMember(
+        projectId: number,
+        userId: string,
+        role: string,
+    ) {
         const res = await fetch(
             `/api/projects/${projectId}/members/${userId}/${role}`,
             { method: "DELETE" },
@@ -231,7 +270,6 @@
         }
     }
 
-
     async function handleImported(_result: ImportedResult) {
         const listRes = await fetch("/api/admin/ontology");
         if (listRes.ok) ontologies = await listRes.json();
@@ -251,7 +289,8 @@
             );
             if (!res.ok) return;
             const data = await res.json();
-            entities = offset === 0 ? data.entities : [...entities, ...data.entities];
+            entities =
+                offset === 0 ? data.entities : [...entities, ...data.entities];
             entityTotal = data.total;
             entityOffset = offset + data.entities.length;
         } finally {
@@ -279,9 +318,13 @@
         kind: string;
     }
 
-    let proposedEntities = $state<ProposedEntity[]>(untrack(() => data.proposedEntities ?? []));
+    let proposedEntities = $state<ProposedEntity[]>(
+        untrack(() => data.proposedEntities ?? []),
+    );
     let proposedTotal = $state<number>(untrack(() => data.proposedTotal ?? 0));
-    let proposedOffset = $state(untrack(() => (data.proposedEntities ?? []).length));
+    let proposedOffset = $state(
+        untrack(() => (data.proposedEntities ?? []).length),
+    );
     let proposedLoading = $state(false);
 
     async function loadMoreProposed() {
@@ -310,7 +353,9 @@
                 { method: "POST" },
             );
             if (res.ok) {
-                proposedEntities = proposedEntities.filter((e) => e.entity_id !== curie);
+                proposedEntities = proposedEntities.filter(
+                    (e) => e.entity_id !== curie,
+                );
                 proposedTotal = Math.max(0, proposedTotal - 1);
                 proposedOffset = Math.max(0, proposedOffset - 1);
             }
@@ -322,11 +367,16 @@
     async function handleReject(curie: string) {
         actionPending = curie;
         try {
-            const res = await fetch(`/api/admin/proposed/${encodeURIComponent(curie)}`, {
-                method: "DELETE",
-            });
+            const res = await fetch(
+                `/api/admin/proposed/${encodeURIComponent(curie)}`,
+                {
+                    method: "DELETE",
+                },
+            );
             if (res.ok) {
-                proposedEntities = proposedEntities.filter((e) => e.entity_id !== curie);
+                proposedEntities = proposedEntities.filter(
+                    (e) => e.entity_id !== curie,
+                );
                 proposedTotal = Math.max(0, proposedTotal - 1);
                 proposedOffset = Math.max(0, proposedOffset - 1);
                 confirmRejectId = null;
@@ -337,11 +387,14 @@
     }
 
     async function renameProposedCurie(oldCurie: string, newCurie: string) {
-        const res = await fetch(`/api/admin/proposed/${encodeURIComponent(oldCurie)}`, {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ new_curie: newCurie }),
-        });
+        const res = await fetch(
+            `/api/admin/proposed/${encodeURIComponent(oldCurie)}`,
+            {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ new_curie: newCurie }),
+            },
+        );
         if (!res.ok) {
             const body = await res.json().catch(() => ({}));
             throw new Error(body.detail ?? res.statusText);
@@ -352,16 +405,18 @@
     }
 
     let ftsRebuilding = $state(false);
-    let ftsRebuildStatus = $state<'idle' | 'ok' | 'error'>('idle');
+    let ftsRebuildStatus = $state<"idle" | "ok" | "error">("idle");
 
     async function handleRebuildFts() {
         ftsRebuilding = true;
-        ftsRebuildStatus = 'idle';
+        ftsRebuildStatus = "idle";
         try {
-            const res = await fetch('/api/admin/fts-rebuild', { method: 'POST' });
-            ftsRebuildStatus = res.ok ? 'ok' : 'error';
+            const res = await fetch("/api/admin/fts-rebuild", {
+                method: "POST",
+            });
+            ftsRebuildStatus = res.ok ? "ok" : "error";
         } catch {
-            ftsRebuildStatus = 'error';
+            ftsRebuildStatus = "error";
         } finally {
             ftsRebuilding = false;
         }
@@ -373,7 +428,9 @@
     async function handleDeleteProject(projectId: number) {
         deletingProjectId = projectId;
         try {
-            const res = await fetch(`/api/projects/${projectId}`, { method: "DELETE" });
+            const res = await fetch(`/api/projects/${projectId}`, {
+                method: "DELETE",
+            });
             if (res.ok) {
                 projects = projects.filter((p) => p.project_id !== projectId);
                 if (expandedProjectId === projectId) expandedProjectId = null;
@@ -396,14 +453,18 @@
                 method: "DELETE",
             });
             if (res.ok) {
-                ontologies = ontologies.filter((o) => o.ontology_id !== ontologyId);
+                ontologies = ontologies.filter(
+                    (o) => o.ontology_id !== ontologyId,
+                );
                 if (viewingId === ontologyId) {
                     viewingId = null;
                     entities = [];
                 }
                 confirmDeleteId = null;
             } else {
-                const body = await res.json().catch(() => ({ detail: res.statusText }));
+                const body = await res
+                    .json()
+                    .catch(() => ({ detail: res.statusText }));
                 deleteError = body.detail ?? res.statusText;
             }
         } catch (err) {
@@ -437,35 +498,55 @@
                 </thead>
                 <tbody>
                     {#each projects as project (project.project_id)}
-                        <tr class:expanded={expandedProjectId === project.project_id}>
+                        <tr
+                            class:expanded={expandedProjectId ===
+                                project.project_id}
+                        >
                             <td><strong>{project.name}</strong></td>
                             <td class="muted">{project.description ?? "—"}</td>
                             <td>{project.required_annotators}</td>
                             <td class="actions-cell">
                                 <button
                                     class="btn small muted"
-                                    onclick={() => toggleProject(project.project_id)}
+                                    onclick={() =>
+                                        toggleProject(project.project_id)}
                                 >
-                                    {expandedProjectId === project.project_id ? "Hide" : "Manage"}
+                                    {expandedProjectId === project.project_id
+                                        ? "Hide"
+                                        : "Manage"}
                                 </button>
                                 {#if confirmDeleteProjectId === project.project_id}
-                                    <span class="confirm-prompt">Delete project?</span>
+                                    <span class="confirm-prompt"
+                                        >Delete project?</span
+                                    >
                                     <button
                                         class="btn small danger filled"
-                                        disabled={deletingProjectId === project.project_id}
-                                        onclick={() => handleDeleteProject(project.project_id)}
+                                        disabled={deletingProjectId ===
+                                            project.project_id}
+                                        onclick={() =>
+                                            handleDeleteProject(
+                                                project.project_id,
+                                            )}
                                     >
-                                        {deletingProjectId === project.project_id ? "…" : "Yes"}
+                                        {deletingProjectId ===
+                                        project.project_id
+                                            ? "…"
+                                            : "Yes"}
                                     </button>
                                     <button
                                         class="btn small muted"
-                                        onclick={() => (confirmDeleteProjectId = null)}
-                                    >Cancel</button>
+                                        onclick={() =>
+                                            (confirmDeleteProjectId = null)}
+                                        >Cancel</button
+                                    >
                                 {:else}
                                     <button
                                         class="btn small danger"
-                                        onclick={() => (confirmDeleteProjectId = project.project_id)}
-                                    >Remove</button>
+                                        onclick={() =>
+                                            (confirmDeleteProjectId =
+                                                project.project_id)}
+                                        >Remove</button
+                                    >
                                 {/if}
                             </td>
                         </tr>
@@ -474,13 +555,14 @@
                             <tr class="project-panel-row">
                                 <td colspan="4">
                                     <div class="project-panel">
-
                                         <div class="panel-section">
                                             <p class="panel-title">Members</p>
                                             {#if membersLoading}
                                                 <p class="muted">Loading…</p>
                                             {:else if (projectMembers[project.project_id] ?? []).length === 0}
-                                                <p class="empty">No members yet.</p>
+                                                <p class="empty">
+                                                    No members yet.
+                                                </p>
                                             {:else}
                                                 <table class="inner-table">
                                                     <thead>
@@ -493,13 +575,20 @@
                                                     <tbody>
                                                         {#each projectMembers[project.project_id] as member (member.user_id)}
                                                             <tr>
-                                                                <td>{member.email}</td>
+                                                                <td
+                                                                    >{member.email}</td
+                                                                >
                                                                 <td>
                                                                     {#each member.roles as role (role)}
-                                                                        <span class="role-badge">{role}</span>
+                                                                        <span
+                                                                            class="role-badge"
+                                                                            >{role}</span
+                                                                        >
                                                                     {/each}
                                                                 </td>
-                                                                <td class="actions-cell">
+                                                                <td
+                                                                    class="actions-cell"
+                                                                >
                                                                     {#each member.roles as role (role)}
                                                                         <button
                                                                             class="btn small danger"
@@ -510,7 +599,8 @@
                                                                                     role,
                                                                                 )}
                                                                         >
-                                                                            Remove {role}
+                                                                            Remove
+                                                                            {role}
                                                                         </button>
                                                                     {/each}
                                                                 </td>
@@ -524,7 +614,9 @@
                                                 class="inline-form"
                                                 onsubmit={(e) => {
                                                     e.preventDefault();
-                                                    handleAddMember(project.project_id);
+                                                    handleAddMember(
+                                                        project.project_id,
+                                                    );
                                                 }}
                                             >
                                                 <input
@@ -533,9 +625,15 @@
                                                     placeholder="user@example.com"
                                                     required
                                                 />
-                                                <select bind:value={addMemberRole}>
-                                                    <option value="annotator">Annotator</option>
-                                                    <option value="curator">Curator</option>
+                                                <select
+                                                    bind:value={addMemberRole}
+                                                >
+                                                    <option value="annotator"
+                                                        >Annotator</option
+                                                    >
+                                                    <option value="curator"
+                                                        >Curator</option
+                                                    >
                                                     <option value="manager"
                                                         >Project manager</option
                                                     >
@@ -545,33 +643,51 @@
                                                     class="btn small muted"
                                                     disabled={addMemberPending}
                                                 >
-                                                    {addMemberPending ? "…" : "Add"}
+                                                    {addMemberPending
+                                                        ? "…"
+                                                        : "Add"}
                                                 </button>
                                             </form>
                                             {#if addMemberError}
-                                                <p class="error">{addMemberError}</p>
+                                                <p class="error">
+                                                    {addMemberError}
+                                                </p>
                                             {/if}
                                             {#if generatedPassword}
                                                 <div class="password-notice">
-                                                    <strong>New user created.</strong> Share this
-                                                    one-time password with them:
-                                                    <code class="password">{generatedPassword}</code>
+                                                    <strong
+                                                        >New user created.</strong
+                                                    >
+                                                    Share this one-time password with
+                                                    them:
+                                                    <code class="password"
+                                                        >{generatedPassword}</code
+                                                    >
                                                 </div>
                                             {/if}
                                         </div>
 
                                         {#if data.isSuperuser && ontologies.length > 0}
                                             <div class="panel-section">
-                                                <p class="panel-title">Assign ontology</p>
+                                                <p class="panel-title">
+                                                    Assign ontology
+                                                </p>
                                                 <div class="inline-form">
                                                     <select
-                                                        bind:value={assignOntologyId[
-                                                            project.project_id
-                                                        ]}
+                                                        bind:value={
+                                                            assignOntologyId[
+                                                                project
+                                                                    .project_id
+                                                            ]
+                                                        }
                                                     >
-                                                        <option value={null}>Select…</option>
+                                                        <option value={null}
+                                                            >Select…</option
+                                                        >
                                                         {#each ontologies as onto (onto.ontology_id)}
-                                                            <option value={onto.ontology_id}>
+                                                            <option
+                                                                value={onto.ontology_id}
+                                                            >
                                                                 {onto.prefix} — {onto.name}
                                                             </option>
                                                         {/each}
@@ -584,9 +700,12 @@
                                                             assignOntologyPending ===
                                                                 project.project_id}
                                                         onclick={() =>
-                                                            handleAssignOntology(project.project_id)}
+                                                            handleAssignOntology(
+                                                                project.project_id,
+                                                            )}
                                                     >
-                                                        {assignOntologyPending === project.project_id
+                                                        {assignOntologyPending ===
+                                                        project.project_id
                                                             ? "…"
                                                             : "Assign"}
                                                     </button>
@@ -607,15 +726,18 @@
         <section class="card">
             <div class="section-header">
                 <h2>User Management</h2>
-                <button class="btn small muted" onclick={async () => {
-                    showAddUser = !showAddUser;
-                    addUserError = null;
-                    addUserCreated = null;
-                    if (showAddUser) {
-                        newUserEmail = "";
-                        newUserPassphrase = await fetchPassphrase();
-                    }
-                }}>
+                <button
+                    class="btn small muted"
+                    onclick={async () => {
+                        showAddUser = !showAddUser;
+                        addUserError = null;
+                        addUserCreated = null;
+                        if (showAddUser) {
+                            newUserEmail = "";
+                            newUserPassphrase = await fetchPassphrase();
+                        }
+                    }}
+                >
                     {showAddUser ? "Cancel" : "+ Add user"}
                 </button>
             </div>
@@ -623,14 +745,17 @@
             {#if addUserCreated}
                 <div class="password-notice">
                     <strong>User created.</strong> Share this passphrase with
-                    <em>{addUserCreated.email}</em> — it will not be shown again:
+                    <em>{addUserCreated.email}</em> — it will not be shown
+                    again:
                     <div class="passphrase-row">
-                        <code class="password">{addUserCreated.passphrase}</code>
+                        <code class="password">{addUserCreated.passphrase}</code
+                        >
                         <button
                             type="button"
                             class="btn small muted"
                             title="Copy passphrase"
-                            onclick={() => copyPassphrase(addUserCreated!.passphrase)}
+                            onclick={() =>
+                                copyPassphrase(addUserCreated!.passphrase)}
                         >
                             {#if passphraseNoticeCopied}
                                 <i class="ph ph-check"></i>
@@ -670,7 +795,9 @@
                                 class="btn small muted"
                                 title="Generate new passphrase"
                                 disabled={addUserPending}
-                                onclick={async () => (newUserPassphrase = await fetchPassphrase())}
+                                onclick={async () =>
+                                    (newUserPassphrase =
+                                        await fetchPassphrase())}
                             >
                                 <i class="ph ph-arrows-clockwise"></i>
                             </button>
@@ -679,7 +806,11 @@
                     {#if addUserError}
                         <p class="error">{addUserError}</p>
                     {/if}
-                    <button type="submit" class="btn primary filled" disabled={addUserPending}>
+                    <button
+                        type="submit"
+                        class="btn primary filled"
+                        disabled={addUserPending}
+                    >
                         {addUserPending ? "Creating…" : "Create user"}
                     </button>
                 </form>
@@ -701,62 +832,88 @@
                             <tr class:disabled-row={u.disabled}>
                                 <td>{u.email}</td>
                                 <td>
-                                    <span class="role-badge">{userRoleLabel(u)}</span>
+                                    <span class="role-badge"
+                                        >{userRoleLabel(u)}</span
+                                    >
                                     {#if u.disabled}
-                                        <span class="role-badge disabled-badge">Disabled</span>
+                                        <span class="role-badge disabled-badge"
+                                            >Disabled</span
+                                        >
                                     {/if}
                                 </td>
                                 <td class="actions-cell">
                                     {#if !u.can_manage && !u.is_super_user && !u.disabled}
                                         <button
                                             class="btn small muted"
-                                            onclick={() => setCanManage(u, true)}
+                                            onclick={() =>
+                                                setCanManage(u, true)}
                                         >
                                             Make project manager
                                         </button>
                                     {/if}
                                     {#if u.can_manage && !u.is_super_user && !u.disabled}
                                         {#if confirmAction?.userId === u.user_id && confirmAction.kind === "remove-manager"}
-                                            <span class="confirm-prompt">Remove manager?</span>
+                                            <span class="confirm-prompt"
+                                                >Remove manager?</span
+                                            >
                                             <button
                                                 class="btn small danger filled"
                                                 onclick={() => {
                                                     setCanManage(u, false);
                                                     confirmAction = null;
-                                                }}
-                                            >Yes</button>
+                                                }}>Yes</button
+                                            >
                                             <button
                                                 class="btn small muted"
-                                                onclick={() => (confirmAction = null)}
-                                            >Cancel</button>
+                                                onclick={() =>
+                                                    (confirmAction = null)}
+                                                >Cancel</button
+                                            >
                                         {:else}
                                             <button
                                                 class="btn small danger"
-                                                onclick={() => (confirmAction = { userId: u.user_id, kind: "remove-manager" })}
+                                                onclick={() =>
+                                                    (confirmAction = {
+                                                        userId: u.user_id,
+                                                        kind: "remove-manager",
+                                                    })}
                                             >
                                                 Remove project manager
                                             </button>
                                         {/if}
                                     {/if}
                                     {#if !u.disabled}
-                                        <span style="margin-left: auto; display: flex; gap: 0.4rem; align-items: center;">
+                                        <span
+                                            style="margin-left: auto; display: flex; gap: 0.4rem; align-items: center;"
+                                        >
                                             {#if confirmAction?.userId === u.user_id && confirmAction.kind === "remove-user"}
-                                                <span class="confirm-prompt">Remove?</span>
+                                                <span class="confirm-prompt"
+                                                    >Remove?</span
+                                                >
                                                 <button
                                                     class="btn small danger filled"
                                                     disabled={removeUserPending}
-                                                    onclick={() => handleRemoveUser(u)}
+                                                    onclick={() =>
+                                                        handleRemoveUser(u)}
                                                 >
-                                                    {removeUserPending ? "…" : "Yes"}
+                                                    {removeUserPending
+                                                        ? "…"
+                                                        : "Yes"}
                                                 </button>
                                                 <button
                                                     class="btn small muted"
-                                                    onclick={() => (confirmAction = null)}
-                                                >Cancel</button>
+                                                    onclick={() =>
+                                                        (confirmAction = null)}
+                                                    >Cancel</button
+                                                >
                                             {:else}
                                                 <button
                                                     class="btn small danger"
-                                                    onclick={() => (confirmAction = { userId: u.user_id, kind: "remove-user" })}
+                                                    onclick={() =>
+                                                        (confirmAction = {
+                                                            userId: u.user_id,
+                                                            kind: "remove-user",
+                                                        })}
                                                 >
                                                     Remove
                                                 </button>
@@ -801,40 +958,52 @@
                                 <td class="actions-cell">
                                     {#if confirmDeleteId === onto.ontology_id}
                                         {#if deleteError}
-                                            <span class="delete-error">{deleteError}</span>
+                                            <span class="delete-error"
+                                                >{deleteError}</span
+                                            >
                                             <button
                                                 class="btn small muted"
                                                 onclick={() => {
                                                     confirmDeleteId = null;
                                                     deleteError = null;
-                                                }}
-                                                >Dismiss</button
+                                                }}>Dismiss</button
                                             >
                                         {:else}
-                                            <span class="confirm-prompt">Remove?</span>
+                                            <span class="confirm-prompt"
+                                                >Remove?</span
+                                            >
                                             <button
                                                 class="btn small danger filled"
                                                 disabled={deleting}
-                                                onclick={() => handleDelete(onto.ontology_id)}
+                                                onclick={() =>
+                                                    handleDelete(
+                                                        onto.ontology_id,
+                                                    )}
                                             >
                                                 {deleting ? "…" : "Yes"}
                                             </button>
                                             <button
                                                 class="btn small muted"
-                                                onclick={() => (confirmDeleteId = null)}
+                                                onclick={() =>
+                                                    (confirmDeleteId = null)}
                                                 >Cancel</button
                                             >
                                         {/if}
                                     {:else}
                                         <button
                                             class="btn small muted"
-                                            onclick={() => toggleView(onto.ontology_id)}
+                                            onclick={() =>
+                                                toggleView(onto.ontology_id)}
                                         >
-                                            {viewingId === onto.ontology_id ? "Hide" : "View"}
+                                            {viewingId === onto.ontology_id
+                                                ? "Hide"
+                                                : "View"}
                                         </button>
                                         <button
                                             class="btn small danger"
-                                            onclick={() => (confirmDeleteId = onto.ontology_id)}
+                                            onclick={() =>
+                                                (confirmDeleteId =
+                                                    onto.ontology_id)}
                                             >Remove</button
                                         >
                                     {/if}
@@ -847,7 +1016,8 @@
                                         <div class="entity-panel">
                                             <p class="entity-panel-header">
                                                 {onto.name} —
-                                                {entityLoading && entities.length === 0
+                                                {entityLoading &&
+                                                entities.length === 0
                                                     ? "loading…"
                                                     : `${entityTotal.toLocaleString()} entities`}
                                             </p>
@@ -863,10 +1033,17 @@
                                                     <tbody>
                                                         {#each entities as e (e.entity_id)}
                                                             <tr>
-                                                                <td><code>{e.entity_id}</code></td>
-                                                                <td>{e.preferred_name}</td>
+                                                                <td
+                                                                    ><code
+                                                                        >{e.entity_id}</code
+                                                                    ></td
+                                                                >
+                                                                <td
+                                                                    >{e.preferred_name}</td
+                                                                >
                                                                 <td class="kind"
-                                                                    >{e.kind || "—"}</td
+                                                                    >{e.kind ||
+                                                                        "—"}</td
                                                                 >
                                                             </tr>
                                                         {/each}
@@ -888,7 +1065,9 @@
                                                     </button>
                                                 {/if}
                                             {:else if !entityLoading}
-                                                <p class="empty">No entities found.</p>
+                                                <p class="empty">
+                                                    No entities found.
+                                                </p>
                                             {/if}
                                         </div>
                                     </td>
@@ -901,7 +1080,11 @@
         </section>
 
         <section class="card">
-            <h2>Proposed Entities <span class="proposed-count">({proposedTotal})</span></h2>
+            <h2>
+                Proposed Entities <span class="proposed-count"
+                    >({proposedTotal})</span
+                >
+            </h2>
             {#if proposedEntities.length === 0}
                 <p class="empty">No proposed entities.</p>
             {:else}
@@ -931,29 +1114,39 @@
                                 </td>
                                 <td class="actions-cell">
                                     {#if confirmRejectId === e.entity_id}
-                                        <span class="confirm-prompt">Reject?</span>
+                                        <span class="confirm-prompt"
+                                            >Reject?</span
+                                        >
                                         <button
                                             class="btn small danger filled"
-                                            disabled={actionPending === e.entity_id}
-                                            onclick={() => handleReject(e.entity_id)}
+                                            disabled={actionPending ===
+                                                e.entity_id}
+                                            onclick={() =>
+                                                handleReject(e.entity_id)}
                                         >
-                                            {actionPending === e.entity_id ? "…" : "Yes"}
+                                            {actionPending === e.entity_id
+                                                ? "…"
+                                                : "Yes"}
                                         </button>
                                         <button
                                             class="btn small muted"
-                                            onclick={() => (confirmRejectId = null)}
+                                            onclick={() =>
+                                                (confirmRejectId = null)}
                                             >Cancel</button
                                         >
                                     {:else}
                                         <button
                                             class="btn small success"
-                                            disabled={actionPending === e.entity_id}
-                                            onclick={() => handleAccept(e.entity_id)}
+                                            disabled={actionPending ===
+                                                e.entity_id}
+                                            onclick={() =>
+                                                handleAccept(e.entity_id)}
                                             >Accept</button
                                         >
                                         <button
                                             class="btn small danger"
-                                            onclick={() => (confirmRejectId = e.entity_id)}
+                                            onclick={() =>
+                                                (confirmRejectId = e.entity_id)}
                                             >Reject</button
                                         >
                                     {/if}
@@ -988,11 +1181,11 @@
                     disabled={ftsRebuilding}
                     onclick={handleRebuildFts}
                 >
-                    {ftsRebuilding ? 'Rebuilding…' : 'Rebuild FTS index'}
+                    {ftsRebuilding ? "Rebuilding…" : "Rebuild FTS index"}
                 </button>
-                {#if ftsRebuildStatus === 'ok'}
+                {#if ftsRebuildStatus === "ok"}
                     <span class="fts-ok">Index rebuilt successfully.</span>
-                {:else if ftsRebuildStatus === 'error'}
+                {:else if ftsRebuildStatus === "error"}
                     <span class="fts-error">Rebuild failed.</span>
                 {/if}
             </div>
@@ -1325,5 +1518,4 @@
         color: #888;
         font-size: 0.9em;
     }
-
 </style>

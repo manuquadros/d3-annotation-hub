@@ -14,28 +14,34 @@
         annotate: {
             icon: "ph-note-pencil",
             title: "Annotation Queue",
-            description: "Work through the document queue and annotate entities and relations.",
+            description:
+                "Work through the document queue and annotate entities and relations.",
         },
         curate: {
             icon: "ph-check-square",
             title: "Curation Queue",
-            description: "Review and validate annotations submitted for this project.",
+            description:
+                "Review and validate annotations submitted for this project.",
         },
         manage: {
             icon: "ph-gauge",
             title: "Project Management",
-            description: "Manage documents, ontologies, and team members for this project.",
+            description:
+                "Manage documents, ontologies, and team members for this project.",
         },
         admin: {
             icon: "ph-gear",
             title: "Administration",
-            description: "Manage all projects, import ontologies, and configure system settings.",
+            description:
+                "Manage all projects, import ontologies, and configure system settings.",
         },
     } as const;
 
     function hrefFor(dest: "annotate" | "curate" | "manage" | "admin"): string {
-        if (dest === "annotate") return `/?go=annotate&project=${data.currentProjectId}`;
-        if (dest === "curate") return `/curate?project=${data.currentProjectId}`;
+        if (dest === "annotate")
+            return `/?go=annotate&project=${data.currentProjectId}`;
+        if (dest === "curate")
+            return `/curate?project=${data.currentProjectId}`;
         if (dest === "manage") return `/projects/${data.currentProjectId}`;
         return "/admin";
     }

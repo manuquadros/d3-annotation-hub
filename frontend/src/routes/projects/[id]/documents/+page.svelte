@@ -191,7 +191,8 @@
                                     disabled={removing.has(ref.reference_id)}
                                     title="Remove from project"
                                     aria-label="Remove {ref.title} from project"
-                                >×</button>
+                                    >×</button
+                                >
                             </td>
                         </tr>
                     {/each}
@@ -276,7 +277,9 @@
         line-height: 1;
         padding: 0.1rem 0.3rem;
         border-radius: 3px;
-        transition: color 0.15s, background 0.15s;
+        transition:
+            color 0.15s,
+            background 0.15s;
     }
 
     .remove-btn:hover:not(:disabled) {

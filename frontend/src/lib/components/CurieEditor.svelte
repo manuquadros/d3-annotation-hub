@@ -64,10 +64,8 @@
                 if (e.key === "Escape") cancel();
             }}
         />
-        <button
-            class="btn small muted"
-            disabled={saving}
-            onclick={commit}>{saving ? "…" : "Save"}</button
+        <button class="btn small muted" disabled={saving} onclick={commit}
+            >{saving ? "…" : "Save"}</button
         >
         <button class="btn small muted" disabled={saving} onclick={cancel}
             >Cancel</button

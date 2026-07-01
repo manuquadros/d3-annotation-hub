@@ -67,8 +67,5 @@
         "halfmoon": "2.0.2",
         "immutable": "^5.1.5",
         "zod": "^4.4.3"
-    },
-    "prettier": {
-        "tabWidth": 4
     }
 }

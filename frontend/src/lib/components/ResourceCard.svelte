@@ -1,6 +1,10 @@
 <script lang="ts">
     import { getContext, onMount } from "svelte";
-    import { AnnotationState, extractSentence, resolvePointerOffset } from "$lib/annotation.svelte";
+    import {
+        AnnotationState,
+        extractSentence,
+        resolvePointerOffset,
+    } from "$lib/annotation.svelte";
     import { getLabelColor } from "$lib/colors.ts";
     import type { EditorState } from "$lib/types.ts";
     import DOMPurify from "dompurify";
@@ -47,7 +51,11 @@
         const offset = resolved?.offset ?? pointer.offset;
         const { start: sentenceStart } = extractSentence(plainText, offset);
 
-        editorStateCtx.value = { mode: "edit-pointer", pointerId: pointer_id, sentenceStart };
+        editorStateCtx.value = {
+            mode: "edit-pointer",
+            pointerId: pointer_id,
+            sentenceStart,
+        };
     }
 </script>
 
@@ -59,7 +67,7 @@
     role="button"
     tabindex="0"
     onclick={handleClick}
-    onkeydown={(e) => e.key === 'Enter' && handleClick()}
+    onkeydown={(e) => e.key === "Enter" && handleClick()}
 ></span>
 
 <style>

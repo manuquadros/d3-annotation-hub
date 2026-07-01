@@ -50,9 +50,10 @@
                                 <EntityButton entityId={rel.object} />
                                 <button
                                     class="delete-btn"
-                                    onclick={() => annotationState.removeRelation(rel)}
-                                    aria-label="Delete relation"
-                                >×</button>
+                                    onclick={() =>
+                                        annotationState.removeRelation(rel)}
+                                    aria-label="Delete relation">×</button
+                                >
                             </li>
                         {/if}
                     {/each}
@@ -62,9 +63,8 @@
     </div>
 {/if}
 
-
 <style>
-    @import './summary.css';
+    @import "./summary.css";
 
     h2 {
         margin-top: 0;

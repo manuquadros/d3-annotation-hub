@@ -14,7 +14,9 @@
 
     let { data } = $props();
 
-    let projectOntologies = $state<Ontology[]>(untrack(() => data.projectOntologies));
+    let projectOntologies = $state<Ontology[]>(
+        untrack(() => data.projectOntologies),
+    );
     const allOntologies: Ontology[] = untrack(() => data.allOntologies);
 
     async function handleImported(result: ImportedResult) {
@@ -23,7 +25,9 @@
             { method: "POST" },
         );
         if (!res.ok) {
-            const body = await res.json().catch(() => ({ detail: res.statusText }));
+            const body = await res
+                .json()
+                .catch(() => ({ detail: res.statusText }));
             throw new Error(body.detail ?? res.statusText);
         }
         projectOntologies = [
@@ -44,7 +48,8 @@
 
     const assignableOntologies = $derived(
         allOntologies.filter(
-            (o) => !projectOntologies.some((p) => p.ontology_id === o.ontology_id),
+            (o) =>
+                !projectOntologies.some((p) => p.ontology_id === o.ontology_id),
         ),
     );
 
@@ -61,7 +66,9 @@
                 assignError = res.statusText;
                 return;
             }
-            const added = allOntologies.find((o) => o.ontology_id === selectedOntologyId)!;
+            const added = allOntologies.find(
+                (o) => o.ontology_id === selectedOntologyId,
+            )!;
             projectOntologies = [...projectOntologies, added];
             selectedOntologyId = null;
         } finally {
@@ -110,7 +117,9 @@
                         <tr>
                             <td><code>{o.prefix}</code></td>
                             <td>
-                                <a href="/projects/{data.projectId}/ontologies/{o.ontology_id}">
+                                <a
+                                    href="/projects/{data.projectId}/ontologies/{o.ontology_id}"
+                                >
                                     {o.name}
                                 </a>
                             </td>
@@ -122,7 +131,9 @@
                                     disabled={removingId === o.ontology_id}
                                     onclick={() => handleRemove(o.ontology_id)}
                                 >
-                                    {removingId === o.ontology_id ? "Removing…" : "Remove"}
+                                    {removingId === o.ontology_id
+                                        ? "Removing…"
+                                        : "Remove"}
                                 </button>
                             </td>
                         </tr>
@@ -136,7 +147,9 @@
                 <select bind:value={selectedOntologyId}>
                     <option value={null}>Add existing ontology…</option>
                     {#each assignableOntologies as o (o.ontology_id)}
-                        <option value={o.ontology_id}>{o.prefix} — {o.name}</option>
+                        <option value={o.ontology_id}
+                            >{o.prefix} — {o.name}</option
+                        >
                     {/each}
                 </select>
                 <button
@@ -153,7 +166,10 @@
 
     <section class="card">
         <h2>Import OWL ontology</h2>
-        <OntologyImportForm submitLabel="Import and assign" onimported={handleImported} />
+        <OntologyImportForm
+            submitLabel="Import and assign"
+            onimported={handleImported}
+        />
     </section>
 </div>
 
