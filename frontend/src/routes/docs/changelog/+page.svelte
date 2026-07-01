@@ -3,6 +3,9 @@
 </script>
 
 <div class="changelog">
+    <!-- Trusted content: built at compile time by marked.parse() over the
+         repo's CHANGELOG.md (see vite.config.ts), never user input. -->
+    <!-- eslint-disable-next-line svelte/no-at-html-tags -->
     {@html html}
 </div>
 

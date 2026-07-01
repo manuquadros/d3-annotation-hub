@@ -31,6 +31,13 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      # prettier --check + eslint. Runs before tests so formatting/lint
+      # regressions fail fast.
+      - run: pnpm lint
+
+      # svelte-check type-checking (svelte-kit sync first for generated types).
+      - run: pnpm check
+
       # Unit tests only. E2E (playwright) needs a live backend and is excluded.
       - run: pnpm test:cov
 
