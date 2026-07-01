@@ -18,6 +18,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Renaming a CURIE to one that already exists now returns a clean 409 instead of an internal server error, in both the curation and admin rename endpoints.
 - The curation and admin CURIE editors now show the rejection reason inline (e.g. "already in use") and keep the editor open so it can be corrected, instead of failing silently or displaying a raw error payload.
 - In the admin panel, a proposed entity's CURIE is now edited by clicking the CURIE itself (the separate "Edit CURIE" button was removed), matching the curation page.
+- Renaming a CURIE to an empty/whitespace value is now rejected (422) instead of overwriting the entity and all its annotations with an empty identifier.
+- In the admin panel, a proposed entity's Accept/Reject buttons are disabled while a CURIE rename for that entity is in flight, preventing a concurrent mutation.
 
 ## [0.1.4]
 

@@ -511,6 +511,27 @@ class TestRenameEntityCurie:
         )
         assert r.status_code == 404
 
+    @pytest.mark.parametrize("blank", ["", "   "])
+    def test_empty_new_curie_is_rejected(
+        self, project, db, client, login, blank
+    ):
+        project_id, _ = project
+        db.store_proposed_entity(
+            project_id, "Beta strain", _OLD_CURIE, "Strain"
+        )
+        curator_auth = login(_CURATOR_EMAIL, _CURATOR_PASSWORD)
+
+        r = client.patch(
+            f"/projects/{project_id}/curation/entity-curie?curie={_OLD_CURIE}",
+            json={"new_curie": blank},
+            headers=curator_auth,
+        )
+        assert r.status_code == 422
+        # The entity was not renamed to an empty CURIE.
+        assert (
+            db.get_entities_by_curies([_OLD_CURIE])[0].entity_id == _OLD_CURIE
+        )
+
     def test_cannot_rename_another_projects_proposed_entity(
         self, project, db, client, login, make_project
     ):

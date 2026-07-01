@@ -344,6 +344,9 @@
 
     let confirmRejectId = $state<string | null>(null);
     let actionPending = $state<string | null>(null);
+    // CURIE of the proposed entity whose rename PATCH is in flight; gates the
+    // row's Accept/Reject so they can't race a rename.
+    let renamingCurie = $state<string | null>(null);
 
     async function handleAccept(curie: string) {
         actionPending = curie;
@@ -387,21 +390,26 @@
     }
 
     async function renameProposedCurie(oldCurie: string, newCurie: string) {
-        const res = await fetch(
-            `/api/admin/proposed/${encodeURIComponent(oldCurie)}`,
-            {
-                method: "PATCH",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ new_curie: newCurie }),
-            },
-        );
-        if (!res.ok) {
-            const body = await res.json().catch(() => ({}));
-            throw new Error(body.detail ?? res.statusText);
+        renamingCurie = oldCurie;
+        try {
+            const res = await fetch(
+                `/api/admin/proposed/${encodeURIComponent(oldCurie)}`,
+                {
+                    method: "PATCH",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ new_curie: newCurie }),
+                },
+            );
+            if (!res.ok) {
+                const body = await res.json().catch(() => ({}));
+                throw new Error(body.detail ?? res.statusText);
+            }
+            proposedEntities = proposedEntities.map((e) =>
+                e.entity_id === oldCurie ? { ...e, entity_id: newCurie } : e,
+            );
+        } finally {
+            renamingCurie = null;
         }
-        proposedEntities = proposedEntities.map((e) =>
-            e.entity_id === oldCurie ? { ...e, entity_id: newCurie } : e,
-        );
     }
 
     let ftsRebuilding = $state(false);
@@ -1138,13 +1146,16 @@
                                         <button
                                             class="btn small success"
                                             disabled={actionPending ===
-                                                e.entity_id}
+                                                e.entity_id ||
+                                                renamingCurie === e.entity_id}
                                             onclick={() =>
                                                 handleAccept(e.entity_id)}
                                             >Accept</button
                                         >
                                         <button
                                             class="btn small danger"
+                                            disabled={renamingCurie ===
+                                                e.entity_id}
                                             onclick={() =>
                                                 (confirmRejectId = e.entity_id)}
                                             >Reject</button

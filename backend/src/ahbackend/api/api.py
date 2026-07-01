@@ -21,7 +21,7 @@ from fastapi import Body, Depends, FastAPI, Form, HTTPException, UploadFile
 from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel, ConfigDict, EmailStr
+from pydantic import BaseModel, ConfigDict, EmailStr, field_validator
 from xkcdpass import xkcd_password as xp
 from xmlparser import (
     XMLSyntaxError,
@@ -513,6 +513,16 @@ def get_proposed_entities_admin(
 
 class UpdateCurieRequest(BaseModel):
     new_curie: str
+
+    @field_validator("new_curie")
+    @classmethod
+    def _non_empty(cls, v: str) -> str:
+        # An empty CURIE would rename the entity and all its pointers/relations
+        # to "", corrupting the annotations. Reject it at the boundary.
+        stripped = v.strip()
+        if not stripped:
+            raise ValueError("new_curie must be a non-empty CURIE")
+        return stripped
 
 
 @app.post("/admin/entities/{curie:path}/confirm")

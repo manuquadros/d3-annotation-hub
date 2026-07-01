@@ -584,7 +584,11 @@ class D3TextDB:
         Raises DuplicateCurieError if ``new_curie`` is already used by a
         different entity (PRAGMA foreign_keys=OFF does not relax the UNIQUE
         constraint, so the bare UPDATE would otherwise raise IntegrityError).
+        Raises ValueError if ``new_curie`` is empty/whitespace, which would
+        otherwise rename the entity and all its pointers/relations to "".
         """
+        if not new_curie or not new_curie.strip():
+            raise ValueError("new_curie must be a non-empty CURIE")
         with Session(self.engine) as session:
             if new_curie != old_curie:
                 clash = session.execute(
