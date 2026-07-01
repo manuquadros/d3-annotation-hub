@@ -2,33 +2,28 @@
 
 ``/entity/types`` returns OWL classes (for the class picker); ``/entity/search``
 returns individuals matching a name/synonym query. Runs against a real in-memory
-SQLite database. Shared ``db``/``client``/``login`` fixtures live in
-``conftest.py``.
+SQLite database. Shared fixtures live in ``conftest.py``.
 """
 
 import pytest
 from d3textdb.schema import EntityAnnotation
-from d3textdb.schema import User as DbUser
-from fastapi.testclient import TestClient
-
-from ahbackend.api.api import app
 
 _EMAIL = "user@entity-test.example"
 _PASSWORD = "user-secret"
 
 _CLASS_CURIE = "d3o:Enzyme"
+_OTHER_CLASS_CURIE = "d3o:Strain"
 _INDIVIDUAL_CURIE = "TEST:xyl"
 
 
 @pytest.fixture()
-def user_auth(db, client, login):
-    db.create_user(DbUser(email=_EMAIL), _PASSWORD)
-    return login(_EMAIL, _PASSWORD)
+def user_auth(make_user):
+    return make_user(_EMAIL, _PASSWORD)
 
 
 @pytest.fixture()
 def seeded_entities(db):
-    """An ontology with one OWL class and one individual, both named."""
+    """An ontology with two OWL classes and one named individual."""
     ontology_id = db.store_ontology(
         "Test Ontology", "TEST", "http://test.org/"
     )
@@ -38,6 +33,13 @@ def seeded_entities(db):
             EntityAnnotation(
                 entity_id=_CLASS_CURIE,
                 preferred_name="Enzyme",
+                kind="owl:Class",
+                synonyms=[],
+                is_class=True,
+            ),
+            EntityAnnotation(
+                entity_id=_OTHER_CLASS_CURIE,
+                preferred_name="Strain",
                 kind="owl:Class",
                 synonyms=[],
                 is_class=True,
@@ -64,11 +66,13 @@ class TestEntityTypes:
     def test_filters_by_query(self, user_auth, seeded_entities, client):
         r = client.get("/entity/types?q=Enz", headers=user_auth)
         assert r.status_code == 200
-        assert _CLASS_CURIE in {e["entity_id"] for e in r.json()}
+        curies = {e["entity_id"] for e in r.json()}
+        assert _CLASS_CURIE in curies
+        # A class whose name doesn't match the query is filtered out.
+        assert _OTHER_CLASS_CURIE not in curies
 
-    def test_requires_authentication(self, seeded_entities):
-        fresh_client = TestClient(app)
-        r = fresh_client.get("/entity/types")
+    def test_requires_authentication(self, seeded_entities, anon_client):
+        r = anon_client.get("/entity/types")
         assert r.status_code == 401
 
 
@@ -84,7 +88,6 @@ class TestEntitySearch:
         r = client.get("/entity/search", headers=user_auth)
         assert r.status_code == 422
 
-    def test_requires_authentication(self, seeded_entities):
-        fresh_client = TestClient(app)
-        r = fresh_client.get("/entity/search?q=Xyl")
+    def test_requires_authentication(self, seeded_entities, anon_client):
+        r = anon_client.get("/entity/search?q=Xyl")
         assert r.status_code == 401

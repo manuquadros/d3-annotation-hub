@@ -14,9 +14,6 @@ import json
 import pytest
 from d3textdb.schema import Reference
 from d3textdb.schema import User as DbUser
-from fastapi.testclient import TestClient
-
-from ahbackend.api.api import app
 
 _PMID = 30000001
 _ANNOTATOR_EMAIL = "annotator@curation-test.example"
@@ -30,13 +27,13 @@ _PREDICATE = "produces"
 
 
 @pytest.fixture()
-def project(db):
+def project(db, make_project):
     """Project (required_annotators=1): one annotator, one curator, one ref."""
     annotator_id = db.create_user(
         DbUser(email=_ANNOTATOR_EMAIL), _ANNOTATOR_PASSWORD
     )
     curator_id = db.create_user(DbUser(email=_CURATOR_EMAIL), _CURATOR_PASSWORD)
-    project_id = db.create_project("Curation Project", required_annotators=1)
+    project_id = make_project("Curation Project", required_annotators=1)
     db.add_project_member(project_id, annotator_id, "annotator")
     db.add_project_member(project_id, curator_id, "curator")
 
@@ -166,10 +163,11 @@ class TestCurationQueue:
         )
         assert r.status_code == 403
 
-    def test_unauthenticated_queue_request_is_rejected(self, project):
+    def test_unauthenticated_queue_request_is_rejected(
+        self, project, anon_client
+    ):
         project_id, _ = project
-        fresh_client = TestClient(app)
-        r = fresh_client.get(f"/projects/{project_id}/curation/queue")
+        r = anon_client.get(f"/projects/{project_id}/curation/queue")
         assert r.status_code == 401
 
 
@@ -270,10 +268,12 @@ class TestSetVerdict:
         assert r.status_code == 422
 
     def test_annotator_cannot_set_verdict(self, seeded, login):
-        client, _, project_id, _ = seeded
+        # Resolve a real relation so the 403 can't be masked by a bad id.
+        client, curator_auth, project_id, _ = seeded
+        relation_id = _relation_id(client, curator_auth, project_id)
         annotator_auth = login(_ANNOTATOR_EMAIL, _ANNOTATOR_PASSWORD)
         r = client.post(
-            f"/projects/{project_id}/curation/claims/1/verdict",
+            f"/projects/{project_id}/curation/claims/{relation_id}/verdict",
             json={"verdict": "accepted"},
             headers=annotator_auth,
         )
@@ -474,10 +474,9 @@ class TestRenameEntityCurie:
         )
         assert r.status_code == 403
 
-    def test_unauthenticated_rename_is_rejected(self, project):
+    def test_unauthenticated_rename_is_rejected(self, project, anon_client):
         project_id, _ = project
-        fresh_client = TestClient(app)
-        r = fresh_client.patch(
+        r = anon_client.patch(
             f"/projects/{project_id}/curation/entity-curie?curie={_OLD_CURIE}",
             json={"new_curie": _NEW_CURIE},
         )
@@ -511,3 +510,53 @@ class TestRenameEntityCurie:
             headers=curator_auth,
         )
         assert r.status_code == 404
+
+    def test_cannot_rename_another_projects_proposed_entity(
+        self, project, db, client, login, make_project
+    ):
+        # A curator of project A must not be able to rename a proposed entity
+        # that belongs to project B (the lookup/rename are global by CURIE).
+        project_a, _ = project
+        project_b = make_project("Other Project", required_annotators=1)
+        db.store_proposed_entity(
+            project_b, "Beta strain", _OLD_CURIE, "Strain"
+        )
+        curator_auth = login(_CURATOR_EMAIL, _CURATOR_PASSWORD)
+
+        r = client.patch(
+            f"/projects/{project_a}/curation/entity-curie?curie={_OLD_CURIE}",
+            json={"new_curie": _NEW_CURIE},
+            headers=curator_auth,
+        )
+        assert r.status_code == 404
+        # Project B's entity is untouched.
+        assert (
+            db.get_entities_by_curies([_OLD_CURIE])[0].entity_id == _OLD_CURIE
+        )
+        assert db.get_entities_by_curies([_NEW_CURIE]) == []
+
+    def test_rename_to_existing_curie_returns_409(
+        self, project, db, client, login
+    ):
+        project_id, _ = project
+        db.store_proposed_entity(
+            project_id, "Beta strain", _OLD_CURIE, "Strain"
+        )
+        db.store_proposed_entity(
+            project_id, "Gamma strain", _NEW_CURIE, "Strain"
+        )
+        curator_auth = login(_CURATOR_EMAIL, _CURATOR_PASSWORD)
+
+        r = client.patch(
+            f"/projects/{project_id}/curation/entity-curie?curie={_OLD_CURIE}",
+            json={"new_curie": _NEW_CURIE},
+            headers=curator_auth,
+        )
+        assert r.status_code == 409
+        # Both entities remain intact.
+        assert (
+            db.get_entities_by_curies([_OLD_CURIE])[0].entity_id == _OLD_CURIE
+        )
+        assert (
+            db.get_entities_by_curies([_NEW_CURIE])[0].entity_id == _NEW_CURIE
+        )

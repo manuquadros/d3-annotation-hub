@@ -5,7 +5,7 @@ import string
 import uuid
 from typing import TYPE_CHECKING, Annotated, Literal
 
-from d3textdb import OntologyInUseError
+from d3textdb import DuplicateCurieError, OntologyInUseError
 from d3textdb.owl import MAX_PEEK_BYTES, parse_owl, peek_ontology_metadata
 from d3textdb.schema import (
     EntityAnnotation,
@@ -542,7 +542,10 @@ def rename_entity_curie(
     current_user: Annotated[User, Depends(users.get_current_admin)],
 ) -> dict:
     """Rename an entity's CURIE across all tables."""
-    update_entity_curie(curie, body.new_curie)
+    try:
+        update_entity_curie(curie, body.new_curie)
+    except DuplicateCurieError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
     return {"ok": True}
 
 
@@ -1228,12 +1231,20 @@ def curator_rename_entity_curie(
     entities = get_entities_by_curies([curie])
     if not entities:
         raise HTTPException(status_code=404, detail="Entity not found")
-    if entities[0].confirmed:
+    entity = entities[0]
+    if entity.confirmed:
         raise HTTPException(
             status_code=409,
             detail="Only proposed (unconfirmed) entities can be renamed",
         )
-    update_entity_curie(curie, body.new_curie)
+    # The lookup and rename are global by CURIE; scope to this project so a
+    # curator cannot rename another project's proposed entity.
+    if entity.project_id != project_id:
+        raise HTTPException(status_code=404, detail="Entity not found")
+    try:
+        update_entity_curie(curie, body.new_curie)
+    except DuplicateCurieError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
 
 
 @app.get("/projects/{project_id}/curation/queue")

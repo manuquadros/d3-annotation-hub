@@ -672,6 +672,9 @@ class EntityAnnotation(BaseModel):
     synonyms: list[str] = []
     confirmed: bool = True
     is_class: bool = False
+    # Only set for unconfirmed (annotator-proposed) entities; None for
+    # confirmed ontology entities. Used to scope proposal edits to a project.
+    project_id: int | None = None
 
 
 class ReferenceAnnotation(BaseModel):

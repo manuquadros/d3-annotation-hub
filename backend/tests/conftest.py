@@ -7,6 +7,7 @@ stubbed to a no-op so tests don't depend on well-formed JATS XML fixtures.
 
 import pytest
 from d3textdb import D3TextDB
+from d3textdb.schema import User as DbUser
 from fastapi.testclient import TestClient
 
 import ahbackend.api.api as api_module
@@ -43,3 +44,34 @@ def login(client):
         return {"Authorization": f"Bearer {r.json()['access_token']}"}
 
     return _login
+
+
+@pytest.fixture()
+def make_user(db, login):
+    """Factory: create a user and log in, returning a Bearer-header dict.
+
+    Extra keyword args (``can_manage=True``, ``is_super_user=True``) are
+    forwarded to ``create_user``.
+    """
+
+    def _make(email: str, password: str, **flags) -> dict[str, str]:
+        db.create_user(DbUser(email=email), password, **flags)
+        return login(email, password)
+
+    return _make
+
+
+@pytest.fixture()
+def make_project(db):
+    """Factory: create a project and return its id."""
+
+    def _make(name: str = "Test Project", required_annotators: int = 2) -> int:
+        return db.create_project(name, required_annotators=required_annotators)
+
+    return _make
+
+
+@pytest.fixture()
+def anon_client() -> TestClient:
+    """An unauthenticated ``TestClient`` (empty cookie jar) for 401 checks."""
+    return TestClient(app)

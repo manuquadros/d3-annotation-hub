@@ -14,6 +14,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fix import of large ontologies.
 - Flag references that have already been annotated when adding a document to a project.
 - Curation only allows renaming the CURIE of proposed (unconfirmed) entities; renaming a confirmed entity is now rejected.
+- Curation CURIE rename is now scoped to the caller's project: a curator can no longer rename a proposed entity belonging to a different project (returns 404).
+- Renaming a CURIE to one that already exists now returns a clean 409 instead of an internal server error, in both the curation and admin rename endpoints.
+- The curation and admin CURIE editors now show the rejection reason inline (e.g. "already in use") and keep the editor open so it can be corrected, instead of failing silently or displaying a raw error payload.
+- In the admin panel, a proposed entity's CURIE is now edited by clicking the CURIE itself (the separate "Edit CURIE" button was removed), matching the curation page.
 
 ## [0.1.4]
 

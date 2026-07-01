@@ -7,10 +7,6 @@ in ``conftest.py``.
 """
 
 import pytest
-from d3textdb.schema import User as DbUser
-from fastapi.testclient import TestClient
-
-from ahbackend.api.api import app
 
 _ADMIN_EMAIL = "admin@proposed-test.example"
 _ADMIN_PASSWORD = "admin-secret"
@@ -25,22 +21,20 @@ _PROP_CURIE = "PROP:REL1"
 
 
 @pytest.fixture()
-def admin(db, client, login):
+def admin(client, make_user):
     """A user with the can_manage flag, logged in. Returns (client, auth)."""
-    db.create_user(DbUser(email=_ADMIN_EMAIL), _ADMIN_PASSWORD, can_manage=True)
-    return client, login(_ADMIN_EMAIL, _ADMIN_PASSWORD)
+    return client, make_user(_ADMIN_EMAIL, _ADMIN_PASSWORD, can_manage=True)
 
 
 @pytest.fixture()
-def user_auth(db, client, login):
+def user_auth(make_user):
     """A plain authenticated user (an annotator who proposes)."""
-    db.create_user(DbUser(email=_USER_EMAIL), _USER_PASSWORD)
-    return login(_USER_EMAIL, _USER_PASSWORD)
+    return make_user(_USER_EMAIL, _USER_PASSWORD)
 
 
 @pytest.fixture()
-def project_id(db) -> int:
-    return db.create_project("Proposed Test Project", required_annotators=1)
+def project_id(make_project) -> int:
+    return make_project("Proposed Test Project", required_annotators=1)
 
 
 def _proposed_curies(client, auth, project_id) -> set[str]:
@@ -61,9 +55,8 @@ class TestProposeEntity:
         assert body["curie"] == _CURIE
         assert body["proposed_by"] == _USER_EMAIL
 
-    def test_unauthenticated_cannot_propose(self, project_id):
-        fresh_client = TestClient(app)
-        r = fresh_client.post(
+    def test_unauthenticated_cannot_propose(self, project_id, anon_client):
+        r = anon_client.post(
             f"/projects/{project_id}/proposed-entities",
             json={"label": _LABEL, "curie": _CURIE, "kind": _KIND},
         )
@@ -82,9 +75,10 @@ class TestProposeProperty:
         assert body["label"] == _PROP_LABEL
         assert body["proposed_by"] == _USER_EMAIL
 
-    def test_unauthenticated_cannot_propose_property(self, project_id):
-        fresh_client = TestClient(app)
-        r = fresh_client.post(
+    def test_unauthenticated_cannot_propose_property(
+        self, project_id, anon_client
+    ):
+        r = anon_client.post(
             f"/projects/{project_id}/proposed-properties",
             json={"label": _PROP_LABEL},
         )
@@ -198,3 +192,21 @@ class TestAdminRenameCurie:
             headers=user_auth,
         )
         assert r.status_code == 403
+
+    def test_admin_rename_to_existing_curie_returns_409(
+        self, admin, db, project_id
+    ):
+        client, auth = admin
+        existing = "CHEBI:99999"
+        db.store_proposed_entity(project_id, _LABEL, _CURIE, _KIND)
+        db.store_proposed_entity(project_id, "Other", existing, _KIND)
+
+        r = client.patch(
+            f"/admin/entities/{_CURIE}/curie",
+            json={"new_curie": existing},
+            headers=auth,
+        )
+        assert r.status_code == 409
+        # Both entities remain intact.
+        assert db.get_entities_by_curies([_CURIE])[0].entity_id == _CURIE
+        assert db.get_entities_by_curies([existing])[0].entity_id == existing

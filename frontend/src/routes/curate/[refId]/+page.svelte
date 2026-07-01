@@ -456,10 +456,10 @@
                 },
             );
             if (!res.ok) {
-                const text = await res.text();
+                const body = await res.json().catch(() => null);
                 curieErrors = new Map(curieErrors).set(
                     entityId,
-                    text || "Failed",
+                    body?.detail ?? `Rename failed (${res.status})`,
                 );
             } else {
                 locallyConfirmed = new Set(locallyConfirmed).add(entityId);

@@ -59,6 +59,9 @@ Before saving, each proposed entity needs a confirmed identifier (CURIE):
 If you want to keep the proposed identifier as-is, click the `?` badge and press
 **Enter** without changing the text — this marks it as reviewed.
 
+If the CURIE you enter is already used by another entity, the rename is rejected
+and an inline error appears; pick a different identifier and try again.
+
 ## Keyboard shortcuts
 
 | Key | Action |

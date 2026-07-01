@@ -2,6 +2,7 @@
     import { untrack } from "svelte";
     import OntologyImportForm from "$lib/components/OntologyImportForm.svelte";
     import type { ImportedResult } from "$lib/components/OntologyImportForm.svelte";
+    import CurieEditor from "$lib/components/CurieEditor.svelte";
 
     interface Ontology {
         ontology_id: number;
@@ -299,8 +300,6 @@
     }
 
     let confirmRejectId = $state<string | null>(null);
-    let editCurieId = $state<string | null>(null);
-    let editCurieValue = $state("");
     let actionPending = $state<string | null>(null);
 
     async function handleAccept(curie: string) {
@@ -337,28 +336,19 @@
         }
     }
 
-    async function handleEditCurie(oldCurie: string) {
-        const newCurie = editCurieValue.trim();
-        if (!newCurie || newCurie === oldCurie) {
-            editCurieId = null;
-            return;
+    async function renameProposedCurie(oldCurie: string, newCurie: string) {
+        const res = await fetch(`/api/admin/proposed/${encodeURIComponent(oldCurie)}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ new_curie: newCurie }),
+        });
+        if (!res.ok) {
+            const body = await res.json().catch(() => ({}));
+            throw new Error(body.detail ?? res.statusText);
         }
-        actionPending = oldCurie;
-        try {
-            const res = await fetch(`/api/admin/proposed/${encodeURIComponent(oldCurie)}`, {
-                method: "PATCH",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ new_curie: newCurie }),
-            });
-            if (res.ok) {
-                proposedEntities = proposedEntities.map((e) =>
-                    e.entity_id === oldCurie ? { ...e, entity_id: newCurie } : e,
-                );
-            }
-        } finally {
-            actionPending = null;
-            editCurieId = null;
-        }
+        proposedEntities = proposedEntities.map((e) =>
+            e.entity_id === oldCurie ? { ...e, entity_id: newCurie } : e,
+        );
     }
 
     let ftsRebuilding = $state(false);
@@ -930,20 +920,14 @@
                                 <td>{e.preferred_name}</td>
                                 <td class="kind">{e.kind || "—"}</td>
                                 <td>
-                                    {#if editCurieId === e.entity_id}
-                                        <input
-                                            class="curie-input"
-                                            type="text"
-                                            bind:value={editCurieValue}
-                                            onkeydown={(ev) => {
-                                                if (ev.key === "Enter")
-                                                    handleEditCurie(e.entity_id);
-                                                if (ev.key === "Escape") editCurieId = null;
-                                            }}
-                                        />
-                                    {:else}
-                                        <code>{e.entity_id}</code>
-                                    {/if}
+                                    <CurieEditor
+                                        curie={e.entity_id}
+                                        save={(newCurie) =>
+                                            renameProposedCurie(
+                                                e.entity_id,
+                                                newCurie,
+                                            )}
+                                    />
                                 </td>
                                 <td class="actions-cell">
                                     {#if confirmRejectId === e.entity_id}
@@ -960,31 +944,12 @@
                                             onclick={() => (confirmRejectId = null)}
                                             >Cancel</button
                                         >
-                                    {:else if editCurieId === e.entity_id}
-                                        <button
-                                            class="btn small muted"
-                                            disabled={actionPending === e.entity_id}
-                                            onclick={() => handleEditCurie(e.entity_id)}
-                                        >
-                                            {actionPending === e.entity_id ? "…" : "Save"}
-                                        </button>
-                                        <button
-                                            class="btn small muted"
-                                            onclick={() => (editCurieId = null)}>Cancel</button
-                                        >
                                     {:else}
                                         <button
                                             class="btn small success"
                                             disabled={actionPending === e.entity_id}
                                             onclick={() => handleAccept(e.entity_id)}
                                             >Accept</button
-                                        >
-                                        <button
-                                            class="btn small muted"
-                                            onclick={() => {
-                                                editCurieId = e.entity_id;
-                                                editCurieValue = e.entity_id;
-                                            }}>Edit CURIE</button
                                         >
                                         <button
                                             class="btn small danger"
@@ -1361,13 +1326,4 @@
         font-size: 0.9em;
     }
 
-    .curie-input {
-        width: 100%;
-        padding: 0.15rem 0.4rem;
-        border: 1px solid #aaa;
-        border-radius: 3px;
-        font-size: 0.8rem;
-        font-family: monospace;
-        box-sizing: border-box;
-    }
 </style>

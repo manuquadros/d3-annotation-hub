@@ -5,10 +5,6 @@ Runs against a real in-memory SQLite database. Shared ``db``/``client``/
 """
 
 import pytest
-from d3textdb.schema import User as DbUser
-from fastapi.testclient import TestClient
-
-from ahbackend.api.api import app
 
 _EMAIL = "account@account-test.example"
 _PASSWORD = "original-secret"
@@ -16,10 +12,9 @@ _NEW_PASSWORD = "brand-new-secret"
 
 
 @pytest.fixture()
-def user(db, client, login):
+def user(client, make_user):
     """A logged-in user. Returns (client, auth)."""
-    db.create_user(DbUser(email=_EMAIL), _PASSWORD)
-    return client, login(_EMAIL, _PASSWORD)
+    return client, make_user(_EMAIL, _PASSWORD)
 
 
 def _login_status(client, email, password) -> int:
@@ -57,9 +52,8 @@ class TestChangePassword:
         # The password is unchanged.
         assert _login_status(client, _EMAIL, _PASSWORD) == 200
 
-    def test_unauthenticated_request_is_rejected(self):
-        fresh_client = TestClient(app)
-        r = fresh_client.post(
+    def test_unauthenticated_request_is_rejected(self, anon_client):
+        r = anon_client.post(
             "/change-password",
             json={
                 "current_password": _PASSWORD,

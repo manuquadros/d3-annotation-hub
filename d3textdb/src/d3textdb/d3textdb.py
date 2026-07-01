@@ -91,6 +91,11 @@ class OntologyInUseError(Exception):
     that reference its entities."""
 
 
+class DuplicateCurieError(Exception):
+    """Raised when renaming an entity to a CURIE that already exists, which
+    would violate the ``entity.curie`` UNIQUE constraint."""
+
+
 class D3TextDB:
     def __init__(
         self,
@@ -283,6 +288,7 @@ class D3TextDB:
                 Entity.curie,
                 Entity.type,
                 Entity.confirmed,
+                Entity.project_id,
                 pref_name.label.label("preferred_name"),
             )
             .where(Entity.curie.in_(curies))
@@ -300,6 +306,7 @@ class D3TextDB:
                 preferred_name=row.preferred_name or row.curie,
                 kind=row.type,
                 confirmed=row.confirmed,
+                project_id=row.project_id,
             )
             for row in rows
         ]
@@ -572,8 +579,22 @@ class D3TextDB:
         self.rebuild_fts()
 
     def update_entity_curie(self, old_curie: str, new_curie: str) -> None:
-        """Rename an entity's CURIE, updating all FK-referencing tables."""
+        """Rename an entity's CURIE, updating all FK-referencing tables.
+
+        Raises DuplicateCurieError if ``new_curie`` is already used by a
+        different entity (PRAGMA foreign_keys=OFF does not relax the UNIQUE
+        constraint, so the bare UPDATE would otherwise raise IntegrityError).
+        """
         with Session(self.engine) as session:
+            if new_curie != old_curie:
+                clash = session.execute(
+                    text("SELECT 1 FROM entity WHERE curie = :new"),
+                    {"new": new_curie},
+                ).first()
+                if clash is not None:
+                    raise DuplicateCurieError(
+                        f"CURIE '{new_curie}' is already in use"
+                    )
             # Disable FK checks for the duration of the rename
             session.execute(text("PRAGMA foreign_keys = OFF"))
             session.execute(

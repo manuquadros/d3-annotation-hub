@@ -9,9 +9,6 @@ against a real in-memory SQLite database. ``get_current_admin`` requires the
 
 import pytest
 from d3textdb.schema import User as DbUser
-from fastapi.testclient import TestClient
-
-from ahbackend.api.api import app
 
 _MANAGER_EMAIL = "manager@projects-test.example"
 _MANAGER_PASSWORD = "manager-secret"
@@ -23,19 +20,17 @@ _NEW_MEMBER_EMAIL = "newmember@projects-test.example"
 
 
 @pytest.fixture()
-def manager(db, client, login):
+def manager(client, make_user):
     """A user with the can_manage flag, logged in. Returns (client, auth)."""
-    db.create_user(
-        DbUser(email=_MANAGER_EMAIL), _MANAGER_PASSWORD, can_manage=True
+    return client, make_user(
+        _MANAGER_EMAIL, _MANAGER_PASSWORD, can_manage=True
     )
-    return client, login(_MANAGER_EMAIL, _MANAGER_PASSWORD)
 
 
 @pytest.fixture()
-def plain_auth(db, client, login):
+def plain_auth(make_user):
     """A plain user (no can_manage, no roles). Returns a Bearer-header dict."""
-    db.create_user(DbUser(email=_PLAIN_EMAIL), _PLAIN_PASSWORD)
-    return login(_PLAIN_EMAIL, _PLAIN_PASSWORD)
+    return make_user(_PLAIN_EMAIL, _PLAIN_PASSWORD)
 
 
 def _create_project(client, auth, name="Test Project", **kwargs) -> int:
@@ -84,9 +79,8 @@ class TestCreateProject:
         r = client.post("/projects", json={"name": "Nope"}, headers=plain_auth)
         assert r.status_code == 403
 
-    def test_unauthenticated_request_is_rejected(self):
-        fresh_client = TestClient(app)
-        r = fresh_client.post("/projects", json={"name": "Nope"})
+    def test_unauthenticated_request_is_rejected(self, anon_client):
+        r = anon_client.post("/projects", json={"name": "Nope"})
         assert r.status_code == 401
 
 
@@ -141,9 +135,8 @@ class TestListProjects:
         assert r.status_code == 200
         assert [p["name"] for p in r.json()] == ["Project A"]
 
-    def test_unauthenticated_request_is_rejected(self):
-        fresh_client = TestClient(app)
-        r = fresh_client.get("/projects")
+    def test_unauthenticated_request_is_rejected(self, anon_client):
+        r = anon_client.get("/projects")
         assert r.status_code == 401
 
 

@@ -11,7 +11,7 @@ try:
 except ModuleNotFoundError:
     pass
 
-from .d3textdb import D3TextDB, OntologyInUseError
+from .d3textdb import D3TextDB, DuplicateCurieError, OntologyInUseError
 from .owl import MAX_PEEK_BYTES, OntologyMetadata, ParsedOntology, ParsedProperty, ParsedTriple, parse_owl, peek_ontology_metadata
 
 try:
@@ -31,6 +31,7 @@ except ModuleNotFoundError:
 
 __all__ = [
     "D3TextDB",
+    "DuplicateCurieError",
     "MAX_PEEK_BYTES",
     "OntologyMetadata",
     "ParsedOntology",
