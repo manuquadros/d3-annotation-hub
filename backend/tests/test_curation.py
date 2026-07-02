@@ -14,6 +14,7 @@ import json
 import pytest
 from d3textdb.schema import Reference
 from d3textdb.schema import User as DbUser
+from fastapi.testclient import TestClient
 
 _PMID = 30000001
 _ANNOTATOR_EMAIL = "annotator@curation-test.example"

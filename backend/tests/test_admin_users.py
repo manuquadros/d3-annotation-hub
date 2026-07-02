@@ -5,12 +5,16 @@ GET /admin/passphrase-suggestion against a real in-memory SQLite database
 via FastAPI's TestClient.
 """
 
+from datetime import UTC, datetime
+
 import pytest
-from d3textdb.schema import Reference
+from d3textdb.schema import Reference, ReferenceAnnotation
 from d3textdb.schema import User as DbUser
 from fastapi.testclient import TestClient
 
 from ahbackend.api.api import app
+
+_NOW = datetime(2025, 1, 1, tzinfo=UTC)
 
 _ADMIN_EMAIL = "admin@test.example"
 _ADMIN_PASSWORD = "admin-secret"
@@ -198,22 +202,36 @@ class TestRemoveUser:
         r = client.delete("/admin/users/nobody@test.example", headers=auth)
         assert r.status_code == 404
 
-    def test_disables_user_with_annotation_state(self, ctx_with_member):
-        client, auth, test_db, project_id = ctx_with_member
-        ref_id = test_db.store_reference(
-            Reference(
-                pubmed_id=12345678,
-                authors="Doe J",
-                title="Test",
-                journal="J",
-                volume="1",
-                pages="1",
-                year=2024,
-                abstract="",
+    def test_disables_user_with_annotation_state(self, ctx, db):
+        # A user whose only reference is saved annotation state (and no project
+        # membership) must be disabled, not deleted.
+        client, auth = ctx
+        user_id = db.create_user(
+            DbUser(email=_NEW_USER_EMAIL), _NEW_USER_PASSWORD
+        )
+        project_id = db.create_project("Annot Project", required_annotators=1)
+        db.store_annotation(
+            ReferenceAnnotation(
+                user=DbUser(user_id=user_id, email=_NEW_USER_EMAIL),
+                reference=Reference(
+                    pubmed_id=12345678,
+                    authors="Doe J",
+                    title="Test",
+                    journal="J",
+                    volume="1",
+                    pages="1",
+                    year=2024,
+                    abstract="",
+                ),
+                pointers=[],
+                relations=[],
+                completed=False,
+                last_updated=_NOW,
+                project_id=project_id,
             )
         )
-        test_db.add_reference_to_project(project_id, ref_id)
         r = client.delete(f"/admin/users/{_NEW_USER_EMAIL}", headers=auth)
+        assert r.status_code == 200
         assert r.json()["action"] == "disabled"
 
 
