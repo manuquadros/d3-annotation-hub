@@ -295,6 +295,11 @@ async def import_ontology(  # noqa: C901
     version: str | None = Form(default=None),
 ) -> StreamingResponse:
     """Upload an OWL file and stream import progress as SSE events."""
+    # No byte cap here: legitimate ontologies (e.g. NCBITaxon exports at
+    # 1.5 GB+) far exceed the peek cap, and the frontend already imports files
+    # too large to peek. The amplification vector (entity-expansion) is handled
+    # by the defused parser; bounding raw upload size for very large ontologies
+    # is the domain of the streaming/background import work.
     content = await file.read()
 
     async def _stream():  # noqa: C901

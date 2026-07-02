@@ -27,6 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Proposing an entity whose CURIE already exists now returns a clean 409 instead of an internal server error, and an empty/whitespace CURIE is rejected (422).
 - Project managers without global admin rights can now open a project's Users, Documents, and Ontologies management pages; previously these pages required the global `can_manage`/superuser flag and returned 403 to project-level managers even though the sidebar offered the links.
 - Renaming a proposed entity's CURIE during curation now refreshes the review immediately: the row shows the new identifier and saving the curation uses it. Previously the page kept showing the old CURIE and the curation save failed because it referenced the pre-rename identifier.
+- Ontology import now parses uploaded OWL/XML with a hardened parser that rejects XML entity-expansion and external-entity attacks. Previously the full-document import path used an unsafe parser (unlike the metadata peek, which was already hardened).
 
 ## [0.1.4]
 

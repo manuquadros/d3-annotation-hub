@@ -9,6 +9,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import BinaryIO
 
+from defusedxml.ElementTree import fromstring as _safe_fromstring
 from defusedxml.ElementTree import iterparse as _safe_iterparse
 from rdflib import OWL, RDF, RDFS, SKOS, Graph, Namespace, URIRef
 
@@ -143,7 +144,10 @@ def _parse_owl_xml(
     This handles the format written by Protégé and the OWL API, where the root
     element is ``<Ontology xmlns="http://www.w3.org/2002/07/owl#">``.
     """
-    root = ET.fromstring(content)
+    # _safe_fromstring forbids entity expansion and external references
+    # (billion-laughs / XXE) on the attacker-supplied upload; the plain
+    # ET.fromstring this replaced was vulnerable to both.
+    root = _safe_fromstring(content)
 
     xml_base: str = root.get(f"{{{_XML_NS}}}base", base_iri) or base_iri
 
