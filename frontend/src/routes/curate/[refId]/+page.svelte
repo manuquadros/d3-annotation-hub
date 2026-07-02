@@ -5,6 +5,12 @@
     import type { PageData } from "./$types";
     import type { PointerOut, RelationOut } from "./+page.server";
     import {
+        computeReviewModel,
+        type PointerKey,
+        type RelationKey,
+        type SpanEntry,
+    } from "$lib/utils/curationReview";
+    import {
         resolvePointerOffset,
         createRangeFromOffsets,
     } from "$lib/annotation.svelte";
@@ -17,13 +23,30 @@
 
     let { data }: Props = $props();
 
-    const {
-        reference,
-        entities: initialEntities,
-        snapshots,
-        curated_pointers,
-        curated_relations,
-    } = untrack(() => data.data);
+    // Everything below is a pure function of the loaded page data, so it is
+    // derived (not seeded once) — a CURIE rename re-fetches via invalidateAll()
+    // and the whole view, including the save payload, tracks the new data.
+    const reference = $derived(data.data.reference);
+    const snapshots = $derived(data.data.snapshots);
+    const entities = $derived(data.data.entities);
+
+    const model = $derived.by(() => computeReviewModel(data.data));
+    const pointerAnnotators = $derived(model.pointerAnnotators);
+    const pointerData = $derived(model.pointerData);
+    const entityAnnotators = $derived(model.entityAnnotators);
+    const relationAnnotators = $derived(model.relationAnnotators);
+    const relationData = $derived(model.relationData);
+    const abstractSpansByOffset = $derived(model.abstractSpansByOffset);
+    const bodySpansByOffset = $derived(model.bodySpansByOffset);
+    const spanIndexByKey = $derived(model.spanIndexByKey);
+    const acceptedPointerKeys = $derived(model.acceptedPointerKeys);
+    const acceptedRelationKeys = $derived(model.acceptedRelationKeys);
+    const acceptedEntityIds = $derived(model.acceptedEntityIds);
+    const sortedPointerKeys = $derived(model.sortedPointerKeys);
+    const pointerKeysByEntity = $derived(model.pointerKeysByEntity);
+    const sortedEntityIds = $derived(model.sortedEntityIds);
+    const sortedRelationKeys = $derived(model.sortedRelationKeys);
+    const hasSavedCuration = $derived(model.hasSavedCuration);
 
     function toPlainText(html: string | null): string {
         if (!browser || !html) return "";
@@ -41,78 +64,6 @@
         const pt = p.field === "abstract" ? abstractPlainText : bodyPlainText;
         return pt.slice(p.offset, p.offset + p.length);
     }
-
-    // mutable: CURIE edits update local keys
-    let entities = $state({ ...initialEntities });
-
-    type PointerKey = string;
-    function pointerKey(p: PointerOut): PointerKey {
-        return `${p.entity_id}|${p.field}|${p.offset}|${p.length}`;
-    }
-
-    const pointerAnnotators = new Map<PointerKey, Set<string>>();
-    const pointerData = new Map<PointerKey, PointerOut>();
-
-    for (const snap of snapshots) {
-        for (const p of snap.pointers) {
-            const k = pointerKey(p);
-            if (!pointerAnnotators.has(k)) {
-                pointerAnnotators.set(k, new Set());
-                pointerData.set(k, p);
-            }
-            pointerAnnotators.get(k)!.add(snap.email);
-        }
-    }
-
-    const entityAnnotators = new Map<string, Set<string>>();
-    for (const snap of snapshots) {
-        for (const p of snap.pointers) {
-            if (!entityAnnotators.has(p.entity_id)) {
-                entityAnnotators.set(p.entity_id, new Set());
-            }
-            entityAnnotators.get(p.entity_id)!.add(snap.email);
-        }
-    }
-
-    type RelationKey = string;
-    function relationKey(r: RelationOut): RelationKey {
-        return `${r.predicate}|${r.subject}|${r.object}`;
-    }
-
-    const relationAnnotators = new Map<RelationKey, Set<string>>();
-    const relationData = new Map<RelationKey, RelationOut>();
-
-    for (const snap of snapshots) {
-        for (const r of snap.relations) {
-            const k = relationKey(r);
-            if (!relationAnnotators.has(k)) {
-                relationAnnotators.set(k, new Set());
-                relationData.set(k, r);
-            }
-            relationAnnotators.get(k)!.add(snap.email);
-        }
-    }
-
-    interface SpanEntry {
-        key: PointerKey;
-        p: PointerOut;
-    }
-
-    const abstractSpansByOffset: SpanEntry[] = [...pointerAnnotators.keys()]
-        .filter((k) => pointerData.get(k)!.field === "abstract")
-        .map((k) => ({ key: k, p: pointerData.get(k)! }))
-        .sort((a, b) => a.p.offset - b.p.offset || b.p.length - a.p.length);
-
-    const bodySpansByOffset: SpanEntry[] = [...pointerAnnotators.keys()]
-        .filter((k) => pointerData.get(k)!.field !== "abstract")
-        .map((k) => ({ key: k, p: pointerData.get(k)! }))
-        .sort((a, b) => a.p.offset - b.p.offset || b.p.length - a.p.length);
-
-    const spansByOffset: SpanEntry[] = [
-        ...abstractSpansByOffset,
-        ...bodySpansByOffset,
-    ];
-    const spanIndexByKey = new Map(spansByOffset.map((s, i) => [s.key, i]));
 
     function renderField(
         element: HTMLDivElement,
@@ -243,40 +194,6 @@
         }
     });
 
-    const acceptedPointerKeys = new Set<PointerKey>(
-        curated_pointers.map((p) => pointerKey(p)),
-    );
-
-    const acceptedRelationKeys = new Set<RelationKey>(
-        curated_relations.map((r) => relationKey(r)),
-    );
-
-    const acceptedEntityIds = new Set<string>(
-        curated_pointers.map((p) => p.entity_id),
-    );
-
-    const sortedPointerKeys = [...pointerAnnotators.keys()].sort((a, b) => {
-        const aAccepted = acceptedPointerKeys.has(a) ? 1 : 0;
-        const bAccepted = acceptedPointerKeys.has(b) ? 1 : 0;
-        if (aAccepted !== bAccepted) return aAccepted - bAccepted;
-        const countDiff =
-            pointerAnnotators.get(b)!.size - pointerAnnotators.get(a)!.size;
-        if (countDiff !== 0) return countDiff;
-        const nameA =
-            entities[pointerData.get(a)!.entity_id]?.preferred_name ?? a;
-        const nameB =
-            entities[pointerData.get(b)!.entity_id]?.preferred_name ?? b;
-        return nameA.localeCompare(nameB);
-    });
-
-    const pointerKeysByEntity = new Map<string, PointerKey[]>();
-    for (const k of sortedPointerKeys) {
-        const eid = pointerData.get(k)!.entity_id;
-        const list = pointerKeysByEntity.get(eid);
-        if (list) list.push(k);
-        else pointerKeysByEntity.set(eid, [k]);
-    }
-
     interface MentionGroup {
         displayText: string;
         keys: PointerKey[];
@@ -317,41 +234,22 @@
         })(),
     );
 
-    const sortedEntityIds = [...entityAnnotators.keys()].sort((a, b) => {
-        const aAccepted = acceptedEntityIds.has(a) ? 1 : 0;
-        const bAccepted = acceptedEntityIds.has(b) ? 1 : 0;
-        if (aAccepted !== bAccepted) return aAccepted - bAccepted;
-        const countDiff =
-            entityAnnotators.get(b)!.size - entityAnnotators.get(a)!.size;
-        if (countDiff !== 0) return countDiff;
-        return (entities[a]?.preferred_name ?? a).localeCompare(
-            entities[b]?.preferred_name ?? b,
-        );
-    });
-
-    const sortedRelationKeys = [...relationAnnotators.keys()].sort((a, b) => {
-        const aAccepted = acceptedRelationKeys.has(a) ? 1 : 0;
-        const bAccepted = acceptedRelationKeys.has(b) ? 1 : 0;
-        if (aAccepted !== bAccepted) return aAccepted - bAccepted;
-        return (
-            relationAnnotators.get(b)!.size - relationAnnotators.get(a)!.size
-        );
-    });
-
-    const hasSavedCuration =
-        acceptedPointerKeys.size > 0 || acceptedRelationKeys.size > 0;
-
     let entityStatus = $state(new Map<string, boolean>());
     let groupStatus = $state(new Map<string, boolean>());
-    const initialMentionOverrides = new Map<PointerKey, boolean>();
-    if (hasSavedCuration) {
-        for (const k of sortedPointerKeys) {
-            if (!acceptedPointerKeys.has(k)) {
-                initialMentionOverrides.set(k, false);
+    // Seed once from the initial derivation; user toggles persist across a
+    // later re-derivation (a renamed entity's keys change and re-default to
+    // accepted, which is the intended behaviour).
+    let mentionOverrides = $state<Map<PointerKey, boolean>>(
+        untrack(() => {
+            const initial = new Map<PointerKey, boolean>();
+            if (hasSavedCuration) {
+                for (const k of sortedPointerKeys) {
+                    if (!acceptedPointerKeys.has(k)) initial.set(k, false);
+                }
             }
-        }
-    }
-    let mentionOverrides = $state(initialMentionOverrides);
+            return initial;
+        }),
+    );
 
     const selectedPointers = $derived(
         (() => {
@@ -372,14 +270,19 @@
     );
 
     let selectedRelations = $state<Set<RelationKey>>(
-        new Set(
-            hasSavedCuration
-                ? sortedRelationKeys.filter((k) => acceptedRelationKeys.has(k))
-                : sortedRelationKeys.filter(
-                      (k) =>
-                          relationAnnotators.get(k)!.size ===
-                              snapshots.length && snapshots.length > 0,
-                  ),
+        untrack(
+            () =>
+                new Set(
+                    hasSavedCuration
+                        ? sortedRelationKeys.filter((k) =>
+                              acceptedRelationKeys.has(k),
+                          )
+                        : sortedRelationKeys.filter(
+                              (k) =>
+                                  relationAnnotators.get(k)!.size ===
+                                      snapshots.length && snapshots.length > 0,
+                          ),
+                ),
         ),
     );
 
@@ -462,7 +365,12 @@
                     body?.detail ?? `Rename failed (${res.status})`,
                 );
             } else {
-                locallyConfirmed = new Set(locallyConfirmed).add(entityId);
+                // After invalidateAll() the entity re-derives under its new
+                // CURIE, so record the confirmation against the new key.
+                const confirmed = new Set(locallyConfirmed);
+                confirmed.delete(entityId);
+                confirmed.add(newCurie);
+                locallyConfirmed = confirmed;
                 curieEdits = new Map(curieEdits);
                 curieEdits.delete(entityId);
                 await invalidateAll();
