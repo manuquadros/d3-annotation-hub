@@ -1017,12 +1017,30 @@ class ProposedEntityRequest(BaseModel):
     curie: str
     kind: str
 
+    @field_validator("curie")
+    @classmethod
+    def _non_empty_curie(cls, v: str) -> str:
+        stripped = v.strip()
+        if not stripped:
+            raise ValueError("curie must be a non-empty CURIE")
+        return stripped
+
 
 class ProposedPropertyRequest(BaseModel):
     label: str
     curie: str | None = None
     domain_curie: str | None = None
     range_curie: str | None = None
+
+    @field_validator("curie")
+    @classmethod
+    def _blank_curie_is_none(cls, v: str | None) -> str | None:
+        # curie is optional for properties; normalize a whitespace-only value
+        # to None rather than storing a blank identifier.
+        if v is None:
+            return None
+        stripped = v.strip()
+        return stripped or None
 
 
 @app.get("/projects/{project_id}/proposed-entities")
@@ -1044,6 +1062,7 @@ def create_project_proposed_entity(
     current_user: Annotated[User, Depends(users.get_current_active_user)],
 ) -> dict:
     """Record an annotator-proposed entity for the project."""
+    _require_project_member(project_id, current_user)
     return store_proposed_entity(
         project_id,
         label=body.label,
@@ -1072,6 +1091,7 @@ def create_project_proposed_property(
     current_user: Annotated[User, Depends(users.get_current_active_user)],
 ) -> dict:
     """Record an annotator-proposed property for the project."""
+    _require_project_member(project_id, current_user)
     return store_proposed_property(
         project_id,
         label=body.label,
@@ -1486,6 +1506,13 @@ def can_access_project(user_auth: UserAuth | None, roles: list[str]) -> bool:
 def can_curate_project(user_auth: UserAuth | None, roles: list[str]) -> bool:
     """Return True if the user has the curator or manager role."""
     return "curator" in roles or "manager" in roles
+
+
+def _require_project_member(project_id: int, current_user: User) -> None:
+    user_auth = get_user_auth(current_user.user_id)
+    roles = get_user_project_roles(current_user.user_id, project_id)
+    if not can_access_project(user_auth, roles):
+        raise HTTPException(status_code=403, detail="Access denied")
 
 
 def _require_curator(project_id: int, current_user: User) -> None:

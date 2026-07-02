@@ -459,7 +459,11 @@ class D3TextDB:
         kind: str,
         proposed_by: str | None = None,
     ) -> dict:
-        """Insert a new proposed entity into the entity table and return it as a dict."""
+        """Insert a new proposed entity into the entity table and return it as a dict.
+
+        Raises DuplicateCurieError if ``curie`` already exists (``entity.curie``
+        is UNIQUE), so the caller can map it to a 409 rather than a 500.
+        """
         now = datetime.now(timezone.utc)
         with Session(self.engine) as session:
             row = Entity(
@@ -472,7 +476,12 @@ class D3TextDB:
                 proposed_at=now,
             )
             session.add(row)
-            session.commit()
+            try:
+                session.commit()
+            except IntegrityError as exc:
+                raise DuplicateCurieError(
+                    f"CURIE '{curie}' is already in use"
+                ) from exc
             session.refresh(row)
             return {
                 "proposal_id": row.entity_id,

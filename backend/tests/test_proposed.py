@@ -13,6 +13,9 @@ _ADMIN_PASSWORD = "admin-secret"
 _USER_EMAIL = "user@proposed-test.example"
 _USER_PASSWORD = "user-secret"
 
+_MEMBER_EMAIL = "member@proposed-test.example"
+_MEMBER_PASSWORD = "member-secret"
+
 _LABEL = "Novel Bacterium"
 _CURIE = "PROP:ENT1"
 _KIND = "Bacterium"
@@ -28,13 +31,22 @@ def admin(client, make_user):
 
 @pytest.fixture()
 def user_auth(make_user):
-    """A plain authenticated user (an annotator who proposes)."""
+    """A plain authenticated user with no role in the test project."""
     return make_user(_USER_EMAIL, _USER_PASSWORD)
 
 
 @pytest.fixture()
 def project_id(make_project) -> int:
     return make_project("Proposed Test Project", required_annotators=1)
+
+
+@pytest.fixture()
+def member_auth(db, make_user, project_id):
+    """An annotator who is a member of ``project_id`` (may propose)."""
+    auth = make_user(_MEMBER_EMAIL, _MEMBER_PASSWORD)
+    user = db.get_user(_MEMBER_EMAIL)
+    db.add_project_member(project_id, user.user_id, "annotator")
+    return auth
 
 
 def _proposed_curies(client, auth, project_id) -> set[str]:
@@ -44,16 +56,51 @@ def _proposed_curies(client, auth, project_id) -> set[str]:
 
 
 class TestProposeEntity:
-    def test_proposes_and_records_proposer(self, user_auth, project_id, client):
+    def test_proposes_and_records_proposer(
+        self, member_auth, project_id, client
+    ):
+        r = client.post(
+            f"/projects/{project_id}/proposed-entities",
+            json={"label": _LABEL, "curie": _CURIE, "kind": _KIND},
+            headers=member_auth,
+        )
+        assert r.status_code == 201
+        body = r.json()
+        assert body["curie"] == _CURIE
+        assert body["proposed_by"] == _MEMBER_EMAIL
+
+    def test_non_member_cannot_propose(self, user_auth, project_id, client):
         r = client.post(
             f"/projects/{project_id}/proposed-entities",
             json={"label": _LABEL, "curie": _CURIE, "kind": _KIND},
             headers=user_auth,
         )
-        assert r.status_code == 201
-        body = r.json()
-        assert body["curie"] == _CURIE
-        assert body["proposed_by"] == _USER_EMAIL
+        assert r.status_code == 403
+
+    def test_duplicate_curie_returns_409(
+        self, member_auth, project_id, client
+    ):
+        payload = {"label": _LABEL, "curie": _CURIE, "kind": _KIND}
+        first = client.post(
+            f"/projects/{project_id}/proposed-entities",
+            json=payload,
+            headers=member_auth,
+        )
+        assert first.status_code == 201
+        second = client.post(
+            f"/projects/{project_id}/proposed-entities",
+            json=payload,
+            headers=member_auth,
+        )
+        assert second.status_code == 409
+
+    def test_blank_curie_is_rejected(self, member_auth, project_id, client):
+        r = client.post(
+            f"/projects/{project_id}/proposed-entities",
+            json={"label": _LABEL, "curie": "   ", "kind": _KIND},
+            headers=member_auth,
+        )
+        assert r.status_code == 422
 
     def test_unauthenticated_cannot_propose(self, project_id, anon_client):
         r = anon_client.post(
@@ -64,16 +111,28 @@ class TestProposeEntity:
 
 
 class TestProposeProperty:
-    def test_proposes_and_records_proposer(self, user_auth, project_id, client):
+    def test_proposes_and_records_proposer(
+        self, member_auth, project_id, client
+    ):
+        r = client.post(
+            f"/projects/{project_id}/proposed-properties",
+            json={"label": _PROP_LABEL, "curie": _PROP_CURIE},
+            headers=member_auth,
+        )
+        assert r.status_code == 201
+        body = r.json()
+        assert body["label"] == _PROP_LABEL
+        assert body["proposed_by"] == _MEMBER_EMAIL
+
+    def test_non_member_cannot_propose_property(
+        self, user_auth, project_id, client
+    ):
         r = client.post(
             f"/projects/{project_id}/proposed-properties",
             json={"label": _PROP_LABEL, "curie": _PROP_CURIE},
             headers=user_auth,
         )
-        assert r.status_code == 201
-        body = r.json()
-        assert body["label"] == _PROP_LABEL
-        assert body["proposed_by"] == _USER_EMAIL
+        assert r.status_code == 403
 
     def test_unauthenticated_cannot_propose_property(
         self, project_id, anon_client
