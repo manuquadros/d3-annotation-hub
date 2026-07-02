@@ -27,6 +27,7 @@ from sqlalchemy.dialects.sqlite import insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, aliased
 from sqlalchemy.pool import StaticPool
+from sqlalchemy.schema import CreateTable
 
 from .owl import ParsedProperty, ParsedTriple
 from .schema import (
@@ -112,7 +113,7 @@ class D3TextDB:
         """
         if path:
             self.engine = create_engine(
-                f"sqlite+pysqlite:///{path}", module=pysqlite3, echo=True
+                f"sqlite+pysqlite:///{path}", module=pysqlite3, echo=echo
             )
         else:
             self.engine = create_engine(
@@ -129,6 +130,7 @@ class D3TextDB:
             lambda dbapi_con, _: dbapi_con.execute("pragma foreign_keys=ON"),
         )
         SQLModel.metadata.create_all(self.engine)
+        self._migrate_fk_on_update_cascade()
         self._setup_fts()
 
     def __del__(self) -> None:
@@ -165,6 +167,85 @@ class D3TextDB:
                     "END"
                 )
             )
+
+    def _migrate_fk_on_update_cascade(self) -> None:
+        """Rebuild tables whose ``entity.curie`` FK predates ON UPDATE CASCADE.
+
+        Older databases were created with SQLite's default (NO ACTION), which
+        forced curie renames to disable FK enforcement. Rebuild those tables so
+        a rename cascades with enforcement left on. Idempotent: a no-op once the
+        FKs already cascade, so it costs one PRAGMA read per startup on
+        already-migrated (and freshly created) databases.
+        """
+        for table in ("pointer", "relation"):
+            if self._entity_fk_needs_cascade(table):
+                self._rebuild_table_from_metadata(table)
+
+    def _entity_fk_needs_cascade(self, table: str) -> bool:
+        with self.engine.connect() as conn:
+            rows = conn.exec_driver_sql(
+                f"PRAGMA foreign_key_list('{table}')"
+            ).fetchall()
+        # PRAGMA columns: id, seq, table, from, to, on_update, on_delete, match
+        entity_fks = [row for row in rows if row[2] == "entity"]
+        return any(row[5] != "CASCADE" for row in entity_fks)
+
+    def _rebuild_table_from_metadata(self, table: str) -> None:
+        """Recreate ``table`` from the current SQLModel definition, copying rows.
+
+        SQLite cannot ALTER a foreign key's action, so the only way to change it
+        on an existing table is the standard rebuild (rename → create → copy →
+        drop). This runs on the raw DBAPI connection in autocommit mode
+        (``isolation_level = None``) so an explicit BEGIN/COMMIT makes the whole
+        rebuild atomic — pysqlite otherwise issues an implicit COMMIT before
+        each DDL statement, which would break a SQLAlchemy transaction. ``PRAGMA
+        foreign_keys`` is toggled here too, since SQLite ignores it mid-transaction.
+        """
+        md_table = SQLModel.metadata.tables[table]
+        columns = ", ".join(f'"{col.name}"' for col in md_table.columns)
+        create_sql = str(CreateTable(md_table).compile(self.engine))
+        raw = self.engine.raw_connection()
+        try:
+            dbapi = raw.dbapi_connection
+            prior_isolation = dbapi.isolation_level
+            dbapi.isolation_level = None
+            cursor = dbapi.cursor()
+            cursor.execute("PRAGMA foreign_keys = OFF")
+            # Other tables (state_pointer, snapshot_pointer, …) hold FKs to the
+            # table being rebuilt. legacy_alter_table=ON stops the RENAME from
+            # rewriting those references to the temp name and leaving them
+            # dangling.
+            cursor.execute("PRAGMA legacy_alter_table = ON")
+            cursor.execute("BEGIN")
+            try:
+                cursor.execute(
+                    f'ALTER TABLE "{table}" RENAME TO "{table}__old"'
+                )
+                cursor.execute(create_sql)
+                cursor.execute(
+                    f'INSERT INTO "{table}" ({columns}) '
+                    f'SELECT {columns} FROM "{table}__old"'
+                )
+                cursor.execute(f'DROP TABLE "{table}__old"')
+                violations = cursor.execute(
+                    "PRAGMA foreign_key_check"
+                ).fetchall()
+                if violations:
+                    raise RuntimeError(
+                        f"foreign_key_check failed after rebuilding "
+                        f"{table!r}: {violations}"
+                    )
+                cursor.execute("COMMIT")
+            except BaseException:
+                cursor.execute("ROLLBACK")
+                raise
+            finally:
+                cursor.execute("PRAGMA legacy_alter_table = OFF")
+                cursor.execute("PRAGMA foreign_keys = ON")
+                cursor.close()
+                dbapi.isolation_level = prior_isolation
+        finally:
+            raw.close()
 
     def _clear_preferred_flags(self, session: Session, entity_id: int) -> None:
         session.execute(
@@ -580,26 +661,29 @@ class D3TextDB:
         self.rebuild_fts()
 
     def update_entity_curie(self, old_curie: str, new_curie: str) -> None:
-        """Rename an entity's CURIE, updating all FK-referencing tables.
+        """Rename an entity's CURIE.
 
-        Raises DuplicateCurieError if ``new_curie`` is already used by a
-        different entity: the UNIQUE constraint on ``entity.curie`` (which
-        PRAGMA foreign_keys=OFF does not relax) makes the entity UPDATE raise
-        IntegrityError, which we map to the domain error atomically — no
-        pre-check, so no time-of-check/time-of-use window. Renaming to the same
-        CURIE is a harmless no-op.
-        Raises ValueError if ``new_curie`` is empty/whitespace, which would
-        otherwise rename the entity and all its pointers/relations to "".
+        ``entity.curie`` is referenced by ``pointer``, ``relation.subject`` and
+        ``relation.object`` via ON UPDATE CASCADE, so renaming the entity row
+        propagates to those tables automatically with FK enforcement on.
+        ``state_pointer`` and ``snapshot_pointer`` carry ``entity_id`` without a
+        foreign key, so they are updated explicitly.
+
+        Raises DuplicateCurieError if ``new_curie`` is already used by another
+        entity (the ``entity.curie`` UNIQUE constraint makes the UPDATE raise
+        IntegrityError, mapped here atomically — no pre-check, no TOCTOU
+        window). Renaming to the same CURIE is a harmless no-op. Raises
+        ValueError if ``new_curie`` is empty/whitespace, which would otherwise
+        rename the entity and all its references to "".
         """
         if not new_curie or not new_curie.strip():
             raise ValueError("new_curie must be a non-empty CURIE")
+        params = {"new": new_curie, "old": old_curie}
         with Session(self.engine) as session:
-            # Disable FK checks for the duration of the rename
-            session.execute(text("PRAGMA foreign_keys = OFF"))
             try:
                 session.execute(
                     text("UPDATE entity SET curie = :new WHERE curie = :old"),
-                    {"new": new_curie, "old": old_curie},
+                    params,
                 )
             except IntegrityError as exc:
                 raise DuplicateCurieError(
@@ -607,31 +691,18 @@ class D3TextDB:
                 ) from exc
             session.execute(
                 text(
-                    "UPDATE pointer SET entity_id = :new WHERE entity_id = :old"
+                    "UPDATE state_pointer SET entity_id = :new "
+                    "WHERE entity_id = :old"
                 ),
-                {"new": new_curie, "old": old_curie},
+                params,
             )
             session.execute(
                 text(
-                    "UPDATE state_pointer SET entity_id = :new WHERE entity_id = :old"
+                    "UPDATE snapshot_pointer SET entity_id = :new "
+                    "WHERE entity_id = :old"
                 ),
-                {"new": new_curie, "old": old_curie},
+                params,
             )
-            session.execute(
-                text(
-                    "UPDATE snapshot_pointer SET entity_id = :new WHERE entity_id = :old"
-                ),
-                {"new": new_curie, "old": old_curie},
-            )
-            session.execute(
-                text("UPDATE relation SET subject = :new WHERE subject = :old"),
-                {"new": new_curie, "old": old_curie},
-            )
-            session.execute(
-                text("UPDATE relation SET object = :new WHERE object = :old"),
-                {"new": new_curie, "old": old_curie},
-            )
-            session.execute(text("PRAGMA foreign_keys = ON"))
             session.commit()
 
     def store_annotation(self, ann: ReferenceAnnotation) -> None:

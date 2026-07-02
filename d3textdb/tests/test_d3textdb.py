@@ -760,3 +760,169 @@ def test_delete_ontology_succeeds_without_annotations() -> None:
     )
 
     db.delete_ontology(ontology_id)  # must not raise
+
+
+def test_update_entity_curie_cascades_to_referencing_rows() -> None:
+    """Renaming an entity's CURIE cascades to its pointer and relation rows via
+    ON UPDATE CASCADE, with foreign-key enforcement left on throughout (a
+    dangling reference is still rejected afterwards)."""
+    from sqlalchemy import text
+    from sqlalchemy.exc import IntegrityError
+    from sqlmodel import Session
+
+    db = D3TextDB()
+    project_id = db.create_project("P", required_annotators=1)
+    db.store_proposed_entity(project_id, "Beta", "PROP:1", "Strain")
+    db.store_proposed_entity(project_id, "Obj", "OBJ:1", "Enzyme")
+    ref_id = db.store_reference(
+        Reference(
+            pubmed_id=1,
+            title="t",
+            authors="a",
+            journal="J",
+            volume="1",
+            pages="1",
+            year=2024,
+            abstract="x",
+        )
+    )
+    with Session(db.engine) as session:
+        session.add(
+            Pointer(
+                reference_id=ref_id,
+                entity_id="PROP:1",
+                offset=0,
+                length=3,
+                field="abstract",
+            )
+        )
+        session.add(Relation(predicate="d3o:x", subject="PROP:1", object="OBJ:1"))
+        session.commit()
+
+    db.update_entity_curie("PROP:1", "CHEBI:2")
+
+    with Session(db.engine) as session:
+        assert (
+            session.execute(text("SELECT entity_id FROM pointer")).scalar()
+            == "CHEBI:2"
+        )
+        assert (
+            session.execute(text("SELECT subject FROM relation")).scalar()
+            == "CHEBI:2"
+        )
+        # Enforcement stayed on: a dangling reference is still rejected.
+        assert session.execute(text("PRAGMA foreign_keys")).scalar() == 1
+        session.add(
+            Pointer(
+                reference_id=ref_id,
+                entity_id="MISSING:9",
+                offset=5,
+                length=3,
+                field="abstract",
+            )
+        )
+        with pytest.raises(IntegrityError):
+            session.commit()
+
+
+def _downgrade_entity_fk_to_no_action(db, table: str) -> None:
+    """Rebuild ``table`` with the legacy NO ACTION entity FK, to emulate a
+    database created before ON UPDATE CASCADE was introduced. Uses the same raw
+    autocommit + explicit BEGIN dance as the production rebuild, because
+    pysqlite implicitly commits before DDL inside a SQLAlchemy transaction."""
+    with db.engine.connect() as conn:
+        legacy_sql = conn.exec_driver_sql(
+            f"SELECT sql FROM sqlite_master "
+            f"WHERE type='table' AND name='{table}'"
+        ).scalar()
+    legacy_sql = legacy_sql.replace(" ON UPDATE CASCADE", "")
+    raw = db.engine.raw_connection()
+    try:
+        dbapi = raw.dbapi_connection
+        prior_isolation = dbapi.isolation_level
+        dbapi.isolation_level = None
+        cursor = dbapi.cursor()
+        cursor.execute("PRAGMA foreign_keys = OFF")
+        cursor.execute("PRAGMA legacy_alter_table = ON")
+        cursor.execute("BEGIN")
+        try:
+            cursor.execute(f'ALTER TABLE "{table}" RENAME TO "{table}__x"')
+            cursor.execute(legacy_sql)
+            cursor.execute(f'INSERT INTO "{table}" SELECT * FROM "{table}__x"')
+            cursor.execute(f'DROP TABLE "{table}__x"')
+            cursor.execute("COMMIT")
+        except BaseException:
+            cursor.execute("ROLLBACK")
+            raise
+        finally:
+            cursor.execute("PRAGMA legacy_alter_table = OFF")
+            cursor.execute("PRAGMA foreign_keys = ON")
+            cursor.close()
+            dbapi.isolation_level = prior_isolation
+    finally:
+        raw.close()
+
+
+def test_fk_cascade_migration_upgrades_legacy_database(tmp_path) -> None:
+    """A database whose entity FKs predate ON UPDATE CASCADE is upgraded on
+    open, preserving rows, so later renames cascade with FK enforcement on."""
+    from sqlalchemy import text
+    from sqlmodel import Session
+
+    db_path = tmp_path / "legacy.db"
+    db = D3TextDB(db_path)
+    project_id = db.create_project("P", required_annotators=1)
+    db.store_proposed_entity(project_id, "Beta", "PROP:1", "Strain")
+    db.store_proposed_entity(project_id, "Obj", "OBJ:1", "Enzyme")
+    ref_id = db.store_reference(
+        Reference(
+            pubmed_id=1,
+            title="t",
+            authors="a",
+            journal="J",
+            volume="1",
+            pages="1",
+            year=2024,
+            abstract="x",
+        )
+    )
+    with Session(db.engine) as session:
+        session.add(
+            Pointer(
+                reference_id=ref_id,
+                entity_id="PROP:1",
+                offset=0,
+                length=3,
+                field="abstract",
+            )
+        )
+        session.add(Relation(predicate="d3o:x", subject="PROP:1", object="OBJ:1"))
+        session.commit()
+
+    for table in ("pointer", "relation"):
+        _downgrade_entity_fk_to_no_action(db, table)
+        assert db._entity_fk_needs_cascade(table)
+    db.engine.dispose()
+
+    # Reopening runs the migration in __init__.
+    db = D3TextDB(db_path)
+    for table in ("pointer", "relation"):
+        assert not db._entity_fk_needs_cascade(table)
+    with Session(db.engine) as session:
+        assert session.execute(text("SELECT count(*) FROM pointer")).scalar() == 1
+        assert (
+            session.execute(text("SELECT count(*) FROM relation")).scalar() == 1
+        )
+
+    # The rename now cascades to pointer and relation with FK enforcement on.
+    db.update_entity_curie("PROP:1", "ZZZ:9")
+    with Session(db.engine) as session:
+        assert (
+            session.execute(text("SELECT entity_id FROM pointer")).scalar()
+            == "ZZZ:9"
+        )
+        assert (
+            session.execute(text("SELECT subject FROM relation")).scalar()
+            == "ZZZ:9"
+        )
+        assert session.execute(text("PRAGMA foreign_keys")).scalar() == 1

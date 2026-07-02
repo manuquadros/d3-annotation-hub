@@ -211,7 +211,9 @@ class TestAdminRenameCurie:
         assert db.get_entities_by_curies([_CURIE])[0].entity_id == _CURIE
         assert db.get_entities_by_curies([existing])[0].entity_id == existing
 
-    def test_admin_rename_to_empty_curie_is_rejected(self, admin, db, project_id):
+    def test_admin_rename_to_empty_curie_is_rejected(
+        self, admin, db, project_id
+    ):
         client, auth = admin
         db.store_proposed_entity(project_id, _LABEL, _CURIE, _KIND)
 

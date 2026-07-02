@@ -20,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - In the admin panel, a proposed entity's CURIE is now edited by clicking the CURIE itself (the separate "Edit CURIE" button was removed), matching the curation page.
 - Renaming a CURIE to an empty/whitespace value is now rejected (422) instead of overwriting the entity and all its annotations with an empty identifier.
 - In the admin panel, a proposed entity's Accept/Reject buttons are disabled while a CURIE rename for that entity is in flight, preventing a concurrent mutation.
+- Renaming an entity's CURIE now preserves database referential-integrity enforcement; previously it could leave SQLite foreign-key checks disabled on the connection, letting later writes bypass them.
 
 ## [0.1.4]
 

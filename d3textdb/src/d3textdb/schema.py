@@ -343,7 +343,15 @@ class Pointer(SQLModel, table=True):
     reference_id: int = Field(
         foreign_key="reference.reference_id", primary_key=True
     )
-    entity_id: str = Field(foreign_key="entity.curie", primary_key=True)
+    # ON UPDATE CASCADE so renaming entity.curie propagates here with FK
+    # enforcement left on (no PRAGMA foreign_keys toggling in the rename).
+    entity_id: str = Field(
+        sa_column=Column(
+            String,
+            ForeignKey("entity.curie", onupdate="CASCADE"),
+            primary_key=True,
+        )
+    )
     offset: int = Field(primary_key=True)
     length: int = Field(primary_key=True)
     field: str = Field(default="body", primary_key=True)
@@ -360,8 +368,17 @@ class Relation(SQLModel, table=True):
 
     relation_id: int | None = Field(default=None, primary_key=True)
     predicate: str
-    subject: str = Field(foreign_key="entity.curie")
-    object: str = Field(foreign_key="entity.curie")
+    # ON UPDATE CASCADE — see Pointer.entity_id.
+    subject: str = Field(
+        sa_column=Column(
+            String, ForeignKey("entity.curie", onupdate="CASCADE")
+        )
+    )
+    object: str = Field(
+        sa_column=Column(
+            String, ForeignKey("entity.curie", onupdate="CASCADE")
+        )
+    )
     relation_references: list["UserRelationReference"] = Relationship()
 
 
