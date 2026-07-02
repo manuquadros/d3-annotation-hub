@@ -21,6 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Renaming a CURIE to an empty/whitespace value is now rejected (422) instead of overwriting the entity and all its annotations with an empty identifier.
 - In the admin panel, a proposed entity's Accept/Reject buttons are disabled while a CURIE rename for that entity is in flight, preventing a concurrent mutation.
 - Renaming an entity's CURIE now preserves database referential-integrity enforcement; previously it could leave SQLite foreign-key checks disabled on the connection, letting later writes bypass them.
+- Saving an annotation is now recorded under the authenticated user and rejected (403) when the caller is not a member of the target project; previously the save request trusted the client-supplied identity and project, allowing a user to attribute annotations to someone else or write into a project they don't belong to.
 
 ## [0.1.4]
 

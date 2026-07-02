@@ -729,6 +729,14 @@ def store_annotation(
 ) -> None:
     """Update annotation in the database"""
     annotation = ReferenceAnnotation.model_validate_json(json_data)
+    roles = get_user_project_roles(current_user.user_id, annotation.project_id)
+    user_auth = get_user_auth(current_user.user_id)
+    if not can_access_project(user_auth, roles):
+        raise HTTPException(status_code=403, detail="Access denied")
+    # Persist under the authenticated identity; a client-supplied user/project
+    # must never let the caller impersonate another annotator or write into a
+    # project they don't belong to.
+    annotation.user = current_user
     upsert_annotation(annotation)
 
 
