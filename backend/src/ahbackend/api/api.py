@@ -17,10 +17,18 @@ from d3textdb.schema import (
     User,
     Verdict,
 )
-from fastapi import Body, Depends, FastAPI, Form, HTTPException, UploadFile
+from fastapi import (
+    Body,
+    Depends,
+    FastAPI,
+    Form,
+    HTTPException,
+    Request,
+    UploadFile,
+)
 from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, ConfigDict, EmailStr, field_validator
 from xkcdpass import xkcd_password as xp
 from xmlparser import (
@@ -102,6 +110,16 @@ from ahbackend.db.queries import (
 from ahbackend.fetch import fetch_reference_from_ncbi
 
 app = FastAPI()
+
+
+@app.exception_handler(DuplicateCurieError)
+def _duplicate_curie_handler(
+    request: Request, exc: DuplicateCurieError
+) -> JSONResponse:
+    """Map the domain-level duplicate-CURIE error to a 409 for every route
+    that renames a CURIE, so callers don't each repeat the translation."""
+    return JSONResponse(status_code=409, content={"detail": str(exc)})
+
 
 VALID_ROLES: frozenset[str] = frozenset({"manager", "annotator", "curator"})
 EXCLUSIVE_ROLES: frozenset[str] = frozenset({"annotator", "curator"})
@@ -552,10 +570,7 @@ def rename_entity_curie(
     current_user: Annotated[User, Depends(users.get_current_admin)],
 ) -> dict:
     """Rename an entity's CURIE across all tables."""
-    try:
-        update_entity_curie(curie, body.new_curie)
-    except DuplicateCurieError as exc:
-        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    update_entity_curie(curie, body.new_curie)
     return {"ok": True}
 
 
@@ -1251,10 +1266,7 @@ def curator_rename_entity_curie(
     # curator cannot rename another project's proposed entity.
     if entity.project_id != project_id:
         raise HTTPException(status_code=404, detail="Entity not found")
-    try:
-        update_entity_curie(curie, body.new_curie)
-    except DuplicateCurieError as exc:
-        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    update_entity_curie(curie, body.new_curie)
 
 
 @app.get("/projects/{project_id}/curation/queue")

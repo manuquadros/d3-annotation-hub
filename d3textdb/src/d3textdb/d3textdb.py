@@ -24,6 +24,7 @@ from sqlalchemy import (
     update,
 )
 from sqlalchemy.dialects.sqlite import insert
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, aliased
 from sqlalchemy.pool import StaticPool
 
@@ -582,29 +583,28 @@ class D3TextDB:
         """Rename an entity's CURIE, updating all FK-referencing tables.
 
         Raises DuplicateCurieError if ``new_curie`` is already used by a
-        different entity (PRAGMA foreign_keys=OFF does not relax the UNIQUE
-        constraint, so the bare UPDATE would otherwise raise IntegrityError).
+        different entity: the UNIQUE constraint on ``entity.curie`` (which
+        PRAGMA foreign_keys=OFF does not relax) makes the entity UPDATE raise
+        IntegrityError, which we map to the domain error atomically — no
+        pre-check, so no time-of-check/time-of-use window. Renaming to the same
+        CURIE is a harmless no-op.
         Raises ValueError if ``new_curie`` is empty/whitespace, which would
         otherwise rename the entity and all its pointers/relations to "".
         """
         if not new_curie or not new_curie.strip():
             raise ValueError("new_curie must be a non-empty CURIE")
         with Session(self.engine) as session:
-            if new_curie != old_curie:
-                clash = session.execute(
-                    text("SELECT 1 FROM entity WHERE curie = :new"),
-                    {"new": new_curie},
-                ).first()
-                if clash is not None:
-                    raise DuplicateCurieError(
-                        f"CURIE '{new_curie}' is already in use"
-                    )
             # Disable FK checks for the duration of the rename
             session.execute(text("PRAGMA foreign_keys = OFF"))
-            session.execute(
-                text("UPDATE entity SET curie = :new WHERE curie = :old"),
-                {"new": new_curie, "old": old_curie},
-            )
+            try:
+                session.execute(
+                    text("UPDATE entity SET curie = :new WHERE curie = :old"),
+                    {"new": new_curie, "old": old_curie},
+                )
+            except IntegrityError as exc:
+                raise DuplicateCurieError(
+                    f"CURIE '{new_curie}' is already in use"
+                ) from exc
             session.execute(
                 text(
                     "UPDATE pointer SET entity_id = :new WHERE entity_id = :old"
