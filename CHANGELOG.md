@@ -25,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Deleting a proposed entity that had already been curated (its pointer or relation appears in a curated annotation or a curation verdict) no longer fails with an internal server error; the curation rows are now removed as part of the cascade.
 - Proposing an entity or property now requires membership in the target project (returns 403 otherwise); previously any authenticated user could inject proposals into any project.
 - Proposing an entity whose CURIE already exists now returns a clean 409 instead of an internal server error, and an empty/whitespace CURIE is rejected (422).
+- Project managers without global admin rights can now open a project's Users, Documents, and Ontologies management pages; previously these pages required the global `can_manage`/superuser flag and returned 403 to project-level managers even though the sidebar offered the links.
 
 ## [0.1.4]
 
