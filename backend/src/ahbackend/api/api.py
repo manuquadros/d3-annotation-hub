@@ -1,12 +1,20 @@
 import asyncio
+import contextlib
 import json
+import os
 import secrets
 import string
+import tempfile
 import uuid
+from collections.abc import AsyncIterator
 from typing import TYPE_CHECKING, Annotated, Literal
 
 from d3textdb import DuplicateCurieError, OntologyInUseError
-from d3textdb.owl import MAX_PEEK_BYTES, parse_owl, peek_ontology_metadata
+from d3textdb.owl import (
+    MAX_PEEK_BYTES,
+    OntologyStreamParser,
+    peek_ontology_metadata,
+)
 from d3textdb.schema import (
     EntityAnnotation,
     Ontology,
@@ -294,148 +302,175 @@ async def import_ontology(  # noqa: C901
     base_iri: str = Form(default=""),
     version: str | None = Form(default=None),
 ) -> StreamingResponse:
-    """Upload an OWL file and stream import progress as SSE events."""
-    # No byte cap here: legitimate ontologies (e.g. NCBITaxon exports at
-    # 1.5 GB+) far exceed the peek cap, and the frontend already imports files
-    # too large to peek. The amplification vector (entity-expansion) is handled
-    # by the defused parser; bounding raw upload size for very large ontologies
-    # is the domain of the streaming/background import work.
-    content = await file.read()
+    """Upload an OWL file and stream import progress as SSE events.
+
+    The upload is spooled to a temp file and parsed with a streaming parser
+    (``OntologyStreamParser``), so peak memory stays bounded even for very
+    large ontologies (e.g. NCBITaxon at 1.5 GB+) instead of materializing the
+    whole graph. Entity/triple counts are therefore not known up front, so
+    ``total`` is reported as 0 (the client shows a running count).
+    """
+    # Spool the upload to disk in bounded-size chunks rather than reading the
+    # whole (potentially multi-GB) file into memory.
+    tmp = tempfile.NamedTemporaryFile(  # noqa: SIM115
+        suffix=".owl", delete=False
+    )
+    try:
+        while chunk := await file.read(1024 * 1024):
+            tmp.write(chunk)
+    finally:
+        tmp.close()
+    tmp_path = tmp.name
 
     async def _stream():  # noqa: C901
-        # 1. Parse OWL
-        yield _sse("progress", {"step": "parse", "loaded": 0, "total": 1})
-        try:
-            parsed = parse_owl(content, prefix, base_iri)
-        except Exception as exc:
-            yield _sse("error", {"detail": f"OWL parse error: {exc}"})
-            return
-        yield _sse("progress", {"step": "parse", "loaded": 1, "total": 1})
-
-        n_entities = len(parsed.entities)
-        n_triples = len(parsed.triples)
-        n_props = len(parsed.properties)
-
-        # 2. Store ontology metadata
-        yield _sse(
-            "progress", {"step": "store_ontology", "loaded": 0, "total": 1}
-        )
-        try:
-            ontology_id = store_ontology_metadata(
-                name, prefix, base_iri, version
-            )
-        except Exception as exc:
-            yield _sse("error", {"detail": str(exc)})
-            return
-        yield _sse(
-            "progress", {"step": "store_ontology", "loaded": 1, "total": 1}
-        )
-
-        # 3. Load entities in a thread; iterable wrapper reports per batch
-        yield _sse(
-            "progress",
-            {"step": "load_entities", "loaded": 0, "total": n_entities},
-        )
         loop = asyncio.get_running_loop()
-        entity_q: asyncio.Queue[int] = asyncio.Queue()
 
-        def _tracked_entities():
-            for count, entity in enumerate(parsed.entities, 1):
-                yield entity
-                if count % 500 == 0 or count == n_entities:
-                    loop.call_soon_threadsafe(entity_q.put_nowait, count)
+        async def _load_phase(
+            step: str, worker, out: list[int]
+        ) -> AsyncIterator[str]:
+            """Run ``worker(report)`` in a thread, streaming SSE progress.
 
-        try:
-            load_task = asyncio.create_task(
-                asyncio.to_thread(
-                    load_entities_bulk, ontology_id, _tracked_entities()
-                )
-            )
-            while not load_task.done():
+            ``worker`` reports running counts via its ``report`` callback and
+            returns the final total, which is appended to ``out``. Progress
+            uses ``total: 0`` because the stream size is unknown until the
+            parse completes.
+            """
+            queue: asyncio.Queue[int] = asyncio.Queue()
+
+            def report(count: int) -> None:
+                loop.call_soon_threadsafe(queue.put_nowait, count)
+
+            task = asyncio.create_task(asyncio.to_thread(worker, report))
+            while not task.done():
                 try:
-                    loaded = await asyncio.wait_for(entity_q.get(), timeout=0.5)
+                    loaded = await asyncio.wait_for(queue.get(), timeout=0.5)
                     yield _sse(
                         "progress",
-                        {
-                            "step": "load_entities",
-                            "loaded": loaded,
-                            "total": n_entities,
-                        },
+                        {"step": step, "loaded": loaded, "total": 0},
                     )
                 except TimeoutError:
                     pass
             await asyncio.sleep(0)  # flush call_soon_threadsafe callbacks
-            while not entity_q.empty():
-                loaded = entity_q.get_nowait()
+            while not queue.empty():
                 yield _sse(
                     "progress",
-                    {
-                        "step": "load_entities",
-                        "loaded": loaded,
-                        "total": n_entities,
-                    },
+                    {"step": step, "loaded": queue.get_nowait(), "total": 0},
                 )
-            entity_count = await load_task
-        except Exception as exc:
-            yield _sse("error", {"detail": f"Entity loading error: {exc}"})
-            delete_ontology(ontology_id)
-            return
-
-        # 4. Load triples — chunked for per-batch progress
-        yield _sse(
-            "progress",
-            {"step": "load_triples", "loaded": 0, "total": n_triples},
-        )
-        triple_count = 0
-        try:
-            for start in range(0, n_triples, _TRIPLE_CHUNK):
-                chunk = parsed.triples[start : start + _TRIPLE_CHUNK]
-                stored = await asyncio.to_thread(load_triples_bulk, chunk)
-                triple_count += stored
-                yield _sse(
-                    "progress",
-                    {
-                        "step": "load_triples",
-                        "loaded": triple_count,
-                        "total": n_triples,
-                    },
-                )
-        except Exception as exc:
-            yield _sse("error", {"detail": f"Triple loading error: {exc}"})
-            delete_ontology(ontology_id)
-            return
-
-        # 5. Load properties — single shot
-        yield _sse(
-            "progress",
-            {"step": "load_properties", "loaded": 0, "total": n_props},
-        )
-        try:
-            property_count = await asyncio.to_thread(
-                load_properties_bulk, ontology_id, parsed.properties
+            total = await task
+            out.append(total)
+            yield _sse(
+                "progress", {"step": step, "loaded": total, "total": 0}
             )
-        except Exception as exc:
-            yield _sse("error", {"detail": str(exc)})
-            delete_ontology(ontology_id)
-            return
 
-        yield _sse(
-            "progress",
-            {
-                "step": "load_properties",
-                "loaded": property_count,
-                "total": n_props,
-            },
-        )
-        yield _sse(
-            "complete",
-            {
-                "ontology_id": ontology_id,
-                "entities": entity_count,
-                "triples": triple_count,
-                "properties": property_count,
-            },
-        )
+        try:
+            # 1. Build the streaming parser (cheap: reads only the header).
+            yield _sse("progress", {"step": "parse", "loaded": 0, "total": 1})
+            try:
+                parser = OntologyStreamParser(
+                    path=tmp_path, prefix=prefix, base_iri=base_iri
+                )
+            except Exception as exc:
+                yield _sse("error", {"detail": f"OWL parse error: {exc}"})
+                return
+            yield _sse("progress", {"step": "parse", "loaded": 1, "total": 1})
+
+            # 2. Store ontology metadata
+            yield _sse(
+                "progress", {"step": "store_ontology", "loaded": 0, "total": 1}
+            )
+            try:
+                ontology_id = store_ontology_metadata(
+                    name, prefix, base_iri, version
+                )
+            except Exception as exc:
+                yield _sse("error", {"detail": str(exc)})
+                return
+            yield _sse(
+                "progress", {"step": "store_ontology", "loaded": 1, "total": 1}
+            )
+
+            # 3. Load entities — streamed and batched in a worker thread.
+            def _entities_worker(report) -> int:
+                def tracked():
+                    for count, entity in enumerate(parser.iter_entities(), 1):
+                        if count % 500 == 0:
+                            report(count)
+                        yield entity
+
+                return load_entities_bulk(ontology_id, tracked())
+
+            entity_out: list[int] = []
+            try:
+                async for event in _load_phase(
+                    "load_entities", _entities_worker, entity_out
+                ):
+                    yield event
+            except Exception as exc:
+                yield _sse("error", {"detail": f"Entity loading error: {exc}"})
+                delete_ontology(ontology_id)
+                return
+            entity_count = entity_out[0]
+
+            # 4. Load triples — streamed and batched in a worker thread.
+            def _triples_worker(report) -> int:
+                total = 0
+                batch: list = []
+                for triple in parser.iter_triples():
+                    batch.append(triple)
+                    if len(batch) >= _TRIPLE_CHUNK:
+                        total += load_triples_bulk(batch)
+                        report(total)
+                        batch = []
+                if batch:
+                    total += load_triples_bulk(batch)
+                return total
+
+            triple_out: list[int] = []
+            try:
+                async for event in _load_phase(
+                    "load_triples", _triples_worker, triple_out
+                ):
+                    yield event
+            except Exception as exc:
+                yield _sse("error", {"detail": f"Triple loading error: {exc}"})
+                delete_ontology(ontology_id)
+                return
+            triple_count = triple_out[0]
+
+            # 5. Load properties — single shot (small; collected during pass 3).
+            yield _sse(
+                "progress",
+                {"step": "load_properties", "loaded": 0, "total": 0},
+            )
+            try:
+                property_count = await asyncio.to_thread(
+                    load_properties_bulk, ontology_id, parser.properties
+                )
+            except Exception as exc:
+                yield _sse("error", {"detail": str(exc)})
+                delete_ontology(ontology_id)
+                return
+
+            yield _sse(
+                "progress",
+                {
+                    "step": "load_properties",
+                    "loaded": property_count,
+                    "total": 0,
+                },
+            )
+            yield _sse(
+                "complete",
+                {
+                    "ontology_id": ontology_id,
+                    "entities": entity_count,
+                    "triples": triple_count,
+                    "properties": property_count,
+                },
+            )
+        finally:
+            with contextlib.suppress(OSError):
+                os.unlink(tmp_path)
 
     return StreamingResponse(
         _stream(),

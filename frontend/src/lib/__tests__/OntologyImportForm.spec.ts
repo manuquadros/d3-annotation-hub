@@ -104,6 +104,35 @@ const COMPLETE_EVENT = {
     data: { ontology_id: 42, entities: 100, triples: 50, properties: 5 },
 };
 
+/** An SSE stream whose events are pushed manually, so a test can inspect the
+ *  DOM mid-import before the stream closes. */
+function makeControlledSseStream(): {
+    response: Response;
+    push: (event: string, data: object) => void;
+    close: () => void;
+} {
+    const encoder = new TextEncoder();
+    let ctrl!: ReadableStreamDefaultController;
+    const body = new ReadableStream({
+        start(controller) {
+            ctrl = controller;
+        },
+    });
+    return {
+        response: new Response(body, {
+            status: 200,
+            headers: { "Content-Type": "text/event-stream" },
+        }),
+        push: (event, data) =>
+            ctrl.enqueue(
+                encoder.encode(
+                    `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`,
+                ),
+            ),
+        close: () => ctrl.close(),
+    };
+}
+
 beforeEach(() => {
     vi.restoreAllMocks();
 });
@@ -416,5 +445,69 @@ describe("OntologyImportForm — callback error handling", () => {
 
         await findByText(/imported 100 entities/i);
         expect(nameInput.value).toBe("");
+    });
+});
+
+describe("OntologyImportForm — streaming progress (unknown totals)", () => {
+    async function submitWith(response: Response) {
+        vi.spyOn(globalThis, "fetch")
+            .mockResolvedValueOnce(peekResponse({}))
+            .mockResolvedValueOnce(response);
+
+        const utils = render(OntologyImportForm);
+        const fileInput = utils.container.querySelector(
+            'input[type="file"]',
+        ) as HTMLInputElement;
+        const file = new File(["content"], "test.owl", {
+            type: "application/rdf+xml",
+        });
+        Object.defineProperty(fileInput, "files", {
+            value: [file],
+            configurable: true,
+        });
+        await fireEvent.change(fileInput);
+        await fireEvent.submit(utils.container.querySelector("form")!);
+        return utils;
+    }
+
+    test("import completes when progress events carry total=0", async () => {
+        const events = [
+            { event: "progress", data: { step: "parse", loaded: 1, total: 1 } },
+            {
+                event: "progress",
+                data: { step: "store_ontology", loaded: 1, total: 1 },
+            },
+            {
+                event: "progress",
+                data: { step: "load_entities", loaded: 500, total: 0 },
+            },
+            {
+                event: "progress",
+                data: { step: "load_triples", loaded: 200, total: 0 },
+            },
+            {
+                event: "progress",
+                data: { step: "load_properties", loaded: 5, total: 0 },
+            },
+            COMPLETE_EVENT,
+        ];
+        const { findByText } = await submitWith(makeSseStream(events));
+        await findByText(/imported 100 entities/i);
+    });
+
+    test("shows the running loaded count while a total=0 step is active", async () => {
+        const stream = makeControlledSseStream();
+        const { findByText } = await submitWith(stream.response);
+
+        stream.push("progress", { step: "parse", loaded: 1, total: 1 });
+        stream.push("progress", {
+            step: "load_entities",
+            loaded: 12345,
+            total: 0,
+        });
+
+        // The active entity step renders its running count (locale-formatted).
+        await findByText("12,345");
+        stream.close();
     });
 });

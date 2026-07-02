@@ -5,10 +5,12 @@ from __future__ import annotations
 import io
 import re
 import xml.etree.ElementTree as ET
+from collections.abc import Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import BinaryIO
 
+import pyoxigraph as ox
 from defusedxml.ElementTree import fromstring as _safe_fromstring
 from defusedxml.ElementTree import iterparse as _safe_iterparse
 from rdflib import OWL, RDF, RDFS, SKOS, Graph, Namespace, URIRef
@@ -55,6 +57,24 @@ TRIPLE_PREDICATES = [
     str(SKOS.exactMatch),
     str(SKOS.closeMatch),
 ]
+_TRIPLE_PREDICATE_IRIS: frozenset[str] = frozenset(TRIPLE_PREDICATES)
+
+# Predicate/type IRIs compared as plain strings in the streaming RDF parser.
+_RDF_TYPE = str(RDF.type)
+_OWL_CLASS = str(OWL.Class)
+_OWL_OBJECT_PROPERTY = str(OWL.ObjectProperty)
+_OWL_THING = str(OWL.Thing)
+_RDFS_LABEL = str(RDFS.label)
+_RDFS_SUBCLASSOF = str(RDFS.subClassOf)
+_RDFS_DOMAIN = str(RDFS.domain)
+_RDFS_RANGE = str(RDFS.range)
+
+# _rdflib_format() guess → pyoxigraph format for the streaming RDF path.
+_OX_RDF_FORMATS = {
+    "xml": ox.RdfFormat.RDF_XML,
+    "turtle": ox.RdfFormat.TURTLE,
+    "json-ld": ox.RdfFormat.JSON_LD,
+}
 
 
 @dataclass
@@ -350,112 +370,277 @@ def _parse_owl_xml(
     return result
 
 
-def _direct_superclass_curie(
-    g: Graph, cls: URIRef, prefix: str, base_iri: str
-) -> str | None:
-    """Return the CURIE of the first named (non-blank, non-owl:Thing) superclass."""
-    for parent in g.objects(cls, RDFS.subClassOf):
-        if isinstance(parent, URIRef) and parent != OWL.Thing:
-            return iri_to_curie(str(parent), prefix, base_iri)
-    return None
+# How far into the upload we scan for a DTD internal subset. The subset (if
+# present) always precedes the root element; a DTD larger than this is itself
+# abnormal and rejected. pyoxigraph — like the rdflib parser it replaced —
+# expands XML entities and has no expansion-limit knob, so this guard is the
+# only defence against billion-laughs on the RDF/XML path.
+_DTD_SCAN_LIMIT = 1024 * 1024
+
+_ENTITY_DECL_RE = re.compile(rb"<!ENTITY\s[^>]*?(\"[^\"]*\"|'[^']*')\s*>")
+# A general (&name;) or parameter (%name;) entity reference — not a numeric
+# character reference (&#123;), which cannot recurse.
+_ENTITY_REF_RE = re.compile(rb"[&%]([A-Za-z_][\w.-]*);")
+_PREDEFINED_ENTITIES = frozenset({b"amp", b"lt", b"gt", b"quot", b"apos"})
 
 
-def _parse_owl_rdflib(
-    content: bytes, prefix: str, base_iri: str, fmt: str
-) -> ParsedOntology:
-    """Parse an RDF serialization (RDF/XML, Turtle, JSON-LD, …) with rdflib."""
-    import io
+def _dtd_internal_subset(data: bytes) -> bytes | None:
+    """Return the bytes inside a DTD internal subset ``[...]``, if any.
 
-    g = Graph()
-    g.parse(io.BytesIO(content), format=fmt)
+    Returns ``b""`` when a subset is opened but not closed within ``data`` —
+    the caller treats an unterminated subset as suspicious.
+    """
+    doctype = data.find(b"<!DOCTYPE")
+    if doctype == -1:
+        return None
+    opening = data.find(b"[", doctype)
+    if opening == -1:
+        return None
+    closing = data.find(b"]", opening)
+    if closing == -1:
+        return b""  # subset larger than the scan window
+    return data[opening + 1 : closing]
 
-    result = ParsedOntology()
-    seen_curies: set[str] = set()
 
-    for cls in g.subjects(RDF.type, OWL.Class):
-        if not isinstance(cls, URIRef):
-            continue
+def _reject_entity_expansion_bomb(data: bytes) -> None:
+    """Raise if the DTD declares a recursive/nested entity (billion-laughs).
 
-        curie = iri_to_curie(str(cls), prefix, base_iri)
-
-        label: str | None = None
-        for obj in g.objects(cls, RDFS.label):
-            if label is None:
-                label = str(obj)
-            if getattr(obj, "language", None) in ("en", None, ""):
-                label = str(obj)
-                break
-
-        if label is None:
-            continue
-
-        synonyms = [
-            str(o) for pred in SYNONYM_PREDICATES for o in g.objects(cls, pred)
-        ]
-        kind = _direct_superclass_curie(g, cls, prefix, base_iri)
-
-        result.entities.append(
-            EntityAnnotation(
-                entity_id=curie,
-                preferred_name=label,
-                kind=kind or "",
-                synonyms=synonyms,
-                is_class=True,
+    Flat entity declarations (e.g. OBO namespace abbreviations such as
+    ``<!ENTITY obo "http://purl.obolibrary.org/obo/">``) are allowed; only
+    declarations whose value references another non-predefined entity — the
+    ingredient of an expansion bomb — are refused.
+    """
+    subset = _dtd_internal_subset(data)
+    if subset is None:
+        return
+    for decl in _ENTITY_DECL_RE.finditer(subset):
+        value = decl.group(1)[1:-1]
+        if any(
+            ref.group(1) not in _PREDEFINED_ENTITIES
+            for ref in _ENTITY_REF_RE.finditer(value)
+        ):
+            raise ValueError(
+                "ontology DTD declares nested XML entities (possible "
+                "expansion bomb); refusing to parse"
             )
+    if subset == b"" and data.find(b"[", data.find(b"<!DOCTYPE")) != -1:
+        raise ValueError(
+            "ontology DTD internal subset exceeds the scan limit; "
+            "refusing to parse"
         )
-        seen_curies.add(curie)
 
-    for predicate_iri in TRIPLE_PREDICATES:
-        predicate_ref = URIRef(predicate_iri)
-        for subj, obj in g.subject_objects(predicate_ref):
-            if not isinstance(subj, URIRef) or not isinstance(obj, URIRef):
+
+class _SubjectAcc:
+    """Mutable per-subject accumulator used during one streaming RDF pass."""
+
+    __slots__ = (
+        "is_class",
+        "is_property",
+        "label",
+        "label_locked",
+        "synonyms",
+        "kind_iri",
+        "domain_iri",
+        "range_iri",
+    )
+
+    def __init__(self) -> None:
+        self.is_class = False
+        self.is_property = False
+        self.label: str | None = None
+        self.label_locked = False
+        self.synonyms: list[str] = []
+        self.kind_iri: str | None = None
+        self.domain_iri: str | None = None
+        self.range_iri: str | None = None
+
+    def offer_label(self, value: str, language: str | None) -> None:
+        # Mirror the previous rdflib behaviour: the first label seen wins
+        # tentatively, and the first English/untagged label locks in.
+        if self.label is None:
+            self.label = value
+        if not self.label_locked and language in ("en", None, ""):
+            self.label = value
+            self.label_locked = True
+
+
+class OntologyStreamParser:
+    """Extract classes, synonyms, triples, and object properties from an
+    ontology without materializing the whole graph.
+
+    RDF serializations (RDF/XML, Turtle, JSON-LD, N-Triples) are streamed with
+    pyoxigraph, so peak memory is O(number of labelled subjects) for the
+    in-flight index rather than O(number of triples) for a full in-memory
+    graph — the difference between ~1 GB and tens of GB on ontologies the size
+    of NCBITaxon. OWL/XML (Functional Syntax) still uses the in-memory
+    ElementTree parse (it is a distinct serialization pyoxigraph does not read).
+
+    The source is re-read on each ``iter_*`` call, so prefer constructing with a
+    file ``path`` (streamed from disk) over ``content`` bytes for large files.
+    ``iter_entities`` must be consumed before reading ``properties`` (they are
+    produced by the same pass); ``parse_owl`` and the import endpoint call them
+    in that order.
+    """
+
+    def __init__(
+        self,
+        *,
+        prefix: str,
+        base_iri: str,
+        path: str | Path | None = None,
+        content: bytes | None = None,
+    ) -> None:
+        if (path is None) == (content is None):
+            raise ValueError("provide exactly one of path or content")
+        self._prefix = prefix
+        self._base_iri = base_iri
+        self._path = str(path) if path is not None else None
+        self._content = content
+        head = self._read_head()
+        self._is_owl_xml = _is_owl_xml(head)
+        if self._is_owl_xml:
+            self._ox_format = None
+        else:
+            self._ox_format = _OX_RDF_FORMATS[_rdflib_format(head)]
+            # The OWL/XML path is guarded by defusedxml; the RDF/XML path is
+            # not (pyoxigraph expands entities), so screen the DTD here.
+            _reject_entity_expansion_bomb(self._read_head(_DTD_SCAN_LIMIT))
+        self._materialized: ParsedOntology | None = None
+        self._properties: list[ParsedProperty] | None = None
+
+    def _read_head(self, n: int = 4096) -> bytes:
+        if self._content is not None:
+            return self._content[:n]
+        with open(self._path, "rb") as f:  # noqa: PTH123
+            return f.read(n)
+
+    def _rdf_quads(self) -> Iterator[ox.Quad]:
+        base = self._base_iri or None
+        if self._path is not None:
+            return ox.parse(
+                path=self._path, format=self._ox_format, base_iri=base
+            )
+        return ox.parse(self._content, format=self._ox_format, base_iri=base)
+
+    def _curie(self, iri: str) -> str:
+        return iri_to_curie(iri, self._prefix, self._base_iri)
+
+    def _owl_xml(self) -> ParsedOntology:
+        if self._materialized is None:
+            content = (
+                self._content
+                if self._content is not None
+                else Path(self._path).read_bytes()
+            )
+            self._materialized = _parse_owl_xml(
+                content, self._prefix, self._base_iri
+            )
+        return self._materialized
+
+    def iter_entities(self) -> Iterator[EntityAnnotation]:
+        """Yield the ontology's named classes (those with a label)."""
+        if self._is_owl_xml:
+            self._properties = self._owl_xml().properties
+            yield from self._owl_xml().entities
+            return
+        yield from self._iter_rdf_entities()
+
+    def iter_triples(self) -> Iterator[ParsedTriple]:
+        """Yield subClassOf / equivalentClass / exact- & closeMatch triples.
+
+        Triples whose subject or object is not a loaded entity are dropped
+        later by :meth:`D3TextDB.load_ontology_triples`.
+        """
+        if self._is_owl_xml:
+            yield from self._owl_xml().triples
+            return
+        for quad in self._rdf_quads():
+            predicate = quad.predicate.value
+            if predicate not in _TRIPLE_PREDICATE_IRIS:
                 continue
-            s_curie = iri_to_curie(str(subj), prefix, base_iri)
-            if s_curie not in seen_curies:
-                continue
-            o_curie = iri_to_curie(str(obj), prefix, base_iri)
-            result.triples.append(
-                ParsedTriple(
-                    subject_curie=s_curie,
-                    predicate=predicate_iri,
-                    object_curie=o_curie,
+            subject, obj = quad.subject, quad.object
+            if isinstance(subject, ox.NamedNode) and isinstance(
+                obj, ox.NamedNode
+            ):
+                yield ParsedTriple(
+                    subject_curie=self._curie(subject.value),
+                    predicate=predicate,
+                    object_curie=self._curie(obj.value),
                 )
-            )
 
-    # Extract owl:ObjectProperty declarations with domain and range
-    for prop in g.subjects(RDF.type, OWL.ObjectProperty):
-        if not isinstance(prop, URIRef):
-            continue
-        label: str | None = None
-        for obj in g.objects(prop, RDFS.label):
-            if label is None:
-                label = str(obj)
-            if getattr(obj, "language", None) in ("en", None, ""):
-                label = str(obj)
-                break
-        if label is None:
-            continue
-        prop_curie = iri_to_curie(str(prop), prefix, base_iri)
-        domains = [
-            o for o in g.objects(prop, RDFS.domain) if isinstance(o, URIRef)
-        ]
-        ranges = [
-            o for o in g.objects(prop, RDFS.range) if isinstance(o, URIRef)
-        ]
-        result.properties.append(
+    @property
+    def properties(self) -> list[ParsedProperty]:
+        """Object properties; valid once ``iter_entities`` has been consumed."""
+        if self._is_owl_xml:
+            return self._owl_xml().properties
+        if self._properties is None:
+            for _ in self._iter_rdf_entities():
+                pass
+        return self._properties or []
+
+    def _iter_rdf_entities(self) -> Iterator[EntityAnnotation]:
+        acc: dict[str, _SubjectAcc] = {}
+        for quad in self._rdf_quads():
+            subject = quad.subject
+            if not isinstance(subject, ox.NamedNode):
+                continue
+            predicate = quad.predicate.value
+            obj = quad.object
+            if predicate == _RDF_TYPE and isinstance(obj, ox.NamedNode):
+                if obj.value == _OWL_CLASS:
+                    acc.setdefault(subject.value, _SubjectAcc()).is_class = True
+                elif obj.value == _OWL_OBJECT_PROPERTY:
+                    acc.setdefault(
+                        subject.value, _SubjectAcc()
+                    ).is_property = True
+            elif predicate == _RDFS_LABEL and isinstance(obj, ox.Literal):
+                acc.setdefault(subject.value, _SubjectAcc()).offer_label(
+                    obj.value, obj.language
+                )
+            elif predicate in _SYNONYM_IRIS and isinstance(obj, ox.Literal):
+                acc.setdefault(subject.value, _SubjectAcc()).synonyms.append(
+                    obj.value
+                )
+            elif predicate == _RDFS_SUBCLASSOF and isinstance(
+                obj, ox.NamedNode
+            ):
+                if obj.value != _OWL_THING:
+                    entry = acc.setdefault(subject.value, _SubjectAcc())
+                    if entry.kind_iri is None:
+                        entry.kind_iri = obj.value
+            elif predicate == _RDFS_DOMAIN and isinstance(obj, ox.NamedNode):
+                entry = acc.setdefault(subject.value, _SubjectAcc())
+                if entry.domain_iri is None:
+                    entry.domain_iri = obj.value
+            elif predicate == _RDFS_RANGE and isinstance(obj, ox.NamedNode):
+                entry = acc.setdefault(subject.value, _SubjectAcc())
+                if entry.range_iri is None:
+                    entry.range_iri = obj.value
+
+        self._properties = [
             ParsedProperty(
-                curie=prop_curie,
-                label=label,
-                domain_curie=iri_to_curie(str(domains[0]), prefix, base_iri)
-                if domains
+                curie=self._curie(iri),
+                label=entry.label,
+                domain_curie=self._curie(entry.domain_iri)
+                if entry.domain_iri
                 else None,
-                range_curie=iri_to_curie(str(ranges[0]), prefix, base_iri)
-                if ranges
+                range_curie=self._curie(entry.range_iri)
+                if entry.range_iri
                 else None,
             )
-        )
+            for iri, entry in acc.items()
+            if entry.is_property and entry.label is not None
+        ]
 
-    return result
+        for iri, entry in acc.items():
+            if entry.is_class and entry.label is not None:
+                yield EntityAnnotation(
+                    entity_id=self._curie(iri),
+                    preferred_name=entry.label,
+                    kind=self._curie(entry.kind_iri) if entry.kind_iri else "",
+                    synonyms=entry.synonyms,
+                    is_class=True,
+                )
 
 
 def _peek_owl_xml_meta(content: bytes) -> OntologyMetadata:
@@ -622,15 +807,22 @@ def parse_owl(
     Each entity's ``kind`` is set to the CURIE of its direct named superclass
     in the OWL hierarchy (``rdfs:subClassOf``).  Root classes (no named
     superclass other than ``owl:Thing``) get an empty ``kind``.
+
+    This materializes the whole result in memory; for large ontologies prefer
+    :class:`OntologyStreamParser` and load its ``iter_*`` output in batches.
     """
-    if isinstance(source, bytes):
-        content = source
-    elif isinstance(source, (str, Path)):
-        content = Path(source).read_bytes()
+    if isinstance(source, (str, Path)):
+        parser = OntologyStreamParser(
+            path=source, prefix=prefix, base_iri=base_iri
+        )
     else:
-        content = source.read()
+        content = source if isinstance(source, bytes) else source.read()
+        parser = OntologyStreamParser(
+            content=content, prefix=prefix, base_iri=base_iri
+        )
 
-    if _is_owl_xml(content):
-        return _parse_owl_xml(content, prefix, base_iri)
-
-    return _parse_owl_rdflib(content, prefix, base_iri, _rdflib_format(content))
+    result = ParsedOntology()
+    result.entities = list(parser.iter_entities())
+    result.properties = parser.properties
+    result.triples = list(parser.iter_triples())
+    return result

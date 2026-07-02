@@ -19,6 +19,7 @@ dependencies = [
   "tqdm>=4.67.3",
   "pysqlite3-binary>=0.5.4.post2",
   "pysqlite3>=0.6.0",
+  "pyoxigraph>=0.5.9",
 ]
 
 [build-system]

@@ -5,6 +5,7 @@ database via FastAPI's TestClient, focusing on the protection that prevents
 deletion when annotations reference the ontology's entities.
 """
 
+import json
 from datetime import UTC, datetime
 
 import pytest
@@ -162,3 +163,110 @@ class TestDeleteOntology:
         annotator_auth = login(_ANNOTATOR_EMAIL, _ANNOTATOR_PASSWORD)
         r = client.delete(f"/admin/ontologies/{ontology_id}", headers=annotator_auth)
         assert r.status_code == 403
+
+
+def _parse_sse(text: str) -> list[tuple[str, dict]]:
+    """Parse an SSE stream body into a list of (event, data) pairs."""
+    events: list[tuple[str, dict]] = []
+    event: str | None = None
+    for line in text.splitlines():
+        if line.startswith("event: "):
+            event = line[len("event: ") :]
+        elif line.startswith("data: ") and event is not None:
+            events.append((event, json.loads(line[len("data: ") :])))
+            event = None
+    return events
+
+
+_RDFXML_ONTOLOGY = b"""<?xml version="1.0"?>
+<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+ xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#"
+ xmlns:owl="http://www.w3.org/2002/07/owl#"
+ xmlns:oboInOwl="http://www.geneontology.org/formats/oboInOwl#">
+  <owl:Class rdf:about="https://example.org/o/Alpha">
+    <rdfs:label>Alpha</rdfs:label>
+    <oboInOwl:hasExactSynonym>A</oboInOwl:hasExactSynonym>
+  </owl:Class>
+  <owl:Class rdf:about="https://example.org/o/Beta">
+    <rdfs:label xml:lang="fr">Beta-fr</rdfs:label>
+    <rdfs:label xml:lang="en">Beta</rdfs:label>
+    <rdfs:subClassOf rdf:resource="https://example.org/o/Alpha"/>
+  </owl:Class>
+  <owl:ObjectProperty rdf:about="https://example.org/o/relatesTo">
+    <rdfs:label>relates to</rdfs:label>
+    <rdfs:domain rdf:resource="https://example.org/o/Beta"/>
+    <rdfs:range rdf:resource="https://example.org/o/Alpha"/>
+  </owl:ObjectProperty>
+</rdf:RDF>"""
+
+
+class TestImportStreaming:
+    """POST /admin/ontology/import streams parse+load without materializing."""
+
+    def _import(self, client, admin_auth, content: bytes):
+        return client.post(
+            "/admin/ontology/import",
+            headers=admin_auth,
+            data={
+                "name": "Example",
+                "prefix": "ex",
+                "base_iri": "https://example.org/o/",
+            },
+            files={"file": ("onto.owl", content, "application/rdf+xml")},
+        )
+
+    def test_rdfxml_import_loads_entities_triples_properties(self, ctx):
+        client, admin_auth, test_db, *_ = ctx
+
+        r = self._import(client, admin_auth, _RDFXML_ONTOLOGY)
+        assert r.status_code == 200
+
+        events = _parse_sse(r.text)
+        assert not any(ev == "error" for ev, _ in events), events
+        complete = [data for ev, data in events if ev == "complete"]
+        assert len(complete) == 1
+        result = complete[0]
+        assert result["entities"] == 2
+        assert result["triples"] == 1  # Beta subClassOf Alpha
+        assert result["properties"] == 1
+
+        entities, total = test_db.get_ontology_entities(
+            result["ontology_id"], 50, 0
+        )
+        assert total == 2
+        by_curie = {e.entity_id: e for e in entities}
+        assert set(by_curie) == {"ex:Alpha", "ex:Beta"}
+        # English label preferred over the French one.
+        assert by_curie["ex:Beta"].preferred_name == "Beta"
+        assert by_curie["ex:Beta"].kind == "ex:Alpha"
+
+    def test_unparseable_upload_streams_error_not_500(self, ctx):
+        client, admin_auth, *_ = ctx
+
+        r = self._import(client, admin_auth, b"<<<not valid rdf or owl>>>")
+        assert r.status_code == 200
+        events = _parse_sse(r.text)
+        assert any(ev == "error" for ev, _ in events), events
+
+    def test_entity_expansion_bomb_upload_is_rejected(self, ctx):
+        # Tiny 2-level declaration (~16 chars expanded): harmless, but the
+        # import must refuse it before parsing rather than expand it.
+        client, admin_auth, *_ = ctx
+        bomb = (
+            b'<?xml version="1.0"?>\n'
+            b"<!DOCTYPE rdf:RDF [\n"
+            b'  <!ENTITY a "AAAA">\n'
+            b'  <!ENTITY b "&a;&a;">\n'
+            b"]>\n"
+            b'<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"\n'
+            b' xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#"\n'
+            b' xmlns:owl="http://www.w3.org/2002/07/owl#">\n'
+            b'  <owl:Class rdf:about="https://x/1">'
+            b"<rdfs:label>&b;</rdfs:label></owl:Class>\n"
+            b"</rdf:RDF>"
+        )
+        r = self._import(client, admin_auth, bomb)
+        assert r.status_code == 200
+        events = _parse_sse(r.text)
+        errors = [data for ev, data in events if ev == "error"]
+        assert errors and "bomb" in errors[0]["detail"].lower(), events

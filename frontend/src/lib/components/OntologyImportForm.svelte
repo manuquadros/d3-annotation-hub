@@ -378,10 +378,16 @@
                         {:else}·{/if}
                     </span>
                     <span class="step-label">{s.label}</span>
-                    {#if s.status === "active" && !s.isBinary && s.counts.total > 0}
-                        <span class="step-count">
-                            {s.counts.loaded.toLocaleString()}/{s.counts.total.toLocaleString()}
-                        </span>
+                    {#if s.status === "active" && !s.isBinary}
+                        {#if s.counts.total > 0}
+                            <span class="step-count">
+                                {s.counts.loaded.toLocaleString()}/{s.counts.total.toLocaleString()}
+                            </span>
+                        {:else if s.counts.loaded > 0}
+                            <span class="step-count">
+                                {s.counts.loaded.toLocaleString()}
+                            </span>
+                        {/if}
                     {/if}
                 </div>
             {/each}
