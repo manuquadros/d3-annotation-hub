@@ -592,7 +592,10 @@ class D3TextDB:
                 )
             )
 
-            # Delete association rows for those relations
+            # Delete association rows for those relations. Curation rows
+            # (curated_annotation_relation, curation_decision) FK-reference
+            # relation with no ON DELETE CASCADE, so they must go before the
+            # Relation rows or the delete raises IntegrityError.
             if rel_ids:
                 session.execute(
                     sa_delete(StateRelation).where(
@@ -610,16 +613,33 @@ class D3TextDB:
                     )
                 )
                 session.execute(
+                    sa_delete(CuratedAnnotationRelation).where(
+                        CuratedAnnotationRelation.relation_id.in_(rel_ids)
+                    )
+                )
+                session.execute(
+                    sa_delete(CurationDecision).where(
+                        CurationDecision.relation_id.in_(rel_ids)
+                    )
+                )
+                session.execute(
                     sa_delete(Relation).where(Relation.relation_id.in_(rel_ids))
                 )
 
-            # Delete pointer association rows then pointers
+            # Delete pointer association rows then pointers.
+            # curated_annotation_pointer FK-references pointer, so it must go
+            # before the Pointer rows.
             session.execute(
                 sa_delete(StatePointer).where(StatePointer.entity_id == curie)
             )
             session.execute(
                 sa_delete(SnapshotPointer).where(
                     SnapshotPointer.entity_id == curie
+                )
+            )
+            session.execute(
+                sa_delete(CuratedAnnotationPointer).where(
+                    CuratedAnnotationPointer.entity_id == curie
                 )
             )
             session.execute(

@@ -926,3 +926,115 @@ def test_fk_cascade_migration_upgrades_legacy_database(tmp_path) -> None:
             == "ZZZ:9"
         )
         assert session.execute(text("PRAGMA foreign_keys")).scalar() == 1
+
+
+def test_delete_entity_with_curation_rows_succeeds() -> None:
+    """Deleting a proposed entity whose pointer/relation has been curated must
+    cascade through the curation child rows instead of raising IntegrityError
+    (FK enforcement is on). Regression for TICKET-13."""
+    from sqlalchemy import text
+    from sqlmodel import Session
+
+    from d3textdb.schema import (
+        CuratedAnnotation,
+        CuratedAnnotationPointer,
+        CuratedAnnotationRelation,
+        CurationDecision,
+        Verdict,
+    )
+
+    db = D3TextDB()
+    project_id = db.create_project("P", required_annotators=1)
+    curator_id = db.create_user(User(email="c@example.com"), "pw")
+    db.store_proposed_entity(project_id, "Beta", "PROP:1", "Strain")
+    db.store_proposed_entity(project_id, "Obj", "OBJ:1", "Enzyme")
+    ref_id = db.store_reference(
+        Reference(
+            pubmed_id=1,
+            title="t",
+            authors="a",
+            journal="J",
+            volume="1",
+            pages="1",
+            year=2024,
+            abstract="x",
+        )
+    )
+    with Session(db.engine) as session:
+        session.add(
+            Pointer(
+                reference_id=ref_id,
+                entity_id="PROP:1",
+                offset=0,
+                length=3,
+                field="abstract",
+            )
+        )
+        rel = Relation(predicate="d3o:x", subject="PROP:1", object="OBJ:1")
+        session.add(rel)
+        session.flush()
+        rel_id = rel.relation_id
+        session.add(
+            CuratedAnnotation(
+                project_id=project_id,
+                reference_id=ref_id,
+                curator_id=curator_id,
+                content_hash="h",
+                created_at=_NOW,
+            )
+        )
+        session.flush()
+        curated_id = session.execute(
+            text("SELECT curated_id FROM curated_annotation")
+        ).scalar()
+        session.add(
+            CuratedAnnotationPointer(
+                curated_id=curated_id,
+                reference_id=ref_id,
+                entity_id="PROP:1",
+                offset=0,
+                length=3,
+                field="abstract",
+            )
+        )
+        session.add(
+            CuratedAnnotationRelation(curated_id=curated_id, relation_id=rel_id)
+        )
+        session.add(
+            CurationDecision(
+                project_id=project_id,
+                relation_id=rel_id,
+                curator_id=curator_id,
+                verdict=Verdict.accepted,
+                decided_at=_NOW,
+            )
+        )
+        session.commit()
+
+    db.delete_entity("PROP:1")
+
+    with Session(db.engine) as session:
+        assert (
+            session.execute(
+                text("SELECT count(*) FROM entity WHERE curie = 'PROP:1'")
+            ).scalar()
+            == 0
+        )
+        assert (
+            session.execute(
+                text("SELECT count(*) FROM curated_annotation_pointer")
+            ).scalar()
+            == 0
+        )
+        assert (
+            session.execute(
+                text("SELECT count(*) FROM curated_annotation_relation")
+            ).scalar()
+            == 0
+        )
+        assert (
+            session.execute(
+                text("SELECT count(*) FROM curation_decision")
+            ).scalar()
+            == 0
+        )
