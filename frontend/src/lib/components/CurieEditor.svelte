@@ -29,6 +29,9 @@
     }
 
     async function commit() {
+        // A rapid double-Enter can call commit() again before disabled={saving}
+        // reaches the DOM; guard so the second call can't fire a duplicate save.
+        if (saving) return;
         const next = value.trim();
         if (!next || next === curie) {
             cancel();

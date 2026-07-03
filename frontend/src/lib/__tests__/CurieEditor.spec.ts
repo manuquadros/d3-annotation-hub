@@ -71,6 +71,27 @@ describe("CurieEditor", () => {
         expect(container.querySelector(".error")).toBeNull();
     });
 
+    test("a double-Enter while saving fires only one save", async () => {
+        let resolveSave: () => void = () => {};
+        const save = vi.fn().mockReturnValue(
+            new Promise<void>((resolve) => {
+                resolveSave = resolve;
+            }),
+        );
+        const { container } = render(CurieEditor, {
+            props: { curie: "PROP:1", save },
+        });
+
+        const input = await open(container);
+        await fireEvent.input(input, { target: { value: "CHEBI:2" } });
+        // Two Enters before the in-flight save resolves.
+        await fireEvent.keyDown(input, { key: "Enter" });
+        await fireEvent.keyDown(input, { key: "Enter" });
+
+        expect(save).toHaveBeenCalledTimes(1);
+        resolveSave();
+    });
+
     test("an unchanged or empty value closes without calling save", async () => {
         const save = vi.fn();
         const { container } = render(CurieEditor, {
