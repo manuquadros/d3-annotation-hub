@@ -12,9 +12,10 @@ saved state, which is what the curation views read. Shared ``db``/``client``/
 import json
 
 import pytest
-from d3textdb.schema import Reference
+from d3textdb.schema import Entity, Reference
 from d3textdb.schema import User as DbUser
 from fastapi.testclient import TestClient
+from sqlmodel import Session, select
 
 _PMID = 30000001
 _ANNOTATOR_EMAIL = "annotator@curation-test.example"
@@ -582,3 +583,33 @@ class TestRenameEntityCurie:
         assert (
             db.get_entities_by_curies([_NEW_CURIE])[0].entity_id == _NEW_CURIE
         )
+
+    def test_rename_backfills_legacy_null_project_entity(
+        self, project, db, client, login
+    ):
+        # A proposed entity predating the project_id column carries a NULL
+        # project_id. Renaming it adopts it into the current project (backfill)
+        # rather than 404ing it into being permanently un-renamable.
+        project_id, _ = project
+        db.store_proposed_entity(
+            project_id, "Beta strain", _OLD_CURIE, "Strain"
+        )
+        with Session(db.engine) as session:
+            row = session.exec(
+                select(Entity).where(Entity.curie == _OLD_CURIE)
+            ).one()
+            row.project_id = None
+            session.add(row)
+            session.commit()
+
+        curator_auth = login(_CURATOR_EMAIL, _CURATOR_PASSWORD)
+        r = client.patch(
+            f"/projects/{project_id}/curation/entity-curie?curie={_OLD_CURIE}",
+            json={"new_curie": _NEW_CURIE},
+            headers=curator_auth,
+        )
+        assert r.status_code == 204
+        renamed = db.get_entities_by_curies([_NEW_CURIE])
+        assert len(renamed) == 1
+        assert renamed[0].entity_id == _NEW_CURIE
+        assert renamed[0].project_id == project_id

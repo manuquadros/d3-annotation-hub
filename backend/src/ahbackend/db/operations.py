@@ -200,6 +200,10 @@ def update_entity_curie(old_curie: str, new_curie: str) -> None:
     annodb.update_entity_curie(old_curie, new_curie)
 
 
+def backfill_entity_project(curie: str, project_id: int) -> None:
+    annodb.backfill_entity_project(curie, project_id)
+
+
 def rebuild_fts() -> None:
     annodb.rebuild_fts()
 

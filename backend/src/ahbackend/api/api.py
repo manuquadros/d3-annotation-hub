@@ -51,6 +51,7 @@ from ahbackend.db.operations import (
     add_reference_to_project,
     archive_project,
     assign_ontology_to_project,
+    backfill_entity_project,
     confirm_entity,
     create_project,
     create_user,
@@ -1331,8 +1332,12 @@ def curator_rename_entity_curie(
             detail="Only proposed (unconfirmed) entities can be renamed",
         )
     # The lookup and rename are global by CURIE; scope to this project so a
-    # curator cannot rename another project's proposed entity.
-    if entity.project_id != project_id:
+    # curator cannot rename another project's proposed entity. A legacy row
+    # predating the project_id column carries a NULL project_id; adopt it into
+    # the current project rather than leaving it permanently un-renamable.
+    if entity.project_id is None:
+        backfill_entity_project(curie, project_id)
+    elif entity.project_id != project_id:
         raise HTTPException(status_code=404, detail="Entity not found")
     update_entity_curie(curie, body.new_curie)
 

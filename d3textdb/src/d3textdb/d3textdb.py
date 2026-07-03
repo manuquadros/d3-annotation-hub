@@ -581,6 +581,22 @@ class D3TextDB:
                 session.add(entity)
                 session.commit()
 
+    def backfill_entity_project(self, curie: str, project_id: int) -> None:
+        """Adopt a legacy proposed entity into a project.
+
+        Fills ``project_id`` only when it is currently NULL — a row created
+        before the column was populated. A row already scoped to a project is
+        left untouched so this can't reassign another project's entity.
+        """
+        with Session(self.engine) as session:
+            entity = session.scalars(
+                select(Entity).where(Entity.curie == curie)
+            ).first()
+            if entity and entity.project_id is None:
+                entity.project_id = project_id
+                session.add(entity)
+                session.commit()
+
     def delete_entity(self, curie: str) -> None:
         """Delete a proposed entity and all referencing rows."""
         with Session(self.engine) as session:
