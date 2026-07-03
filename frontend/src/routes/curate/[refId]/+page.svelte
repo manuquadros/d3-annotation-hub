@@ -16,6 +16,7 @@
     } from "$lib/annotation.svelte";
     import DOMPurify from "dompurify";
     import type { Pointer } from "$lib/types.ts";
+    import { errorDetail } from "$lib/utils/http";
 
     interface Props {
         data: PageData;
@@ -359,10 +360,9 @@
                 },
             );
             if (!res.ok) {
-                const body = await res.json().catch(() => null);
                 curieErrors = new Map(curieErrors).set(
                     entityId,
-                    body?.detail ?? `Rename failed (${res.status})`,
+                    await errorDetail(res),
                 );
             } else {
                 // After invalidateAll() the entity re-derives under its new

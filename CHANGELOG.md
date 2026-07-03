@@ -30,6 +30,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Ontology import now parses uploads with a streaming parser, so very large ontologies (e.g. NCBITaxon at 1.5 GB+) import without exhausting memory. Previously the whole file was read into memory and parsed into an in-memory graph, which could need tens of GB and fail. Progress for the entity and triple steps now shows a running count rather than a percentage, since the total is not known up front.
 - Ontology import is now hardened against malicious XML: the OWL/XML path rejects entity-expansion and external-entity attacks, and the RDF/XML path refuses files whose DTD declares nested (recursive) entities — the ingredient of a "billion laughs" bomb — while still accepting the flat namespace entities that OBO ontologies use.
 - Curation can now rename a legacy proposed entity that has no project scope (a NULL `project_id` from before the column existed): the rename adopts it into the current project instead of failing with a 404. Properly scoped entities remain protected from cross-project renames.
+- A failed CURIE rename now surfaces the underlying error even when the response isn't JSON (e.g. a 502/HTML gateway page or a proxy failure), instead of collapsing to a generic "Rename failed" message — making misconfiguration easier to diagnose in both the curation and admin panels.
 
 ## [0.1.4]
 

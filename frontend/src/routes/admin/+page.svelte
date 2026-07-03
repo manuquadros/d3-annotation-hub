@@ -3,6 +3,7 @@
     import OntologyImportForm from "$lib/components/OntologyImportForm.svelte";
     import type { ImportedResult } from "$lib/components/OntologyImportForm.svelte";
     import CurieEditor from "$lib/components/CurieEditor.svelte";
+    import { errorDetail } from "$lib/utils/http";
 
     interface Ontology {
         ontology_id: number;
@@ -401,8 +402,7 @@
                 },
             );
             if (!res.ok) {
-                const body = await res.json().catch(() => ({}));
-                throw new Error(body.detail ?? res.statusText);
+                throw new Error(await errorDetail(res));
             }
             proposedEntities = proposedEntities.map((e) =>
                 e.entity_id === oldCurie ? { ...e, entity_id: newCurie } : e,
