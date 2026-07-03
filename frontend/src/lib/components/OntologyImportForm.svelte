@@ -4,6 +4,7 @@
         computeOverallPct,
         type ImportStep,
     } from "$lib/utils/importProgress";
+    import { errorDetail } from "$lib/utils/http";
 
     export interface ImportedResult {
         ontology_id: number;
@@ -177,10 +178,7 @@
             });
 
             if (!res.ok || !res.body) {
-                const detail = await res
-                    .json()
-                    .catch(() => ({ detail: res.statusText }));
-                errorMessage = detail.detail ?? res.statusText;
+                errorMessage = await errorDetail(res);
                 importSteps = [];
                 return;
             }

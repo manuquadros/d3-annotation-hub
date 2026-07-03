@@ -136,10 +136,7 @@
                 }),
             });
             if (!res.ok) {
-                const d = await res
-                    .json()
-                    .catch(() => ({ detail: res.statusText }));
-                addUserError = d.detail ?? res.statusText;
+                addUserError = await errorDetail(res);
                 return;
             }
             const created: UserRecord = await res.json();
@@ -202,10 +199,7 @@
                 }),
             });
             if (!res.ok) {
-                const d = await res
-                    .json()
-                    .catch(() => ({ detail: res.statusText }));
-                addMemberError = d.detail ?? res.statusText;
+                addMemberError = await errorDetail(res);
             } else {
                 const member = await res.json();
                 if (member.generated_password)
@@ -470,10 +464,7 @@
                 }
                 confirmDeleteId = null;
             } else {
-                const body = await res
-                    .json()
-                    .catch(() => ({ detail: res.statusText }));
-                deleteError = body.detail ?? res.statusText;
+                deleteError = await errorDetail(res);
             }
         } catch (err) {
             deleteError = String(err);

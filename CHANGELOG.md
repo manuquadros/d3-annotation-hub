@@ -7,30 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-- PDF import.
-- PDF viewer.
-- Supplementary files import.
-- Email notification for users added to a project.
-- Fix import of large ontologies.
-- Flag references that have already been annotated when adding a document to a project.
-- Curation only allows renaming the CURIE of proposed (unconfirmed) entities; renaming a confirmed entity is now rejected.
-- Curation CURIE rename is now scoped to the caller's project: a curator can no longer rename a proposed entity belonging to a different project (returns 404).
-- Renaming a CURIE to one that already exists now returns a clean 409 instead of an internal server error, in both the curation and admin rename endpoints.
-- The curation and admin CURIE editors now show the rejection reason inline (e.g. "already in use") and keep the editor open so it can be corrected, instead of failing silently or displaying a raw error payload.
-- In the admin panel, a proposed entity's CURIE is now edited by clicking the CURIE itself (the separate "Edit CURIE" button was removed), matching the curation page.
-- Renaming a CURIE to an empty/whitespace value is now rejected (422) instead of overwriting the entity and all its annotations with an empty identifier.
-- In the admin panel, a proposed entity's Accept/Reject buttons are disabled while a CURIE rename for that entity is in flight, preventing a concurrent mutation.
-- Renaming an entity's CURIE now preserves database referential-integrity enforcement; previously it could leave SQLite foreign-key checks disabled on the connection, letting later writes bypass them.
-- Saving an annotation is now recorded under the authenticated user and rejected (403) when the caller is not a member of the target project; previously the save request trusted the client-supplied identity and project, allowing a user to attribute annotations to someone else or write into a project they don't belong to.
-- Deleting a proposed entity that had already been curated (its pointer or relation appears in a curated annotation or a curation verdict) no longer fails with an internal server error; the curation rows are now removed as part of the cascade.
-- Proposing an entity or property now requires membership in the target project (returns 403 otherwise); previously any authenticated user could inject proposals into any project.
-- Proposing an entity whose CURIE already exists now returns a clean 409 instead of an internal server error, and an empty/whitespace CURIE is rejected (422).
-- Project managers without global admin rights can now open a project's Users, Documents, and Ontologies management pages; previously these pages required the global `can_manage`/superuser flag and returned 403 to project-level managers even though the sidebar offered the links.
-- Renaming a proposed entity's CURIE during curation now refreshes the review immediately: the row shows the new identifier and saving the curation uses it. Previously the page kept showing the old CURIE and the curation save failed because it referenced the pre-rename identifier.
-- Ontology import now parses uploads with a streaming parser, so very large ontologies (e.g. NCBITaxon at 1.5 GB+) import without exhausting memory. Previously the whole file was read into memory and parsed into an in-memory graph, which could need tens of GB and fail. Progress for the entity and triple steps now shows a running count rather than a percentage, since the total is not known up front.
-- Ontology import is now hardened against malicious XML: the OWL/XML path rejects entity-expansion and external-entity attacks, and the RDF/XML path refuses files whose DTD declares nested (recursive) entities — the ingredient of a "billion laughs" bomb — while still accepting the flat namespace entities that OBO ontologies use.
-- Curation can now rename a legacy proposed entity that has no project scope (a NULL `project_id` from before the column existed): the rename adopts it into the current project instead of failing with a 404. Properly scoped entities remain protected from cross-project renames.
-- A failed CURIE rename now surfaces the underlying error even when the response isn't JSON (e.g. a 502/HTML gateway page or a proxy failure), instead of collapsing to a generic "Rename failed" message — making misconfiguration easier to diagnose in both the curation and admin panels.
+- Curation CURIE rename is restricted to proposed (unconfirmed) entities; renaming a confirmed entity is rejected.
+- Curation CURIE rename is scoped to the caller's project (404 for another project's entity).
+- Renaming a CURIE to one already in use returns a 409 instead of a server error (curation and admin).
+- The curation and admin CURIE editors show the rejection reason inline and stay open for correction.
+- In the admin panel, a proposed entity's CURIE is edited by clicking the CURIE itself (the "Edit CURIE" button was removed).
+- Renaming a CURIE to an empty/whitespace value is rejected (422).
+- In the admin panel, a proposed entity's Accept/Reject buttons are disabled while its CURIE rename is in flight.
+- Renaming an entity's CURIE preserves SQLite foreign-key enforcement.
+- Saving an annotation is recorded under the authenticated user and rejected (403) for non-members of the target project.
+- Deleting a proposed entity that was already curated no longer errors; its curation rows are removed in the cascade.
+- Proposing an entity or property requires membership in the target project (403 otherwise).
+- Proposing an entity with an existing CURIE returns 409, and an empty/whitespace CURIE is rejected (422).
+- Project managers without global admin rights can open a project's Users, Documents, and Ontologies pages.
+- Renaming a proposed entity's CURIE during curation refreshes the review immediately so the save uses the new identifier.
+- Ontology import streams uploads, so very large ontologies (e.g. NCBITaxon 1.5 GB+) import without exhausting memory; entity/triple progress shows a running count.
+- Ontology import is hardened against malicious XML (entity-expansion/XXE and "billion laughs" bombs) while still accepting OBO namespace entities.
+- Curators can rename a legacy proposed entity with no project scope (NULL `project_id`); the rename adopts it into the current project instead of returning 404.
+- Failed create/save/delete actions now show a consistent error message, surfacing the server's reason or a non-JSON gateway/proxy body instead of a generic status or raw JSON.
 
 ## [0.1.4]
 

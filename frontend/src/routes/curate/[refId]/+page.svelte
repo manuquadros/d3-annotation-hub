@@ -410,7 +410,7 @@
                 },
             );
             if (!res.ok) {
-                autosaveError = await res.text();
+                autosaveError = await errorDetail(res);
             } else {
                 autosaved = true;
             }

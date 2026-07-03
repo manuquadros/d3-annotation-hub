@@ -1,4 +1,6 @@
 <script lang="ts">
+    import { errorDetail } from "$lib/utils/http";
+
     let currentPassword = $state("");
     let newPassword = $state("");
     let confirmPassword = $state("");
@@ -25,10 +27,7 @@
                 }),
             });
             if (!res.ok) {
-                const d = await res
-                    .json()
-                    .catch(() => ({ detail: res.statusText }));
-                error = d.detail ?? res.statusText;
+                error = await errorDetail(res);
             } else {
                 success = true;
                 currentPassword = "";

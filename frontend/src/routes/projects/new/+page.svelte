@@ -1,6 +1,7 @@
 <script lang="ts">
     import { goto } from "$app/navigation";
     import { setLastProject } from "$lib/api";
+    import { errorDetail } from "$lib/utils/http";
 
     let name = $state("");
     let description = $state("");
@@ -23,10 +24,7 @@
                 }),
             });
             if (!res.ok) {
-                const d = await res
-                    .json()
-                    .catch(() => ({ detail: res.statusText }));
-                errorMessage = d.detail ?? res.statusText;
+                errorMessage = await errorDetail(res);
             } else {
                 const created = await res.json();
                 await setLastProject(created.project_id);

@@ -2,6 +2,7 @@
     import { untrack } from "svelte";
     import { SvelteSet } from "svelte/reactivity";
     import "$lib/styles/management.css";
+    import { errorDetail } from "$lib/utils/http";
     interface Reference {
         reference_id: number;
         pubmed_id: number | null;
@@ -38,7 +39,7 @@
                     (r) => r.reference_id !== referenceId,
                 );
             } else {
-                errorMessage = `Failed to remove reference: ${res.statusText}`;
+                errorMessage = `Failed to remove reference: ${await errorDetail(res)}`;
             }
         } catch (err) {
             errorMessage = String(err);
@@ -74,10 +75,7 @@
             );
 
             if (!res.ok) {
-                const d = await res
-                    .json()
-                    .catch(() => ({ detail: res.statusText }));
-                errorMessage = d.detail ?? res.statusText;
+                errorMessage = await errorDetail(res);
             } else {
                 result = await res.json();
                 if (result!.imported > 0) {

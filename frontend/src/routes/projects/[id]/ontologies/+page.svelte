@@ -3,6 +3,7 @@
     import "$lib/styles/management.css";
     import OntologyImportForm from "$lib/components/OntologyImportForm.svelte";
     import type { ImportedResult } from "$lib/components/OntologyImportForm.svelte";
+    import { errorDetail } from "$lib/utils/http";
 
     interface Ontology {
         ontology_id: number;
@@ -25,10 +26,7 @@
             { method: "POST" },
         );
         if (!res.ok) {
-            const body = await res
-                .json()
-                .catch(() => ({ detail: res.statusText }));
-            throw new Error(body.detail ?? res.statusText);
+            throw new Error(await errorDetail(res));
         }
         projectOntologies = [
             ...projectOntologies,
@@ -63,7 +61,7 @@
                 { method: "POST" },
             );
             if (!res.ok) {
-                assignError = res.statusText;
+                assignError = await errorDetail(res);
                 return;
             }
             const added = allOntologies.find(

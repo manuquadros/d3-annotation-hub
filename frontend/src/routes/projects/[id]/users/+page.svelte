@@ -2,6 +2,7 @@
     import { untrack } from "svelte";
     import { invalidateAll } from "$app/navigation";
     import "$lib/styles/management.css";
+    import { errorDetail } from "$lib/utils/http";
 
     interface Member {
         user_id: string;
@@ -144,10 +145,7 @@
                 body: JSON.stringify(payload),
             });
             if (!res.ok) {
-                const d = await res
-                    .json()
-                    .catch(() => ({ detail: res.statusText }));
-                addError = d.detail ?? res.statusText;
+                addError = await errorDetail(res);
                 return;
             }
             const member: Member & { generated_password?: string } =
