@@ -8,9 +8,16 @@
          * accept and close the editor.
          */
         save: (newCurie: string) => Promise<void>;
+        /**
+         * When true, committing an unchanged (but non-empty) value still calls
+         * `save` with the current CURIE, so a caller can treat "accept as-is"
+         * as a confirmation. When false (default), an unchanged value just
+         * closes the editor without calling `save`.
+         */
+        confirmUnchanged?: boolean;
     }
 
-    const { curie, save }: Props = $props();
+    const { curie, save, confirmUnchanged = false }: Props = $props();
 
     let editing = $state(false);
     let value = $state("");
@@ -33,7 +40,7 @@
         // reaches the DOM; guard so the second call can't fire a duplicate save.
         if (saving) return;
         const next = value.trim();
-        if (!next || next === curie) {
+        if (!next || (next === curie && !confirmUnchanged)) {
             cancel();
             return;
         }

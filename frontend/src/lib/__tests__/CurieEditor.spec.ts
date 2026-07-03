@@ -92,6 +92,33 @@ describe("CurieEditor", () => {
         resolveSave();
     });
 
+    test("confirmUnchanged calls save with the current CURIE on an unchanged commit", async () => {
+        const save = vi.fn().mockResolvedValue(undefined);
+        const { container } = render(CurieEditor, {
+            props: { curie: "PROP:1", save, confirmUnchanged: true },
+        });
+
+        const input = await open(container);
+        await fireEvent.keyDown(input, { key: "Enter" }); // value unchanged
+
+        expect(save).toHaveBeenCalledWith("PROP:1");
+        expect(container.querySelector(".curie-input")).toBeNull();
+    });
+
+    test("confirmUnchanged still closes without saving on an empty value", async () => {
+        const save = vi.fn();
+        const { container } = render(CurieEditor, {
+            props: { curie: "PROP:1", save, confirmUnchanged: true },
+        });
+
+        const input = await open(container);
+        await fireEvent.input(input, { target: { value: "   " } });
+        await fireEvent.keyDown(input, { key: "Enter" });
+
+        expect(save).not.toHaveBeenCalled();
+        expect(container.querySelector(".curie-input")).toBeNull();
+    });
+
     test("an unchanged or empty value closes without calling save", async () => {
         const save = vi.fn();
         const { container } = render(CurieEditor, {

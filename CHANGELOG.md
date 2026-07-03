@@ -26,6 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Curators can rename a legacy proposed entity with no project scope (NULL `project_id`); the rename adopts it into the current project instead of returning 404.
 - Failed create/save/delete actions now show a consistent error message, surfacing the server's reason or a non-JSON gateway/proxy body instead of a generic status or raw JSON.
 - A rapid double-Enter in the CURIE editor no longer fires a duplicate rename (which showed a spurious error over the successful save).
+- The curation page's CURIE editor now uses the same component as the admin panel, gaining explicit Save/Cancel buttons for consistent behavior.
 
 ## [0.1.4]
 

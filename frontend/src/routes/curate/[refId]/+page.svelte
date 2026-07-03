@@ -17,6 +17,7 @@
     import DOMPurify from "dompurify";
     import type { Pointer } from "$lib/types.ts";
     import { errorDetail } from "$lib/utils/http";
+    import CurieEditor from "$lib/components/CurieEditor.svelte";
 
     interface Props {
         data: PageData;
@@ -325,32 +326,13 @@
         groupStatus = next;
     }
 
-    let curieEdits = $state(new Map<string, string>());
-    let curieErrors = $state(new Map<string, string>());
-    let curieSaving = $state(new Set<string>());
     let locallyConfirmed = $state(new Set<string>());
 
-    function startCurieEdit(entityId: string) {
-        if (!curieEdits.has(entityId)) {
-            curieEdits = new Map(curieEdits).set(entityId, entityId);
-        }
-    }
-
-    async function applyCurieEdit(entityId: string) {
-        const newCurie = curieEdits.get(entityId)?.trim();
-
-        if (!newCurie || newCurie === entityId) {
-            locallyConfirmed = new Set(locallyConfirmed).add(entityId);
-            curieEdits = new Map(curieEdits);
-            curieEdits.delete(entityId);
-            return;
-        }
-
-        curieSaving = new Set(curieSaving).add(entityId);
-        curieErrors = new Map(curieErrors);
-        curieErrors.delete(entityId);
-
-        try {
+    // Rename a proposed entity's CURIE, or — when unchanged — confirm it as-is.
+    // Throws on a failed rename so CurieEditor surfaces the message inline and
+    // keeps the editor open.
+    async function saveCurie(entityId: string, newCurie: string) {
+        if (newCurie !== entityId) {
             const res = await fetch(
                 `/api/projects/${data.projectId}/curation/entity-curie?curie=${encodeURIComponent(entityId)}`,
                 {
@@ -359,28 +341,15 @@
                     body: JSON.stringify({ new_curie: newCurie }),
                 },
             );
-            if (!res.ok) {
-                curieErrors = new Map(curieErrors).set(
-                    entityId,
-                    await errorDetail(res),
-                );
-            } else {
-                // After invalidateAll() the entity re-derives under its new
-                // CURIE, so record the confirmation against the new key.
-                const confirmed = new Set(locallyConfirmed);
-                confirmed.delete(entityId);
-                confirmed.add(newCurie);
-                locallyConfirmed = confirmed;
-                curieEdits = new Map(curieEdits);
-                curieEdits.delete(entityId);
-                await invalidateAll();
-            }
-        } catch (e) {
-            curieErrors = new Map(curieErrors).set(entityId, String(e));
-        } finally {
-            curieSaving = new Set(curieSaving);
-            curieSaving.delete(entityId);
+            if (!res.ok) throw new Error(await errorDetail(res));
         }
+        // After invalidateAll() the entity re-derives under its new CURIE, so
+        // record the confirmation against the new key.
+        const confirmed = new Set(locallyConfirmed);
+        confirmed.delete(entityId);
+        confirmed.add(newCurie);
+        locallyConfirmed = confirmed;
+        if (newCurie !== entityId) await invalidateAll();
     }
 
     let autosaving = $state(false);
@@ -584,101 +553,30 @@
                                         onclick={(e) => e.stopPropagation()}
                                     >
                                         {#if entity && !entity.confirmed}
-                                            {#if curieEdits.has(entityId)}
-                                                <input
-                                                    class="curie-input"
-                                                    type="text"
-                                                    value={curieEdits.get(
-                                                        entityId,
-                                                    ) ?? entityId}
-                                                    {@attach (el) => {
-                                                        el.focus();
-                                                        el.select();
-                                                    }}
-                                                    oninput={(e) => {
-                                                        curieEdits = new Map(
-                                                            curieEdits,
-                                                        ).set(
+                                            <div class="curie-with-status">
+                                                <CurieEditor
+                                                    curie={entityId}
+                                                    confirmUnchanged
+                                                    save={(newCurie) =>
+                                                        saveCurie(
                                                             entityId,
-                                                            (
-                                                                e.target as HTMLInputElement
-                                                            ).value,
-                                                        );
-                                                    }}
-                                                    onblur={() => {
-                                                        if (
-                                                            !curieSaving.has(
-                                                                entityId,
-                                                            )
-                                                        ) {
-                                                            curieEdits =
-                                                                new Map(
-                                                                    curieEdits,
-                                                                );
-                                                            curieEdits.delete(
-                                                                entityId,
-                                                            );
-                                                        }
-                                                    }}
-                                                    onkeydown={(e) => {
-                                                        if (e.key === "Enter")
-                                                            applyCurieEdit(
-                                                                entityId,
-                                                            );
-                                                        if (
-                                                            e.key === "Escape"
-                                                        ) {
-                                                            curieEdits =
-                                                                new Map(
-                                                                    curieEdits,
-                                                                );
-                                                            curieEdits.delete(
-                                                                entityId,
-                                                            );
-                                                        }
-                                                    }}
-                                                    disabled={curieSaving.has(
-                                                        entityId,
-                                                    )}
-                                                    title="Edit CURIE — press Enter to confirm, Escape to cancel"
+                                                            newCurie,
+                                                        )}
                                                 />
-                                            {:else}
-                                                <div class="curie-with-status">
-                                                    <button
-                                                        class="entity-curie proposed-editable"
-                                                        onclick={() =>
-                                                            startCurieEdit(
-                                                                entityId,
-                                                            )}
-                                                        title="Click to edit CURIE"
-                                                        >{entityId}</button
+                                                {#if locallyConfirmed.has(entityId)}
+                                                    <span
+                                                        class="curie-status confirmed"
+                                                        title="Identifier confirmed"
+                                                        >✓</span
                                                     >
-                                                    {#if locallyConfirmed.has(entityId)}
-                                                        <span
-                                                            class="curie-status confirmed"
-                                                            title="Identifier confirmed"
-                                                            >✓</span
-                                                        >
-                                                    {:else}
-                                                        <button
-                                                            class="curie-status unconfirmed"
-                                                            onclick={() =>
-                                                                startCurieEdit(
-                                                                    entityId,
-                                                                )}
-                                                            title="Identifier not yet confirmed — click to edit"
-                                                            >?</button
-                                                        >
-                                                    {/if}
-                                                </div>
-                                            {/if}
-                                            {#if curieErrors.get(entityId)}
-                                                <span class="curie-error"
-                                                    >{curieErrors.get(
-                                                        entityId,
-                                                    )}</span
-                                                >
-                                            {/if}
+                                                {:else}
+                                                    <span
+                                                        class="curie-status unconfirmed"
+                                                        title="Identifier not yet confirmed — click the CURIE to edit"
+                                                        >?</span
+                                                    >
+                                                {/if}
+                                            </div>
                                         {:else}
                                             <code class="entity-curie"
                                                 >{entityId}</code
@@ -1119,17 +1017,6 @@
         color: var(--text-muted, #888);
     }
 
-    .entity-curie.proposed-editable {
-        cursor: pointer;
-        text-decoration: underline;
-        text-decoration-style: dashed;
-        text-decoration-color: #f59e0b;
-    }
-
-    .entity-curie.proposed-editable:hover {
-        color: #92400e;
-    }
-
     .kind-badge {
         font-size: 0.75rem;
         padding: 0.15rem 0.4rem;
@@ -1172,11 +1059,6 @@
         border: 1px solid #f59e0b;
         color: #b45309;
         background: transparent;
-        cursor: pointer;
-    }
-
-    .curie-status.unconfirmed:hover {
-        background: #fef3c7;
     }
 
     .curie-status.confirmed {
@@ -1187,28 +1069,6 @@
 
     .curie-cell {
         min-width: 14rem;
-    }
-
-    .curie-input {
-        width: 100%;
-        font-family: monospace;
-        font-size: 0.8rem;
-        padding: 0.2rem 0.4rem;
-        border: 1px solid #ccc;
-        border-radius: 3px;
-        box-sizing: border-box;
-    }
-
-    .curie-input:focus {
-        outline: none;
-        border-color: var(--primary-color, #4a90e2);
-    }
-
-    .curie-error {
-        display: block;
-        font-size: 0.7rem;
-        color: var(--danger, #dc2626);
-        margin-top: 0.15rem;
     }
 
     .span-cell {

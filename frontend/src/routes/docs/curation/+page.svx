@@ -53,11 +53,12 @@ Entities not yet part of the project's knowledge graph are marked **proposed**.
 Before saving, each proposed entity needs a confirmed identifier (CURIE):
 
 1. Click the identifier shown in the **Identifier** column to open an inline editor.
-2. Type the correct CURIE and press **Enter** to save, or **Escape** to cancel.
+2. Type the correct CURIE and press **Enter** (or **Save**) to confirm, or
+   **Escape** (or **Cancel**) to abort.
 3. Once confirmed, a `✓` badge replaces the `?` badge next to the identifier.
 
-If you want to keep the proposed identifier as-is, click the `?` badge and press
-**Enter** without changing the text — this marks it as reviewed.
+If you want to keep the proposed identifier as-is, open the editor and confirm
+without changing the text — this marks it as reviewed.
 
 If the CURIE you enter is already used by another entity, the rename is rejected
 and an inline error appears; pick a different identifier and try again.
