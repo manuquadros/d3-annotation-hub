@@ -68,7 +68,7 @@ describe("CurieEditor", () => {
         // Re-opening starts clean (no stale error, value reset to the CURIE).
         input = await open(container);
         expect(input.value).toBe("PROP:1");
-        expect(container.querySelector(".error")).toBeNull();
+        expect(container.querySelector(".invalid-feedback")).toBeNull();
     });
 
     test("a double-Enter while saving fires only one save", async () => {

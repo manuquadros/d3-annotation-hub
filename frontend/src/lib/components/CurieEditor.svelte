@@ -61,7 +61,7 @@
 {#if editing}
     <span class="curie-editor">
         <input
-            class="curie-input"
+            class="form-control small curie-input"
             type="text"
             bind:value
             disabled={saving}
@@ -81,7 +81,7 @@
             >Cancel</button
         >
         {#if error}
-            <p class="error">{error}</p>
+            <p class="invalid-feedback curie-error">{error}</p>
         {/if}
     </span>
 {:else}
@@ -113,19 +113,19 @@
         text-decoration: underline;
     }
 
+    /* Sizing/border/focus come from `.form-control.small`; only the inline width
+       and monospace CURIE face are component-specific. */
     .curie-input {
-        padding: 0.15rem 0.4rem;
-        border: 1px solid #aaa;
-        border-radius: 3px;
-        font-size: 0.8rem;
+        width: auto;
         font-family: monospace;
-        box-sizing: border-box;
     }
 
-    .error {
-        width: 100%;
-        color: #c00;
-        font-size: 0.8rem;
+    /* Colour/typography come from `.invalid-feedback`; force it onto its own row
+       within the inline-flex editor and drop the block's vertical padding. */
+    .curie-error {
+        flex-basis: 100%;
+        padding-top: 0.2rem;
+        padding-bottom: 0;
         margin: 0;
     }
 </style>
