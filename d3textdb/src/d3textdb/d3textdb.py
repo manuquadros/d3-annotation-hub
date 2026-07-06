@@ -370,7 +370,6 @@ class D3TextDB:
                 Entity.curie,
                 Entity.type,
                 Entity.confirmed,
-                Entity.project_id,
                 pref_name.label.label("preferred_name"),
             )
             .where(Entity.curie.in_(curies))
@@ -388,7 +387,6 @@ class D3TextDB:
                 preferred_name=row.preferred_name or row.curie,
                 kind=row.type,
                 confirmed=row.confirmed,
-                project_id=row.project_id,
             )
             for row in rows
         ]
@@ -580,6 +578,19 @@ class D3TextDB:
                 entity.project_id = None
                 session.add(entity)
                 session.commit()
+
+    def get_entity_project_id(self, curie: str) -> int | None:
+        """Return the project that owns a proposed entity, else ``None``.
+
+        A dedicated authz lookup: ``None`` means either the entity does not
+        exist or it is an unscoped (legacy / confirmed) row. Callers that need
+        to tell those apart must establish existence separately — this returns
+        the scope only.
+        """
+        with Session(self.engine) as session:
+            return session.scalars(
+                select(Entity.project_id).where(Entity.curie == curie)
+            ).first()
 
     def backfill_entity_project(self, curie: str, project_id: int) -> None:
         """Adopt a legacy proposed entity into a project.

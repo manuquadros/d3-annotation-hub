@@ -612,4 +612,4 @@ class TestRenameEntityCurie:
         renamed = db.get_entities_by_curies([_NEW_CURIE])
         assert len(renamed) == 1
         assert renamed[0].entity_id == _NEW_CURIE
-        assert renamed[0].project_id == project_id
+        assert db.get_entity_project_id(_NEW_CURIE) == project_id

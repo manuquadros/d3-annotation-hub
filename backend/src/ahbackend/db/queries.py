@@ -82,6 +82,10 @@ def get_entities_by_curies(curies: list[str]) -> list[EntityAnnotation]:
     return annodb.get_entities_by_curies(curies)
 
 
+def get_entity_project_id(curie: str) -> int | None:
+    return annodb.get_entity_project_id(curie)
+
+
 def get_entity_types(query: str = "") -> list[EntityAnnotation]:
     return annodb.get_entity_types(query)
 

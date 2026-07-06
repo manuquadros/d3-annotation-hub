@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 
 import pytest
 from sqlalchemy import text
-from sqlmodel import Session
+from sqlmodel import Session, select
 
 from d3textdb import D3TextDB, OntologyInUseError
 from d3textdb.schema import (
@@ -867,6 +867,27 @@ def test_update_entity_curie_cascades_to_referencing_rows() -> None:
         )
         with pytest.raises(IntegrityError):
             session.commit()
+
+
+def test_get_entity_project_id() -> None:
+    """The authz lookup returns the owning project for a proposed entity, and
+    None for both an unscoped row and a non-existent CURIE."""
+    db = D3TextDB()
+    project_id = db.create_project("P", required_annotators=1)
+    db.store_proposed_entity(project_id, "Beta", "PROP:1", "Strain")
+
+    assert db.get_entity_project_id("PROP:1") == project_id
+    assert db.get_entity_project_id("NOPE:9999") is None
+
+    db.backfill_entity_project("PROP:1", project_id)  # no-op when already set
+    with Session(db.engine) as session:
+        row = session.exec(
+            select(Entity).where(Entity.curie == "PROP:1")
+        ).one()
+        row.project_id = None
+        session.add(row)
+        session.commit()
+    assert db.get_entity_project_id("PROP:1") is None
 
 
 def _downgrade_entity_fk_to_no_action(db, table: str) -> None:

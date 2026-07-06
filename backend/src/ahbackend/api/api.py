@@ -87,6 +87,7 @@ from ahbackend.db.queries import (
     get_curation_decisions,
     get_curation_queue,
     get_entities_by_curies,
+    get_entity_project_id,
     get_entity_types,
     get_ontology_entities,
     get_ontology_properties_by_id,
@@ -1335,9 +1336,10 @@ def curator_rename_entity_curie(
     # curator cannot rename another project's proposed entity. A legacy row
     # predating the project_id column carries a NULL project_id; adopt it into
     # the current project rather than leaving it permanently un-renamable.
-    if entity.project_id is None:
+    entity_project_id = get_entity_project_id(curie)
+    if entity_project_id is None:
         backfill_entity_project(curie, project_id)
-    elif entity.project_id != project_id:
+    elif entity_project_id != project_id:
         raise HTTPException(status_code=404, detail="Entity not found")
     update_entity_curie(curie, body.new_curie)
 
