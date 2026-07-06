@@ -709,22 +709,31 @@ class D3TextDB:
         """Rename an entity's CURIE.
 
         ``entity.curie`` is referenced by ``pointer``, ``relation.subject`` and
-        ``relation.object`` via ON UPDATE CASCADE, so renaming the entity row
-        propagates to those tables automatically with FK enforcement on.
-        ``state_pointer`` and ``snapshot_pointer`` carry ``entity_id`` without a
-        foreign key, so they are updated explicitly.
+        ``relation.object`` via ON UPDATE CASCADE, so the rename propagates to
+        those rows automatically. But ``state_pointer``, ``snapshot_pointer``
+        and ``curated_annotation_pointer`` carry a *composite* FK to
+        ``pointer`` (including ``entity_id``) **without** ON UPDATE CASCADE, so
+        the cascade into ``pointer.entity_id`` would orphan them and trip the FK
+        check mid-statement. We defer FK enforcement for the transaction
+        (``PRAGMA defer_foreign_keys``) and update those three tables
+        explicitly; all constraints are re-checked atomically at COMMIT.
 
         Raises DuplicateCurieError if ``new_curie`` is already used by another
-        entity (the ``entity.curie`` UNIQUE constraint makes the UPDATE raise
-        IntegrityError, mapped here atomically — no pre-check, no TOCTOU
-        window). Renaming to the same CURIE is a harmless no-op. Raises
-        ValueError if ``new_curie`` is empty/whitespace, which would otherwise
-        rename the entity and all its references to "".
+        entity — the ``entity.curie`` UNIQUE constraint (not a foreign key, so
+        unaffected by the deferral) makes the UPDATE raise IntegrityError
+        immediately, mapped here with no pre-check / no TOCTOU window. Renaming
+        to the same CURIE is a harmless no-op. Raises ValueError if
+        ``new_curie`` is empty/whitespace, which would otherwise rename the
+        entity and all its references to "".
         """
         if not new_curie or not new_curie.strip():
             raise ValueError("new_curie must be a non-empty CURIE")
         params = {"new": new_curie, "old": old_curie}
         with Session(self.engine) as session:
+            # Defer FK checks so the ON UPDATE CASCADE into pointer.entity_id
+            # doesn't orphan the composite-FK child rows before we fix them up.
+            # Resets automatically at COMMIT.
+            session.execute(text("PRAGMA defer_foreign_keys = ON"))
             try:
                 session.execute(
                     text("UPDATE entity SET curie = :new WHERE curie = :old"),
@@ -734,20 +743,18 @@ class D3TextDB:
                 raise DuplicateCurieError(
                     f"CURIE '{new_curie}' is already in use"
                 ) from exc
-            session.execute(
-                text(
-                    "UPDATE state_pointer SET entity_id = :new "
-                    "WHERE entity_id = :old"
-                ),
-                params,
-            )
-            session.execute(
-                text(
-                    "UPDATE snapshot_pointer SET entity_id = :new "
-                    "WHERE entity_id = :old"
-                ),
-                params,
-            )
+            for child in (
+                "state_pointer",
+                "snapshot_pointer",
+                "curated_annotation_pointer",
+            ):
+                session.execute(
+                    text(
+                        f"UPDATE {child} SET entity_id = :new "
+                        "WHERE entity_id = :old"
+                    ),
+                    params,
+                )
             session.commit()
 
     def store_annotation(self, ann: ReferenceAnnotation) -> None:

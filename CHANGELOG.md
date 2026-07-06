@@ -27,6 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Failed create/save/delete actions now show a consistent error message, surfacing the server's reason or a non-JSON gateway/proxy body instead of a generic status or raw JSON.
 - A rapid double-Enter in the CURIE editor no longer fires a duplicate rename (which showed a spurious error over the successful save).
 - The curation page's CURIE editor now uses the same component as the admin panel, gaining explicit Save/Cancel buttons for consistent behavior.
+- Renaming a proposed entity's CURIE during curation no longer fails with a spurious "already in use" error once the entity has been annotated; the rename now updates every annotation-pointer table atomically.
 
 ## [0.1.4]
 

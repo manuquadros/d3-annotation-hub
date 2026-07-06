@@ -1,6 +1,8 @@
 from datetime import datetime, timezone
 
 import pytest
+from sqlalchemy import text
+from sqlmodel import Session
 
 from d3textdb import D3TextDB, OntologyInUseError
 from d3textdb.schema import (
@@ -355,6 +357,48 @@ def test_store_annotation_with_existing_reference_id() -> None:
     # Check that relations were stored
     assert len(fromdb.relations) == 1
     assert fromdb.relations[0].predicate == "HasEnzyme"
+
+
+def test_update_entity_curie_with_snapshot_pointers() -> None:
+    """Rename an entity referenced by a completed annotation's snapshot.
+
+    Regression: state_pointer / snapshot_pointer / curated_annotation_pointer
+    carry a composite FK to pointer without ON UPDATE CASCADE, so the cascade
+    into pointer.entity_id would trip a FOREIGN KEY constraint mid-statement
+    (surfaced as a spurious "already in use" 409). The rename defers FK checks
+    and fixes up those child tables explicitly.
+    """
+    db = D3TextDB()
+    payload = get_test_payload()
+    annotation, user, _, _ = _setup_from_payload(db, payload)
+    # completed=True records a snapshot, creating snapshot_pointer rows that
+    # reference the proposed entity's pointer.
+    db.store_annotation(annotation.model_copy(update={"completed": True}))
+
+    old = "entity_1764076512192_3of2gf"
+    new = "CHEBI:99999"
+    db.update_entity_curie(old, new)
+
+    assert db.get_entities_by_curies([old]) == []
+    assert len(db.get_entities_by_curies([new])) == 1
+
+    # Every pointer-family table moved from the old curie to the new one, with
+    # no orphans left behind.
+    with Session(db.engine) as session:
+        for tbl in ("pointer", "state_pointer", "snapshot_pointer"):
+            stale = session.execute(
+                text(f"SELECT COUNT(*) FROM {tbl} WHERE entity_id = :o"),
+                {"o": old},
+            ).scalar_one()
+            moved = session.execute(
+                text(f"SELECT COUNT(*) FROM {tbl} WHERE entity_id = :n"),
+                {"n": new},
+            ).scalar_one()
+            assert stale == 0, f"{tbl} still references the old curie"
+            assert moved > 0, f"{tbl} was not updated to the new curie"
+        assert session.execute(
+            text("PRAGMA foreign_key_check")
+        ).fetchall() == []
 
 
 def test_get_reference_annotation() -> None:
