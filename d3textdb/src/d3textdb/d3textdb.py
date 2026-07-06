@@ -4,16 +4,19 @@ import hashlib
 import itertools
 import json
 import os
+import re
 from collections.abc import Iterable
+from contextlib import contextmanager
 from datetime import datetime, timezone
 from uuid import UUID
 
 import bcrypt
 import pysqlite3
 from pydantic import EmailStr
-from sqlalchemy import case, create_engine
-from sqlalchemy import delete as sa_delete
 from sqlalchemy import (
+    case,
+    column,
+    create_engine,
     event,
     exists,
     func,
@@ -23,6 +26,8 @@ from sqlalchemy import (
     text,
     update,
 )
+from sqlalchemy import delete as sa_delete
+from sqlalchemy import table as sa_table
 from sqlalchemy.dialects.sqlite import insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, aliased
@@ -93,6 +98,22 @@ class OntologyInUseError(Exception):
     that reference its entities."""
 
 
+def fts_match_expression(query: str) -> str | None:
+    """Build an FTS5 MATCH expression from a free-text query.
+
+    Each token (a maximal run of word characters, matching the unicode61
+    tokenizer that backs ``name_fts``) becomes a quoted prefix term
+    (``"tok"*``) so partial words match as the user types; tokens are ANDed
+    together. Quoting neutralises FTS5 query operators. Returns ``None`` when
+    the query contains no usable tokens (e.g. only punctuation), for which the
+    caller should treat the search as empty.
+    """
+    tokens = re.findall(r"\w+", query.lower())
+    if not tokens:
+        return None
+    return " ".join(f'"{tok}"*' for tok in tokens)
+
+
 class DuplicateCurieError(Exception):
     """Raised when renaming an entity to a CURIE that already exists, which
     would violate the ``entity.curie`` UNIQUE constraint."""
@@ -145,6 +166,16 @@ class D3TextDB:
                     "USING fts5(label, content='name', content_rowid='id')"
                 )
             )
+        self._create_fts_triggers()
+
+    def _create_fts_triggers(self) -> None:
+        """Create the row-level triggers that keep ``name_fts`` in sync.
+
+        Kept separate from the table creation so the bulk loaders can drop the
+        triggers around a large import and rebuild the index once, instead of
+        paying per-row trigger cost for millions of rows.
+        """
+        with self.engine.begin() as conn:
             conn.execute(
                 text(
                     "CREATE TRIGGER IF NOT EXISTS name_ai AFTER INSERT ON name BEGIN "
@@ -167,6 +198,29 @@ class D3TextDB:
                     "END"
                 )
             )
+
+    def _drop_fts_triggers(self) -> None:
+        """Drop the ``name_fts`` sync triggers (paired with a later rebuild)."""
+        with self.engine.begin() as conn:
+            for trig in ("name_ai", "name_au", "name_ad"):
+                conn.execute(text(f"DROP TRIGGER IF EXISTS {trig}"))
+
+    @contextmanager
+    def _fts_bulk_reindex(self):
+        """Suppress the per-row FTS triggers for a bulk write, rebuild once after.
+
+        Drops the sync triggers on entry so a large import/delete doesn't pay
+        per-row trigger cost, then on exit (even on error) recreates them and
+        rebuilds ``name_fts`` from the Name table so the index reflects whatever
+        was committed. Triggers are recreated *before* the rebuild so a
+        concurrent single-row write during the rebuild is still indexed.
+        """
+        self._drop_fts_triggers()
+        try:
+            yield
+        finally:
+            self._create_fts_triggers()
+            self.rebuild_fts()
 
     def _migrate_fk_on_update_cascade(self) -> None:
         """Rebuild tables whose ``entity.curie`` FK predates ON UPDATE CASCADE.
@@ -261,7 +315,11 @@ class D3TextDB:
         project_id: int | None = None,
         is_class: bool = False,
     ) -> list[EntityAnnotation]:
-        """Search entities by name/synonym using a contains LIKE match.
+        """Search entities by name/synonym through the ``name_fts`` FTS5 index.
+
+        The query is tokenised into per-word prefix terms, so ``coli`` matches
+        the ``coli`` token in "Escherichia coli". Candidate names are found via
+        the index (``MATCH``) rather than a full-table ``LIKE '%…%'`` scan.
 
         Results are ranked: preferred-name exact match → preferred-name prefix
         match → preferred-name contains match → synonym-only match. Within each
@@ -274,16 +332,22 @@ class D3TextDB:
           - confirmed entities whose ontology is assigned to that project, AND
           - unconfirmed (proposed) entities that belong to that project.
         """
-        if not query.strip():
+        q = query.strip()
+        match_expr = fts_match_expression(q)
+        if match_expr is None:
             return []
 
         pref_en = aliased(EntityName)
         pref_name = aliased(Name)
         match_name = aliased(Name)
 
-        q = query.strip()
         prefix_pattern = f"{q}%"
         contains_pattern = f"%{q}%"
+
+        name_fts = sa_table("name_fts", column("rowid"))
+        fts_ids = select(name_fts.c.rowid).where(
+            text("name_fts MATCH :fts_q").bindparams(fts_q=match_expr)
+        )
 
         preferred_match_tier = func.max(
             case(
@@ -315,7 +379,7 @@ class D3TextDB:
                 (pref_en.entity_id == Entity.entity_id) & pref_en.is_preferred,
             )
             .outerjoin(pref_name, pref_name.id == pref_en.name_id)
-            .where(match_name.label.ilike(contains_pattern))
+            .where(match_name.id.in_(fts_ids))
             .where(Entity.is_class == is_class)
             .group_by(Entity.curie, Entity.type, Entity.confirmed)
             .order_by(
@@ -713,8 +777,8 @@ class D3TextDB:
                 sa_delete(Entity).where(Entity.entity_id == entity_int_id)
             )
             session.commit()
-
-        self.rebuild_fts()
+            # The `name_ad` AFTER DELETE trigger keeps `name_fts` in sync as the
+            # Name rows above are deleted, so no rebuild is needed here.
 
     def update_entity_curie(self, old_curie: str, new_curie: str) -> None:
         """Rename an entity's CURIE.
@@ -2037,24 +2101,24 @@ class D3TextDB:
         synonyms are upserted into the ``Name`` / ``EntityName`` tables.
 
         Rows are committed in batches of ``batch_size`` for memory efficiency.
-        The FTS5 index is rebuilt once at the end, which is much faster than
-        relying on per-row triggers for large ontologies.
+        The FTS5 sync triggers are suppressed for the duration and the index is
+        rebuilt once at the end, which is much faster than paying per-row trigger
+        cost for large ontologies.
 
         Returns the total number of entities processed.
         """
         total = 0
         batch: list[EntityAnnotation] = []
-        for entity in entities:
-            batch.append(entity)
-            if len(batch) >= batch_size:
+        with self._fts_bulk_reindex():
+            for entity in entities:
+                batch.append(entity)
+                if len(batch) >= batch_size:
+                    self._load_entity_batch(ontology_id, batch)
+                    total += len(batch)
+                    batch = []
+            if batch:
                 self._load_entity_batch(ontology_id, batch)
                 total += len(batch)
-                batch = []
-        if batch:
-            self._load_entity_batch(ontology_id, batch)
-            total += len(batch)
-        if total:
-            self.rebuild_fts()
         return total
 
     def _load_entity_batch(
@@ -2113,8 +2177,9 @@ class D3TextDB:
     def rebuild_fts(self) -> None:
         """Rebuild the FTS5 name index from the current Name table contents.
 
-        Call this after any bulk data manipulation that bypassed the row-level
-        sync triggers (e.g. after ``load_ontology_entities``).
+        Used by ``_fts_bulk_reindex`` after a bulk write that ran with the sync
+        triggers dropped; not needed for ordinary single-row writes, which the
+        triggers keep in sync.
         """
         with self.engine.begin() as conn:
             conn.execute(
@@ -2558,8 +2623,8 @@ class D3TextDB:
                 sa_delete(Ontology).where(Ontology.ontology_id == ontology_id),
             )
             session.commit()
-
-        self.rebuild_fts()
+            # The `name_ad` trigger removes each deleted Name from `name_fts` as
+            # part of the bulk delete above, so no rebuild is needed here.
 
     def set_curation_decision(
         self,

@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Entity search now matches per-word prefixes through the FTS index instead of scanning for arbitrary substrings, so it stays fast on large ontologies; searching a mid-word fragment (e.g. "bacterium" to find "Mycobacterium") no longer matches, but any leading or non-leading whole-word prefix still does.
+- Large ontology imports are faster: the search index's per-row sync triggers are suppressed during a bulk load and the index is rebuilt once at the end.
 - Curation CURIE rename is restricted to proposed (unconfirmed) entities; renaming a confirmed entity is rejected.
 - Curation CURIE rename is scoped to the caller's project (404 for another project's entity).
 - Renaming a CURIE to one already in use returns a 409 instead of a server error (curation and admin).

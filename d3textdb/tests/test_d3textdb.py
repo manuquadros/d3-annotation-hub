@@ -651,7 +651,13 @@ def test_store_annotation_transaction_rollback() -> None:
 
 
 
-def test_search_entities_contains_fallback() -> None:
+def test_search_entities_matches_fts_token_prefix() -> None:
+    """search_entities matches via the name_fts index on per-word prefixes.
+
+    A query token matches names containing a *word* that starts with it,
+    including non-leading words, but not mid-word substrings. Dropping mid-word
+    matching is the intended trade-off of routing search through FTS (TICKET-19).
+    """
     from d3textdb.schema import EntityAnnotation as EA
 
     db = D3TextDB()
@@ -660,17 +666,90 @@ def test_search_entities_contains_fallback() -> None:
     db.load_ontology_entities(
         ontology_id,
         [
-            EA(entity_id="T:1", preferred_name="Mycobacterium bovis", kind="d3o:Bacteria", synonyms=[]),
-            EA(entity_id="T:2", preferred_name="Bacterium acidiphilum", kind="d3o:Bacteria", synonyms=[]),
+            EA(entity_id="T:1", preferred_name="Bacterium acidiphilum", kind="d3o:Bacteria", synonyms=[]),
+            EA(entity_id="T:2", preferred_name="Escherichia coli", kind="d3o:Bacteria", synonyms=[]),
+            EA(entity_id="T:3", preferred_name="Mycobacterium bovis", kind="d3o:Bacteria", synonyms=[]),
         ],
     )
 
-    results = db.search_entities("bacterium")
-    names = [r.preferred_name for r in results]
+    bacterium = [r.preferred_name for r in db.search_entities("bacterium")]
+    assert "Bacterium acidiphilum" in bacterium, bacterium
+    # "bacterium" is a mid-word substring of "Mycobacterium", not a token prefix.
+    assert "Mycobacterium bovis" not in bacterium, bacterium
 
-    assert "Mycobacterium bovis" in names, f"Contains match missing from results: {names}"
-    assert names.index("Bacterium acidiphilum") < names.index("Mycobacterium bovis"), (
-        f"Prefix match should rank before contains match, got: {names}"
+    # A non-leading word ("coli") is still matched by prefix.
+    coli = [r.preferred_name for r in db.search_entities("coli")]
+    assert "Escherichia coli" in coli, coli
+
+    # Punctuation-only queries yield no usable tokens.
+    assert db.search_entities("...") == []
+
+
+def test_search_entities_ranks_prefix_before_contains() -> None:
+    from d3textdb.schema import EntityAnnotation as EA
+
+    db = D3TextDB()
+    ontology_id = db.store_ontology("Test Ontology", "TEST", "http://test.org/")
+
+    db.load_ontology_entities(
+        ontology_id,
+        [
+            EA(entity_id="T:1", preferred_name="Coli phage", kind="d3o:Bacteria", synonyms=[]),
+            EA(entity_id="T:2", preferred_name="Escherichia coli", kind="d3o:Bacteria", synonyms=[]),
+        ],
+    )
+
+    names = [r.preferred_name for r in db.search_entities("coli")]
+
+    assert names.index("Coli phage") < names.index("Escherichia coli"), (
+        f"Preferred-name prefix match should rank before contains match, got: {names}"
+    )
+
+
+def test_load_ontology_entities_suppresses_then_restores_fts_triggers() -> None:
+    """Bulk load runs with the sync triggers dropped, then restores + rebuilds.
+
+    After a load the imported names are searchable (the one rebuild ran) and the
+    row-level triggers are back, so a subsequent single-row name change stays
+    indexed without another rebuild.
+    """
+    from sqlalchemy import text as sa_text
+
+    from d3textdb.schema import EntityAnnotation as EA
+
+    db = D3TextDB()
+    ontology_id = db.store_ontology("Test Ontology", "TEST", "http://test.org/")
+    db.load_ontology_entities(
+        ontology_id,
+        [
+            EA(entity_id="T:1", preferred_name="Escherichia coli", kind="d3o:Bacteria", synonyms=[]),
+        ],
+    )
+
+    assert any(r.preferred_name == "Escherichia coli" for r in db.search_entities("coli"))
+
+    with db.engine.connect() as conn:
+        triggers = set(
+            conn.execute(
+                sa_text(
+                    "SELECT name FROM sqlite_master "
+                    "WHERE type='trigger' AND name LIKE 'name_a%'"
+                )
+            ).scalars()
+        )
+    assert {"name_ai", "name_au", "name_ad"} <= triggers
+
+    # The restored trigger keeps a direct single-row update in the index.
+    with db.engine.begin() as conn:
+        conn.execute(
+            sa_text(
+                "UPDATE name SET label='Escherichia coli K12' "
+                "WHERE label='Escherichia coli'"
+            )
+        )
+    assert any(
+        r.preferred_name == "Escherichia coli K12"
+        for r in db.search_entities("k12")
     )
 
 
