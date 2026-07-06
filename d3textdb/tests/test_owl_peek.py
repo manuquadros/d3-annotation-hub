@@ -87,6 +87,45 @@ def test_peek_owl_xml_prefers_iri_matching_prefix_over_first_declared() -> None:
     assert meta.prefix == "myonto"
 
 
+def test_peek_owl_xml_reserved_xml_prefix_is_never_suggested() -> None:
+    """The reserved xml namespace prefix must not be offered as an ontology prefix."""
+    content = owl_xml(
+        ontology_iri="https://purl.example.de/schema/",
+        prefixes=[("xml", _XML_NS)],
+    )
+    meta = peek_ontology_metadata(content)
+    assert meta.prefix is None
+
+
+def test_peek_owl_xml_imported_prefixes_on_other_hosts_yield_no_suggestion() -> None:
+    """When the own namespace is the unnamed default prefix, imported vocabularies
+    (schema.org, the xml namespace) on other hosts must not be suggested."""
+    content = owl_xml(
+        ontology_iri="https://purl.dsmz.de/schema/",
+        prefixes=[
+            ("", "https://purl.dsmz.de/schema"),      # own namespace, unnamed
+            ("xml", _XML_NS),                          # reserved
+            ("schema", "http://schema.org/"),          # imported, other host
+        ],
+    )
+    meta = peek_ontology_metadata(content)
+    assert meta.prefix is None
+
+
+def test_peek_owl_xml_same_host_prefix_used_when_no_iri_prefix_match() -> None:
+    """A candidate under the ontology's own host is chosen even when its IRI is not
+    a literal prefix of the ontology IRI (e.g. obo/iao.owl vs obo/IAO_)."""
+    content = owl_xml(
+        ontology_iri="http://purl.obolibrary.org/obo/iao.owl",
+        prefixes=[
+            ("schema", "http://schema.org/"),                    # imported, other host
+            ("IAO", "http://purl.obolibrary.org/obo/IAO_"),      # own host, no prefix match
+        ],
+    )
+    meta = peek_ontology_metadata(content)
+    assert meta.prefix == "IAO"
+
+
 def test_peek_owl_xml_xml_base_fallback_when_no_ontology_iri_attr() -> None:
     """base_iri is recovered from xml:base when the ontologyIRI attribute is absent."""
     content = owl_xml(

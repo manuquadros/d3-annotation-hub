@@ -9,6 +9,7 @@ from collections.abc import Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import BinaryIO
+from urllib.parse import urlsplit
 
 import pyoxigraph as ox
 from defusedxml.ElementTree import fromstring as _safe_fromstring
@@ -25,7 +26,7 @@ _RDFS_NS = "http://www.w3.org/2000/01/rdf-schema#"
 _XML_NS = "http://www.w3.org/XML/1998/namespace"
 
 _STANDARD_PREFIXES = frozenset({
-    "", "owl", "rdf", "rdfs", "xsd", "dc", "dcterms", "skos",
+    "", "xml", "owl", "rdf", "rdfs", "xsd", "dc", "dcterms", "skos",
     "obo", "oboInOwl",
 })
 
@@ -643,6 +644,43 @@ class OntologyStreamParser:
                 )
 
 
+def _select_own_prefix(
+    candidates: list[tuple[str, str]], base_iri: str | None
+) -> str | None:
+    """Pick the prefix that names the ontology's own namespace, or None.
+
+    ``candidates`` are ``(name, IRI)`` pairs of non-standard ``<Prefix>``
+    declarations, in document order. The goal is the prefix for the ontology's
+    own entities, not an imported vocabulary (schema.org, ENVO, the reserved
+    ``xml`` namespace, …).
+    """
+    if not candidates:
+        return None
+    if not base_iri:
+        return candidates[0][0]
+
+    # Prefer the candidate whose IRI is the longest prefix of the ontology IRI —
+    # the ontology's own namespace declared with a matching IRI.
+    iri_match = max(
+        ((n, i) for n, i in candidates if i and base_iri.startswith(i)),
+        key=lambda x: len(x[1]),
+        default=None,
+    )
+    if iri_match:
+        return iri_match[0]
+
+    # No IRI-prefix match: an ontology's own entity namespace can diverge from
+    # its ontology IRI (e.g. obo/iao.owl vs obo/IAO_). Fall back to a candidate
+    # under the same authority as the ontology IRI, so imported vocabularies on
+    # other hosts are never suggested.
+    base_host = urlsplit(base_iri).netloc
+    if base_host:
+        for name, iri in candidates:
+            if urlsplit(iri).netloc == base_host:
+                return name
+    return None
+
+
 def _peek_owl_xml_meta(content: bytes) -> OntologyMetadata:
     # Tags that signal the end of the header section (start of class/property body)
     _HEADER_END_TAGS = frozenset({
@@ -714,19 +752,7 @@ def _peek_owl_xml_meta(content: bytes) -> OntologyMetadata:
         if m:
             version = m.group(1)
 
-    prefix: str | None = None
-    if candidates:
-        if base_iri:
-            # Prefer the candidate whose IRI is the longest prefix of the ontology IRI
-            # (finds the ontology's own namespace rather than an imported one)
-            iri_match = max(
-                ((n, i) for n, i in candidates if i and base_iri.startswith(i)),
-                key=lambda x: len(x[1]),
-                default=None,
-            )
-            prefix = iri_match[0] if iri_match else candidates[0][0]
-        else:
-            prefix = candidates[0][0]
+    prefix = _select_own_prefix(candidates, base_iri)
 
     return OntologyMetadata(name=name, prefix=prefix, base_iri=base_iri, version=version)
 
