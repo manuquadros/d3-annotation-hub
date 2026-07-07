@@ -1,13 +1,17 @@
 /**
- * A "latest wins" gate for autosaves that replace the whole server-side record.
+ * A "latest wins" gate for overlapping async operations where only the newest
+ * result may take effect — autosaves that replace the whole server-side record,
+ * or filter/pagination loads that must not be overwritten by a slower earlier
+ * request.
  *
- * When several saves overlap, an older (possibly retrying or just slow) request
- * can otherwise land after a newer one and overwrite it with stale data. Each
- * save calls {@link SaveSequencer.begin} to claim a token; the token aborts any
- * prior in-flight request and exposes `isCurrent()`, which is true only while no
- * newer save has begun. Callers commit their result (and clear "saving" state)
- * only while `isCurrent()`, so superseded saves become silent no-ops rather than
- * stale overwrites or spurious errors.
+ * When several operations overlap, an older (possibly retrying or just slow)
+ * request can otherwise land after a newer one — overwriting a save with stale
+ * data, or a table with results that no longer match the current filter. Each
+ * operation calls {@link SaveSequencer.begin} to claim a token; the token aborts
+ * any prior in-flight request and exposes `isCurrent()`, which is true only while
+ * no newer operation has begun. Callers commit their result (and clear the
+ * "saving"/"loading" state) only while `isCurrent()`, so superseded operations
+ * become silent no-ops rather than stale overwrites or spurious errors.
  */
 export class SaveSequencer {
     #seq = 0;

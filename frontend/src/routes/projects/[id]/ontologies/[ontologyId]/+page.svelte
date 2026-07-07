@@ -1,5 +1,8 @@
 <script lang="ts">
     import { untrack } from "svelte";
+    import { SaveSequencer } from "$lib/utils/saveSequencer";
+    import { loadSequencedPage } from "$lib/utils/pageLoader";
+    import { PAGE_SIZE } from "./pagination";
     import "$lib/styles/management.css";
 
     interface Ontology {
@@ -39,7 +42,6 @@
     let entities = $state<Entity[]>(untrack(() => data.entities));
     let entitiesTotal = $state<number>(untrack(() => data.entitiesTotal));
     let entitiesOffset = $state(0);
-    const PAGE_SIZE = 10;
 
     let loadingEntities = $state(false);
 
@@ -47,29 +49,31 @@
     let entityNameFilter = $state("");
     let entityTypeFilter = $state("");
 
-    let entityFilterTimer: ReturnType<typeof setTimeout>;
+    const entitySequencer = new SaveSequencer();
 
     async function loadEntitiesPage(offset: number) {
         loadingEntities = true;
-        try {
-            const qs = new URLSearchParams({
-                limit: String(PAGE_SIZE),
-                offset: String(offset),
-                curie_filter: entityCurieFilter,
-                name_filter: entityNameFilter,
-                type_filter: entityTypeFilter,
-            });
-            const res = await fetch(
-                `/api/admin/ontology/${ontology.ontology_id}?${qs}`,
-            );
-            if (!res.ok) return;
-            const d = await res.json();
-            entities = d.entities ?? [];
-            entitiesTotal = d.total ?? 0;
+        const qs = new URLSearchParams({
+            limit: String(PAGE_SIZE),
+            offset: String(offset),
+            curie_filter: entityCurieFilter,
+            name_filter: entityNameFilter,
+            type_filter: entityTypeFilter,
+        });
+        const r = await loadSequencedPage<{
+            entities?: Entity[];
+            total?: number;
+        }>(
+            entitySequencer,
+            `/api/admin/ontology/${ontology.ontology_id}?${qs}`,
+        );
+        if (r.status === "superseded") return; // a newer load now owns loadingEntities
+        if (r.status === "ok") {
+            entities = r.data.entities ?? [];
+            entitiesTotal = r.data.total ?? 0;
             entitiesOffset = offset;
-        } finally {
-            loadingEntities = false;
         }
+        loadingEntities = false;
     }
 
     {
@@ -82,8 +86,8 @@
                 initialEntityRun = false;
                 return;
             }
-            clearTimeout(entityFilterTimer);
-            entityFilterTimer = setTimeout(() => loadEntitiesPage(0), 300);
+            const timer = setTimeout(() => loadEntitiesPage(0), 300);
+            return () => clearTimeout(timer);
         });
     }
 
@@ -97,29 +101,31 @@
     let triplePredicateFilter = $state("");
     let tripleObjectFilter = $state("");
 
-    let tripleFilterTimer: ReturnType<typeof setTimeout>;
+    const tripleSequencer = new SaveSequencer();
 
     async function loadTriplesPage(offset: number) {
         loadingTriples = true;
-        try {
-            const qs = new URLSearchParams({
-                limit: String(PAGE_SIZE),
-                offset: String(offset),
-                subject_filter: tripleSubjectFilter,
-                predicate_filter: triplePredicateFilter,
-                object_filter: tripleObjectFilter,
-            });
-            const res = await fetch(
-                `/api/admin/ontology/${ontology.ontology_id}/triples?${qs}`,
-            );
-            if (!res.ok) return;
-            const d = await res.json();
-            triples = d.triples ?? [];
-            triplesTotal = d.total ?? 0;
+        const qs = new URLSearchParams({
+            limit: String(PAGE_SIZE),
+            offset: String(offset),
+            subject_filter: tripleSubjectFilter,
+            predicate_filter: triplePredicateFilter,
+            object_filter: tripleObjectFilter,
+        });
+        const r = await loadSequencedPage<{
+            triples?: Triple[];
+            total?: number;
+        }>(
+            tripleSequencer,
+            `/api/admin/ontology/${ontology.ontology_id}/triples?${qs}`,
+        );
+        if (r.status === "superseded") return; // a newer load now owns loadingTriples
+        if (r.status === "ok") {
+            triples = r.data.triples ?? [];
+            triplesTotal = r.data.total ?? 0;
             triplesOffset = offset;
-        } finally {
-            loadingTriples = false;
         }
+        loadingTriples = false;
     }
 
     {
@@ -132,8 +138,8 @@
                 initialTripleRun = false;
                 return;
             }
-            clearTimeout(tripleFilterTimer);
-            tripleFilterTimer = setTimeout(() => loadTriplesPage(0), 300);
+            const timer = setTimeout(() => loadTriplesPage(0), 300);
+            return () => clearTimeout(timer);
         });
     }
 
