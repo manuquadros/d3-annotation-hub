@@ -1,6 +1,6 @@
 import type { Relation, Pointer, User, Reference, Entity } from "$lib/types.ts";
 import { AnnotationStateSchema, createRelation } from "$lib/types.ts";
-import { mount } from "svelte";
+import { mount, unmount } from "svelte";
 import { Map, Set } from "immutable";
 import type { Map as ImmutableMap, Set as ImmutableSet } from "immutable";
 import DOMPurify from "dompurify";
@@ -673,6 +673,13 @@ const _sanitizeCache = new WeakMap<
 /**
  * Renders annotated HTML into `elem`, highlighting only pointers that belong
  * to the given `field`. Uses TextQuoteSelector to resolve offsets robustly.
+ *
+ * Returns a cleanup that unmounts every `ResourceCard` this call mounted. The
+ * caller (the `{@attach}` in `ArticleSection.svelte`) must invoke it before the
+ * next render and on destroy: `mount()`ed cards own live `$derived` state that
+ * keeps reacting to `AnnotationState` even after `innerHTML` detaches their DOM,
+ * so without an explicit `unmount()` they accumulate one leaked instance per
+ * card per edit.
  */
 export function annotateHTMLString(
     elem: HTMLDivElement,
@@ -680,7 +687,7 @@ export function annotateHTMLString(
     pointers: ImmutableMap<string, Pointer>,
     entities: ImmutableMap<string, Entity>,
     field: "abstract" | "body",
-): void {
+): () => void {
     const cached = _sanitizeCache.get(elem);
     const sanitized =
         cached?.html === html
@@ -718,24 +725,29 @@ export function annotateHTMLString(
             (ar): ar is AnnotatedRange & { range: Range } => ar.range !== null,
         )
         .toArray();
-    ranges.forEach((range) => markRange(elem, range));
+    const mounted = ranges.map((range) => markRange(elem, range));
+
+    return () => {
+        for (const instance of mounted) unmount(instance);
+    };
 }
 
 function markRange(
     elem: HTMLElement,
     pointer: AnnotatedRange & { range: Range },
-) {
+): Record<string, unknown> {
     const doc = elem.ownerDocument;
     const mark = doc.createElement("span");
     mark.id = pointer.pointer_id;
 
     const fragment = pointer.range.extractContents();
-    mount(ResourceCard, {
+    const instance = mount(ResourceCard, {
         target: mark,
         props: { fragment, pointer_id: pointer.pointer_id },
     });
     pointer.range.insertNode(mark);
     pointer.range.detach?.();
+    return instance;
 }
 
 function getTextNodes(element: HTMLElement): Text[] {

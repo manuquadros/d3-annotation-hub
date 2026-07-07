@@ -24,10 +24,9 @@
 
     const renderAnnotated: Attachment<HTMLDivElement> = (element) => {
         if (html) {
-            annotateHTMLString(element, html, pointers, entities, field);
-        } else {
-            element.replaceChildren();
+            return annotateHTMLString(element, html, pointers, entities, field);
         }
+        element.replaceChildren();
     };
 
     /**
