@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Autosave (annotation and curation) no longer lets a slow older save overwrite a newer one: an in-flight save is aborted when a newer edit triggers the next save, and superseded saves are ignored instead of flashing a spurious "Error – click to retry" during rapid editing.
 - Paginated API list endpoints now reject an out-of-range page size (`limit` outside 1–200, or a negative `offset`) with a 422 instead of returning the entire table.
 - Entity search now matches per-word prefixes through the FTS index instead of scanning for arbitrary substrings, so it stays fast on large ontologies; searching a mid-word fragment (e.g. "bacterium" to find "Mycobacterium") no longer matches, but any leading or non-leading whole-word prefix still does.
 - Large ontology imports are faster: the search index's per-row sync triggers are suppressed during a bulk load and the index is rebuilt once at the end.

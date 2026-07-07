@@ -150,11 +150,15 @@ export async function fetchProjectProperties(
     return response.json();
 }
 
-export async function saveAnnotation(jsonData: string): Promise<void> {
+export async function saveAnnotation(
+    jsonData: string,
+    signal?: AbortSignal,
+): Promise<void> {
     const response = await fetch("/api/save", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ json_data: jsonData }),
+        signal,
     });
 
     if (!response.ok) {

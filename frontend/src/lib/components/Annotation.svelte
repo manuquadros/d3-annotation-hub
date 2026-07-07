@@ -43,6 +43,7 @@
         saveStatus = { type: "saving" };
 
         scheduleSave(initialState).then((result) => {
+            if (result.cancelled) return;
             if (result.success) {
                 saveStatus = { type: "saved", timestamp: new Date() };
             } else {
@@ -62,6 +63,7 @@
     function handleRetry() {
         saveStatus = { type: "saving" };
         scheduleSave(initialState).then((result) => {
+            if (result.cancelled) return;
             if (result.success) {
                 saveStatus = { type: "saved", timestamp: new Date() };
             } else {

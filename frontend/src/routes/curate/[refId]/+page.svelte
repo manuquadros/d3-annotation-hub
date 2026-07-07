@@ -366,7 +366,18 @@
         return { pointers, relations };
     }
 
+    // Sequence guard: a curation POST replaces the whole curated annotation, so
+    // an older in-flight save landing after a newer one would overwrite it with
+    // stale data. We abort the prior request and ignore any superseded result.
+    let saveSeq = 0;
+    let inFlightSave: AbortController | null = null;
+
     async function save() {
+        inFlightSave?.abort();
+        const controller = new AbortController();
+        inFlightSave = controller;
+        const seq = ++saveSeq;
+
         autosaving = true;
         autosaveError = null;
         try {
@@ -376,17 +387,20 @@
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify(buildCurationPayload()),
+                    signal: controller.signal,
                 },
             );
+            if (seq !== saveSeq) return;
             if (!res.ok) {
                 autosaveError = await errorDetail(res);
             } else {
                 autosaved = true;
             }
         } catch (e) {
+            if (controller.signal.aborted || seq !== saveSeq) return;
             autosaveError = String(e);
         } finally {
-            autosaving = false;
+            if (seq === saveSeq) autosaving = false;
         }
     }
 
