@@ -69,7 +69,11 @@ def _annotate_with_entity(
     annotation = ReferenceAnnotation(
         user=user,
         reference=ref,
-        pointers=[Pointer(entity_id=entity_curie, reference_id=None, offset=0, length=5)],
+        pointers=[
+            Pointer(
+                entity_id=entity_curie, reference_id=None, offset=0, length=5
+            )
+        ],
         relations=[],
         completed=False,
         last_updated=_NOW,
@@ -82,39 +86,75 @@ class TestDeleteOntology:
     def test_deletes_ontology_with_no_annotations(self, ctx):
         client, admin_auth, test_db, *_ = ctx
 
-        ontology_id = test_db.store_ontology("Empty Ontology", "EMPTY", "http://empty.org/")
+        ontology_id = test_db.store_ontology(
+            "Empty Ontology", "EMPTY", "http://empty.org/"
+        )
         test_db.load_ontology_entities(
             ontology_id,
-            [EntityAnnotation(entity_id="EMPTY:1", preferred_name="Thing", kind="d3o:Enzyme", synonyms=[])],
+            [
+                EntityAnnotation(
+                    entity_id="EMPTY:1",
+                    preferred_name="Thing",
+                    kind="d3o:Enzyme",
+                    synonyms=[],
+                )
+            ],
         )
 
-        r = client.delete(f"/admin/ontologies/{ontology_id}", headers=admin_auth)
+        r = client.delete(
+            f"/admin/ontologies/{ontology_id}", headers=admin_auth
+        )
         assert r.status_code == 200
         assert r.json() == {"ok": True}
 
     def test_delete_blocked_when_pointer_references_entity(self, ctx):
         client, admin_auth, test_db, project_id, annotator_id, ref_id = ctx
 
-        ontology_id = test_db.store_ontology("Used Ontology", "USED", "http://used.org/")
+        ontology_id = test_db.store_ontology(
+            "Used Ontology", "USED", "http://used.org/"
+        )
         test_db.load_ontology_entities(
             ontology_id,
-            [EntityAnnotation(entity_id="USED:1", preferred_name="Alpha", kind="d3o:Enzyme", synonyms=[])],
+            [
+                EntityAnnotation(
+                    entity_id="USED:1",
+                    preferred_name="Alpha",
+                    kind="d3o:Enzyme",
+                    synonyms=[],
+                )
+            ],
         )
-        _annotate_with_entity(test_db, project_id, annotator_id, ref_id, "USED:1")
+        _annotate_with_entity(
+            test_db, project_id, annotator_id, ref_id, "USED:1"
+        )
 
-        r = client.delete(f"/admin/ontologies/{ontology_id}", headers=admin_auth)
+        r = client.delete(
+            f"/admin/ontologies/{ontology_id}", headers=admin_auth
+        )
         assert r.status_code == 409
         assert "annotation" in r.json()["detail"].lower()
 
     def test_delete_blocked_when_relation_references_entity(self, ctx):
         client, admin_auth, test_db, project_id, annotator_id, ref_id = ctx
 
-        ontology_id = test_db.store_ontology("Rel Ontology", "RLONT", "http://rlont.org/")
+        ontology_id = test_db.store_ontology(
+            "Rel Ontology", "RLONT", "http://rlont.org/"
+        )
         test_db.load_ontology_entities(
             ontology_id,
             [
-                EntityAnnotation(entity_id="RLONT:1", preferred_name="Subject", kind="d3o:Enzyme", synonyms=[]),
-                EntityAnnotation(entity_id="RLONT:2", preferred_name="Object", kind="d3o:Strain", synonyms=[]),
+                EntityAnnotation(
+                    entity_id="RLONT:1",
+                    preferred_name="Subject",
+                    kind="d3o:Enzyme",
+                    synonyms=[],
+                ),
+                EntityAnnotation(
+                    entity_id="RLONT:2",
+                    preferred_name="Object",
+                    kind="d3o:Strain",
+                    synonyms=[],
+                ),
             ],
         )
 
@@ -124,29 +164,52 @@ class TestDeleteOntology:
             user=user,
             reference=ref,
             pointers=[
-                Pointer(entity_id="RLONT:1", reference_id=None, offset=0, length=3),
-                Pointer(entity_id="RLONT:2", reference_id=None, offset=10, length=3),
+                Pointer(
+                    entity_id="RLONT:1", reference_id=None, offset=0, length=3
+                ),
+                Pointer(
+                    entity_id="RLONT:2", reference_id=None, offset=10, length=3
+                ),
             ],
-            relations=[Relation(predicate="d3o:HasEnzyme", subject="RLONT:1", object="RLONT:2")],
+            relations=[
+                Relation(
+                    predicate="d3o:HasEnzyme",
+                    subject="RLONT:1",
+                    object="RLONT:2",
+                )
+            ],
             completed=False,
             last_updated=_NOW,
             project_id=project_id,
         )
         test_db.store_annotation(annotation)
 
-        r = client.delete(f"/admin/ontologies/{ontology_id}", headers=admin_auth)
+        r = client.delete(
+            f"/admin/ontologies/{ontology_id}", headers=admin_auth
+        )
         assert r.status_code == 409
         assert "annotation" in r.json()["detail"].lower()
 
     def test_ontology_still_exists_after_blocked_delete(self, ctx):
         client, admin_auth, test_db, project_id, annotator_id, ref_id = ctx
 
-        ontology_id = test_db.store_ontology("Persist Ontology", "PERS", "http://pers.org/")
+        ontology_id = test_db.store_ontology(
+            "Persist Ontology", "PERS", "http://pers.org/"
+        )
         test_db.load_ontology_entities(
             ontology_id,
-            [EntityAnnotation(entity_id="PERS:1", preferred_name="Beta", kind="d3o:Strain", synonyms=[])],
+            [
+                EntityAnnotation(
+                    entity_id="PERS:1",
+                    preferred_name="Beta",
+                    kind="d3o:Strain",
+                    synonyms=[],
+                )
+            ],
         )
-        _annotate_with_entity(test_db, project_id, annotator_id, ref_id, "PERS:1")
+        _annotate_with_entity(
+            test_db, project_id, annotator_id, ref_id, "PERS:1"
+        )
 
         client.delete(f"/admin/ontologies/{ontology_id}", headers=admin_auth)
 
@@ -158,10 +221,14 @@ class TestDeleteOntology:
     def test_non_admin_cannot_delete_ontology(self, ctx, login):
         client, _, test_db, *_ = ctx
 
-        ontology_id = test_db.store_ontology("Other Ontology", "OTHER", "http://other.org/")
+        ontology_id = test_db.store_ontology(
+            "Other Ontology", "OTHER", "http://other.org/"
+        )
 
         annotator_auth = login(_ANNOTATOR_EMAIL, _ANNOTATOR_PASSWORD)
-        r = client.delete(f"/admin/ontologies/{ontology_id}", headers=annotator_auth)
+        r = client.delete(
+            f"/admin/ontologies/{ontology_id}", headers=annotator_auth
+        )
         assert r.status_code == 403
 
 

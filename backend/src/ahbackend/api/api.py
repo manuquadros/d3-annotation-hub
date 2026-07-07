@@ -177,6 +177,7 @@ def fetch_annotation(
     project_id: int,
     current_user: Annotated[User, Depends(users.get_current_active_user)],
 ) -> str:
+    _require_project_member(project_id, current_user)
     try:
         reference_annotation = get_reference_annotation(
             ref_identifier, str(current_user.user_id), project_id
@@ -368,9 +369,7 @@ async def import_ontology(  # noqa: C901
                 )
             total = await task
             out.append(total)
-            yield _sse(
-                "progress", {"step": step, "loaded": total, "total": 0}
-            )
+            yield _sse("progress", {"step": step, "loaded": total, "total": 0})
 
         try:
             # 1. Build the streaming parser (cheap: reads only the header).
@@ -769,6 +768,10 @@ def entity_search(
     is_class: bool = False,
 ) -> list[EntityAnnotation]:
     """Search entities by name or synonym prefix."""
+    # A project scope surfaces that project's unconfirmed (proposed) entities,
+    # so it may only be used by a member; the unscoped search stays open.
+    if project_id is not None:
+        _require_project_member(project_id, current_user)
     return search_entities(q, limit, project_id, is_class)
 
 
@@ -1042,6 +1045,7 @@ def list_project_properties(
     current_user: Annotated[User, Depends(users.get_current_active_user)],
 ) -> list[PropertyResponse]:
     """Return OWL object properties plus pending proposed properties for the project."""
+    _require_project_member(project_id, current_user)
     owl_props = [
         PropertyResponse.model_validate(p)
         for p in get_project_properties(project_id)

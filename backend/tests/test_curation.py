@@ -541,9 +541,7 @@ class TestRenameEntityCurie:
         # that belongs to project B (the lookup/rename are global by CURIE).
         project_a, _ = project
         project_b = make_project("Other Project", required_annotators=1)
-        db.store_proposed_entity(
-            project_b, "Beta strain", _OLD_CURIE, "Strain"
-        )
+        db.store_proposed_entity(project_b, "Beta strain", _OLD_CURIE, "Strain")
         curator_auth = login(_CURATOR_EMAIL, _CURATOR_PASSWORD)
 
         r = client.patch(

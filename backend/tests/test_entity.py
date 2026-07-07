@@ -24,9 +24,7 @@ def user_auth(make_user):
 @pytest.fixture()
 def seeded_entities(db):
     """An ontology with two OWL classes and one named individual."""
-    ontology_id = db.store_ontology(
-        "Test Ontology", "TEST", "http://test.org/"
-    )
+    ontology_id = db.store_ontology("Test Ontology", "TEST", "http://test.org/")
     db.load_ontology_entities(
         ontology_id,
         [

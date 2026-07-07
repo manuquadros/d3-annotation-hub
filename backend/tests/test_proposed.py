@@ -77,9 +77,7 @@ class TestProposeEntity:
         )
         assert r.status_code == 403
 
-    def test_duplicate_curie_returns_409(
-        self, member_auth, project_id, client
-    ):
+    def test_duplicate_curie_returns_409(self, member_auth, project_id, client):
         payload = {"label": _LABEL, "curie": _CURIE, "kind": _KIND}
         first = client.post(
             f"/projects/{project_id}/proposed-entities",

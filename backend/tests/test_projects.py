@@ -22,9 +22,7 @@ _NEW_MEMBER_EMAIL = "newmember@projects-test.example"
 @pytest.fixture()
 def manager(client, make_user):
     """A user with the can_manage flag, logged in. Returns (client, auth)."""
-    return client, make_user(
-        _MANAGER_EMAIL, _MANAGER_PASSWORD, can_manage=True
-    )
+    return client, make_user(_MANAGER_EMAIL, _MANAGER_PASSWORD, can_manage=True)
 
 
 @pytest.fixture()

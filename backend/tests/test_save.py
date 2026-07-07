@@ -93,8 +93,18 @@ def _completed_payload(
         },
     ]
     ann["pointers"] = [
-        {"reference_id": ref_id, "entity_id": _SUBJECT, "offset": 5, "length": 7},
-        {"reference_id": ref_id, "entity_id": _OBJECT, "offset": 20, "length": 8},
+        {
+            "reference_id": ref_id,
+            "entity_id": _SUBJECT,
+            "offset": 5,
+            "length": 7,
+        },
+        {
+            "reference_id": ref_id,
+            "entity_id": _OBJECT,
+            "offset": 20,
+            "length": 8,
+        },
     ]
     ann["relations"] = []
     ann["completed"] = True
