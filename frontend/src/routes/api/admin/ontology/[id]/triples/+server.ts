@@ -1,24 +1,19 @@
-import { API_BASE_URL } from "$lib/config";
 import type { RequestHandler } from "@sveltejs/kit";
+import { backendPath, proxy } from "$lib/server/proxy";
 
-export const GET: RequestHandler = async ({ params, url, cookies }) => {
-    const token = cookies.get("auth_token");
-    if (!token) return new Response(null, { status: 401 });
-
-    const limit = url.searchParams.get("limit") ?? "50";
-    const offset = url.searchParams.get("offset") ?? "0";
-    const subjectFilter = url.searchParams.get("subject_filter") ?? "";
-    const predicateFilter = url.searchParams.get("predicate_filter") ?? "";
-    const objectFilter = url.searchParams.get("object_filter") ?? "";
-    const qs = new URLSearchParams({
-        limit,
-        offset,
-        subject_filter: subjectFilter,
-        predicate_filter: predicateFilter,
-        object_filter: objectFilter,
-    });
-    return fetch(
-        `${API_BASE_URL}/admin/ontologies/${params.id}/triples?${qs}`,
-        { headers: { Authorization: `Bearer ${token}` } },
+export const GET: RequestHandler = (event) => {
+    const p = event.url.searchParams;
+    return proxy(
+        event,
+        backendPath`/admin/ontologies/${event.params.id!}/triples`,
+        {
+            query: {
+                limit: p.get("limit") ?? "50",
+                offset: p.get("offset") ?? "0",
+                subject_filter: p.get("subject_filter") ?? "",
+                predicate_filter: p.get("predicate_filter") ?? "",
+                object_filter: p.get("object_filter") ?? "",
+            },
+        },
     );
 };

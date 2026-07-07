@@ -1,19 +1,13 @@
-import { API_BASE_URL } from "$lib/config";
 import type { RequestHandler } from "@sveltejs/kit";
+import { backendPath, proxy } from "$lib/server/proxy";
 
-export const POST: RequestHandler = async ({ cookies, params, request }) => {
-    const token = cookies.get("auth_token");
-    if (!token) return new Response(null, { status: 401 });
-
-    return fetch(
-        `${API_BASE_URL}/projects/${encodeURIComponent(params.id!)}/curation/${encodeURIComponent(params.refId!)}`,
+export const POST: RequestHandler = async (event) =>
+    proxy(
+        event,
+        backendPath`/projects/${event.params.id!}/curation/${event.params.refId!}`,
         {
             method: "POST",
-            headers: {
-                Authorization: `Bearer ${token}`,
-                "Content-Type": "application/json",
-            },
-            body: await request.text(),
+            headers: { "Content-Type": "application/json" },
+            body: await event.request.text(),
         },
     );
-};

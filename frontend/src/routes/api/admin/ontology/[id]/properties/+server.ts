@@ -1,11 +1,5 @@
-import { API_BASE_URL } from "$lib/config";
 import type { RequestHandler } from "@sveltejs/kit";
+import { backendPath, proxy } from "$lib/server/proxy";
 
-export const GET: RequestHandler = async ({ params, cookies }) => {
-    const token = cookies.get("auth_token");
-    if (!token) return new Response(null, { status: 401 });
-
-    return fetch(`${API_BASE_URL}/admin/ontologies/${params.id}/properties`, {
-        headers: { Authorization: `Bearer ${token}` },
-    });
-};
+export const GET: RequestHandler = (event) =>
+    proxy(event, backendPath`/admin/ontologies/${event.params.id!}/properties`);

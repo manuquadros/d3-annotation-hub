@@ -1,34 +1,24 @@
-import { API_BASE_URL } from "$lib/config";
 import type { RequestHandler } from "@sveltejs/kit";
+import { backendPath, proxy } from "$lib/server/proxy";
 
-export const GET: RequestHandler = async ({ params, url, cookies }) => {
-    const token = cookies.get("auth_token");
-    if (!token) return new Response(null, { status: 401 });
-
-    const limit = url.searchParams.get("limit") ?? "50";
-    const offset = url.searchParams.get("offset") ?? "0";
-    const curieFilter = url.searchParams.get("curie_filter") ?? "";
-    const nameFilter = url.searchParams.get("name_filter") ?? "";
-    const typeFilter = url.searchParams.get("type_filter") ?? "";
-    const qs = new URLSearchParams({
-        limit,
-        offset,
-        curie_filter: curieFilter,
-        name_filter: nameFilter,
-        type_filter: typeFilter,
-    });
-    return fetch(
-        `${API_BASE_URL}/admin/ontologies/${params.id}/entities?${qs}`,
-        { headers: { Authorization: `Bearer ${token}` } },
+export const GET: RequestHandler = (event) => {
+    const p = event.url.searchParams;
+    return proxy(
+        event,
+        backendPath`/admin/ontologies/${event.params.id!}/entities`,
+        {
+            query: {
+                limit: p.get("limit") ?? "50",
+                offset: p.get("offset") ?? "0",
+                curie_filter: p.get("curie_filter") ?? "",
+                name_filter: p.get("name_filter") ?? "",
+                type_filter: p.get("type_filter") ?? "",
+            },
+        },
     );
 };
 
-export const DELETE: RequestHandler = async ({ params, cookies }) => {
-    const token = cookies.get("auth_token");
-    if (!token) return new Response(null, { status: 401 });
-
-    return fetch(`${API_BASE_URL}/admin/ontologies/${params.id}`, {
+export const DELETE: RequestHandler = (event) =>
+    proxy(event, backendPath`/admin/ontologies/${event.params.id!}`, {
         method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` },
     });
-};

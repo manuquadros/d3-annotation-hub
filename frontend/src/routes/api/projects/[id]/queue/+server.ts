@@ -1,43 +1,27 @@
-import { API_BASE_URL } from "$lib/config";
 import type { RequestHandler } from "@sveltejs/kit";
+import { backendPath, proxy } from "$lib/server/proxy";
 
-export const GET: RequestHandler = async ({ cookies, params }) => {
-    const token = cookies.get("auth_token");
-    if (!token) return new Response(null, { status: 401 });
+export const GET: RequestHandler = (event) =>
+    proxy(event, backendPath`/projects/${event.params.id!}/queue`);
 
-    return fetch(`${API_BASE_URL}/projects/${params.id}/queue`, {
-        headers: { Authorization: `Bearer ${token}` },
-    });
-};
-
-export const POST: RequestHandler = async ({ cookies, params, url }) => {
-    const token = cookies.get("auth_token");
-    if (!token) return new Response(null, { status: 401 });
-
-    const ref = url.searchParams.get("ref");
+export const POST: RequestHandler = (event) => {
+    const ref = event.url.searchParams.get("ref");
     if (!ref) return new Response("Missing ref", { status: 400 });
 
-    return fetch(
-        `${API_BASE_URL}/projects/${params.id}/queue/complete?ref=${encodeURIComponent(ref)}`,
-        {
-            method: "POST",
-            headers: { Authorization: `Bearer ${token}` },
-        },
+    return proxy(
+        event,
+        backendPath`/projects/${event.params.id!}/queue/complete`,
+        { method: "POST", query: { ref } },
     );
 };
 
-export const DELETE: RequestHandler = async ({ cookies, params, url }) => {
-    const token = cookies.get("auth_token");
-    if (!token) return new Response(null, { status: 401 });
-
-    const ref = url.searchParams.get("ref");
+export const DELETE: RequestHandler = (event) => {
+    const ref = event.url.searchParams.get("ref");
     if (!ref) return new Response("Missing ref", { status: 400 });
 
-    return fetch(
-        `${API_BASE_URL}/projects/${params.id}/queue/complete?ref=${encodeURIComponent(ref)}`,
-        {
-            method: "DELETE",
-            headers: { Authorization: `Bearer ${token}` },
-        },
+    return proxy(
+        event,
+        backendPath`/projects/${event.params.id!}/queue/complete`,
+        { method: "DELETE", query: { ref } },
     );
 };

@@ -31,6 +31,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - A rapid double-Enter in the CURIE editor no longer fires a duplicate rename (which showed a spurious error over the successful save).
 - The curation page's CURIE editor now uses the same component as the admin panel, gaining explicit Save/Cancel buttons for consistent behavior.
 - Renaming a proposed entity's CURIE during curation no longer fails with a spurious "already in use" error once the entity has been annotated; the rename now updates every annotation-pointer table atomically.
+- API proxy routes now percent-encode route and query parameters through a shared helper, closing a path/parameter-smuggling hole where a value such as `..%2Fontologies%2F5` could redirect a token-bearing request to a different backend endpoint. The helper also bounds the upstream time-to-first-byte and no longer forwards backend `Set-Cookie` headers to the browser.
 
 ## [0.1.4]
 

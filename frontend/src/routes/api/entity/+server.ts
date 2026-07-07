@@ -1,20 +1,15 @@
-import { API_BASE_URL } from "$lib/config";
 import type { RequestHandler } from "@sveltejs/kit";
+import { proxy } from "$lib/server/proxy";
 
-export const GET: RequestHandler = async ({ cookies, url }) => {
-    const token = cookies.get("auth_token");
-    if (!token) return new Response(null, { status: 401 });
-
-    const q = url.searchParams.get("q");
+export const GET: RequestHandler = (event) => {
+    const q = event.url.searchParams.get("q");
     if (!q) return new Response("Missing q", { status: 400 });
 
-    const params = new URLSearchParams({ q });
-    const limit = url.searchParams.get("limit");
-    if (limit) params.set("limit", limit);
-    const projectId = url.searchParams.get("project_id");
-    if (projectId) params.set("project_id", projectId);
-
-    return fetch(`${API_BASE_URL}/entity/search?${params}`, {
-        headers: { Authorization: `Bearer ${token}` },
+    return proxy(event, "/entity/search", {
+        query: {
+            q,
+            limit: event.url.searchParams.get("limit"),
+            project_id: event.url.searchParams.get("project_id"),
+        },
     });
 };

@@ -1,27 +1,18 @@
-import { API_BASE_URL } from "$lib/config";
 import type { RequestHandler } from "@sveltejs/kit";
+import { backendPath, proxy } from "$lib/server/proxy";
 
-export const PATCH: RequestHandler = async ({
-    cookies,
-    params,
-    url,
-    request,
-}) => {
-    const token = cookies.get("auth_token");
-    if (!token) return new Response(null, { status: 401 });
-
-    const curie = url.searchParams.get("curie");
+export const PATCH: RequestHandler = async (event) => {
+    const curie = event.url.searchParams.get("curie");
     if (!curie) return new Response("Missing curie", { status: 400 });
 
-    return fetch(
-        `${API_BASE_URL}/projects/${params.id}/curation/entity-curie?curie=${encodeURIComponent(curie)}`,
+    return proxy(
+        event,
+        backendPath`/projects/${event.params.id!}/curation/entity-curie`,
         {
             method: "PATCH",
-            headers: {
-                Authorization: `Bearer ${token}`,
-                "Content-Type": "application/json",
-            },
-            body: await request.text(),
+            headers: { "Content-Type": "application/json" },
+            query: { curie },
+            body: await event.request.text(),
         },
     );
 };
