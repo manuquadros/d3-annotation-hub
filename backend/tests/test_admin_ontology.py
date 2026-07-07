@@ -270,3 +270,48 @@ class TestImportStreaming:
         events = _parse_sse(r.text)
         errors = [data for ev, data in events if ev == "error"]
         assert errors and "bomb" in errors[0]["detail"].lower(), events
+
+
+class TestPaginationBounds:
+    """Paginated list endpoints must reject out-of-range limit/offset.
+
+    Guards TICKET-20: an unbounded/negative ``limit`` reached ``.limit()`` and,
+    because SQLite treats ``LIMIT -1`` as "no limit", returned the whole table.
+    """
+
+    @pytest.mark.parametrize(
+        "query",
+        ["limit=-1", "limit=0", "limit=201", "offset=-1"],
+    )
+    @pytest.mark.parametrize("resource", ["entities", "triples"])
+    def test_out_of_range_pagination_is_rejected(self, ctx, resource, query):
+        client, admin_auth, test_db, *_ = ctx
+        ontology_id = test_db.store_ontology("Page", "PAGE", "http://page/")
+
+        r = client.get(
+            f"/admin/ontologies/{ontology_id}/{resource}?{query}",
+            headers=admin_auth,
+        )
+        assert r.status_code == 422
+
+    def test_in_range_pagination_is_accepted(self, ctx):
+        client, admin_auth, test_db, *_ = ctx
+        ontology_id = test_db.store_ontology("Page", "PAGE", "http://page/")
+        test_db.load_ontology_entities(
+            ontology_id,
+            [
+                EntityAnnotation(
+                    entity_id="PAGE:1",
+                    preferred_name="Thing",
+                    kind="d3o:Enzyme",
+                    synonyms=[],
+                )
+            ],
+        )
+
+        r = client.get(
+            f"/admin/ontologies/{ontology_id}/entities?limit=200&offset=0",
+            headers=admin_auth,
+        )
+        assert r.status_code == 200
+        assert r.json()["total"] == 1

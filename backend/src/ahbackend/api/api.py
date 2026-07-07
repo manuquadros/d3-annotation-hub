@@ -31,6 +31,7 @@ from fastapi import (
     FastAPI,
     Form,
     HTTPException,
+    Query,
     Request,
     UploadFile,
 )
@@ -135,6 +136,13 @@ VALID_ROLES: frozenset[str] = frozenset({"manager", "annotator", "curator"})
 EXCLUSIVE_ROLES: frozenset[str] = frozenset({"annotator", "curator"})
 
 _TRIPLE_CHUNK = 500
+
+# Shared pagination bounds for every list endpoint. `le` caps the page size so a
+# single request can't materialize an entire table; `ge=1` blocks SQLite's
+# `LIMIT -1` (== unbounded) footgun that a negative `limit` would otherwise hit.
+MAX_PAGE_SIZE = 200
+LimitParam = Annotated[int, Query(ge=1, le=MAX_PAGE_SIZE)]
+OffsetParam = Annotated[int, Query(ge=0)]
 
 
 def _sse(event: str, data: object) -> str:
@@ -485,8 +493,8 @@ async def import_ontology(  # noqa: C901
 def list_ontology_entities(
     ontology_id: int,
     current_user: Annotated[User, Depends(users.get_current_admin)],
-    limit: int = 50,
-    offset: int = 0,
+    limit: LimitParam = 50,
+    offset: OffsetParam = 0,
     curie_filter: str = "",
     name_filter: str = "",
     type_filter: str = "",
@@ -511,8 +519,8 @@ class OntologyTripleOut(BaseModel):
 def list_ontology_triples(
     ontology_id: int,
     current_user: Annotated[User, Depends(users.get_current_admin)],
-    limit: int = 50,
-    offset: int = 0,
+    limit: LimitParam = 50,
+    offset: OffsetParam = 0,
     subject_filter: str = "",
     predicate_filter: str = "",
     object_filter: str = "",
@@ -563,8 +571,8 @@ def list_ontology_properties(
 def get_proposed_entities_admin(
     project_id: int,
     current_user: Annotated[User, Depends(users.get_current_admin)],
-    limit: int = 50,
-    offset: int = 0,
+    limit: LimitParam = 50,
+    offset: OffsetParam = 0,
 ) -> dict:
     """Return proposed entities for a project (admin/curator view)."""
     entities, total = list_proposed_entities(project_id, limit, offset)
@@ -756,7 +764,7 @@ def list_entity_types(
 def entity_search(
     q: str,
     current_user: Annotated[User, Depends(users.get_current_active_user)],
-    limit: int = 20,
+    limit: LimitParam = 20,
     project_id: int | None = None,
     is_class: bool = False,
 ) -> list[EntityAnnotation]:
@@ -928,7 +936,7 @@ def search_project_users(
     project_id: int,
     q: str,
     _: Annotated[User, Depends(users.require_manager)],
-    limit: int = 20,
+    limit: LimitParam = 20,
 ) -> list[UserSearchResult]:
     results = search_users(q, limit)
     return [
@@ -1089,8 +1097,8 @@ class ProposedPropertyRequest(BaseModel):
 def get_project_proposed_entities(
     project_id: int,
     current_user: Annotated[User, Depends(users.get_current_admin)],
-    limit: int = 50,
-    offset: int = 0,
+    limit: LimitParam = 50,
+    offset: OffsetParam = 0,
 ) -> dict:
     """Return proposed entities for a project (curator/manager view)."""
     entities, total = list_proposed_entities(project_id, limit, offset)
@@ -1118,8 +1126,8 @@ def create_project_proposed_entity(
 def get_project_proposed_properties(
     project_id: int,
     current_user: Annotated[User, Depends(users.get_current_admin)],
-    limit: int = 50,
-    offset: int = 0,
+    limit: LimitParam = 50,
+    offset: OffsetParam = 0,
 ) -> dict:
     """Return proposed properties for a project (curator/manager view)."""
     properties, total = list_proposed_properties(project_id, limit, offset)

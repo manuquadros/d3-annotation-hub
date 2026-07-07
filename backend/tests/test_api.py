@@ -3,6 +3,7 @@ from uuid import UUID
 from d3textdb.schema import UserAuth
 
 from ahbackend.api.api import can_access_project, can_curate_project
+from ahbackend.db.queries import _clamp_limit, _clamp_offset
 from ahbackend.utils import cse_citation
 
 _DUMMY_UUID = UUID("00000000-0000-0000-0000-000000000000")
@@ -73,3 +74,21 @@ class TestCseCitation:
 
     def test_empty_authors(self):
         assert cse_citation("", 2004) == "2004"
+
+
+class TestClampPagination:
+    """Defense-in-depth clamp behind the API-layer Query bounds (TICKET-20)."""
+
+    def test_clamp_limit_raises_zero_and_negative_to_one(self):
+        # SQLite reads `LIMIT -1` as unbounded; a floor of 1 neutralizes it.
+        assert _clamp_limit(-1) == 1
+        assert _clamp_limit(0) == 1
+
+    def test_clamp_limit_leaves_positive_untouched(self):
+        assert _clamp_limit(50) == 50
+
+    def test_clamp_offset_floors_negative_at_zero(self):
+        assert _clamp_offset(-3) == 0
+
+    def test_clamp_offset_leaves_non_negative_untouched(self):
+        assert _clamp_offset(7) == 7

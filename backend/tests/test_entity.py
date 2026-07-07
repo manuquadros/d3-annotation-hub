@@ -88,6 +88,19 @@ class TestEntitySearch:
         r = client.get("/entity/search", headers=user_auth)
         assert r.status_code == 422
 
+    @pytest.mark.parametrize("limit", [-1, 0, 201])
+    def test_out_of_range_limit_is_rejected(self, user_auth, client, limit):
+        # TICKET-20: an unbounded/negative limit must not reach the DB, where
+        # SQLite's `LIMIT -1` would return every matching entity.
+        r = client.get(f"/entity/search?q=Xyl&limit={limit}", headers=user_auth)
+        assert r.status_code == 422
+
+    def test_in_range_limit_is_accepted(
+        self, user_auth, seeded_entities, client
+    ):
+        r = client.get("/entity/search?q=Xyl&limit=200", headers=user_auth)
+        assert r.status_code == 200
+
     def test_requires_authentication(self, seeded_entities, anon_client):
         r = anon_client.get("/entity/search?q=Xyl")
         assert r.status_code == 401

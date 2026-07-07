@@ -25,6 +25,21 @@ from ..utils import cse_citation
 from ._annodb import annodb
 
 
+def _clamp_limit(limit: int) -> int:
+    """Guard against SQLite's ``LIMIT -1`` (== unbounded) footgun.
+
+    A zero or negative ``limit`` reaching ``.limit()`` returns the entire table.
+    This is defense in depth behind the API-layer ``Query(ge=1, le=…)`` bounds:
+    the page-size *cap* stays at the boundary (a 422 there tells the caller),
+    so this only enforces the non-negative floor for any internal caller.
+    """
+    return max(1, limit)
+
+
+def _clamp_offset(offset: int) -> int:
+    return max(0, offset)
+
+
 def get_user(email: str) -> User | None:
     return annodb.get_user(email)
 
@@ -35,7 +50,7 @@ def search_users(query: str, limit: int = 20) -> list[tuple[User, UserAuth]]:
             select(User, UserAuth)
             .join(UserAuth, UserAuth.user_id == User.user_id)
             .where(col(User.email).ilike(f"%{query}%"))
-            .limit(limit)
+            .limit(_clamp_limit(limit))
         ).all()
         return [(u, a) for u, a in rows]
 
@@ -75,7 +90,9 @@ def search_entities(
     project_id: int | None = None,
     is_class: bool = False,
 ) -> list[EntityAnnotation]:
-    return annodb.search_entities(query, limit, project_id, is_class)
+    return annodb.search_entities(
+        query, _clamp_limit(limit), project_id, is_class
+    )
 
 
 def get_entities_by_curies(curies: list[str]) -> list[EntityAnnotation]:
@@ -103,7 +120,12 @@ def get_ontology_entities(
     type_filter: str = "",
 ) -> tuple[list[EntityAnnotation], int]:
     return annodb.get_ontology_entities(
-        ontology_id, limit, offset, curie_filter, name_filter, type_filter
+        ontology_id,
+        _clamp_limit(limit),
+        _clamp_offset(offset),
+        curie_filter,
+        name_filter,
+        type_filter,
     )
 
 
@@ -117,8 +139,8 @@ def get_ontology_triples(
 ) -> tuple[list[dict], int]:
     return annodb.get_ontology_triples(
         ontology_id,
-        limit,
-        offset,
+        _clamp_limit(limit),
+        _clamp_offset(offset),
         subject_filter,
         predicate_filter,
         object_filter,
@@ -136,13 +158,17 @@ def get_project_properties(project_id: int) -> list[OntologyProperty]:
 def list_proposed_properties(
     project_id: int, limit: int = 50, offset: int = 0
 ) -> tuple[list[dict], int]:
-    return annodb.list_proposed_properties(project_id, limit, offset)
+    return annodb.list_proposed_properties(
+        project_id, _clamp_limit(limit), _clamp_offset(offset)
+    )
 
 
 def list_proposed_entities(
     project_id: int, limit: int = 50, offset: int = 0
 ) -> tuple[list[dict], int]:
-    return annodb.list_proposed_entities(project_id, limit, offset)
+    return annodb.list_proposed_entities(
+        project_id, _clamp_limit(limit), _clamp_offset(offset)
+    )
 
 
 def get_project(project_id: int) -> Project | None:
