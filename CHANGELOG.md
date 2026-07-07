@@ -34,6 +34,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Renaming a proposed entity's CURIE during curation no longer fails with a spurious "already in use" error once the entity has been annotated; the rename now updates every annotation-pointer table atomically.
 - API proxy routes now percent-encode route and query parameters through a shared helper, closing a path/parameter-smuggling hole where a value such as `..%2Fontologies%2F5` could redirect a token-bearing request to a different backend endpoint. The helper also bounds the upstream time-to-first-byte and no longer forwards backend `Set-Cookie` headers to the browser.
 - Fixed a memory leak in the annotation view: the highlight cards mounted for each annotation are now torn down when the article re-renders, so editing an entity (rename, synonym change, add/delete) no longer leaves orphaned reactive instances accumulating for the life of the session.
+- Autosave (both annotation and curation) now aborts an older in-flight save when a newer one starts, so a slow earlier request can no longer land after a newer one and overwrite it with stale data; a save superseded by rapid editing is no longer shown as a save failure.
 
 ## [0.1.4]
 
