@@ -54,6 +54,9 @@ jobs:
         with:
           python-version: "3.13"
           cache: true
+          # setup-pdm runs at the repo root (working-directory applies only to
+          # run steps), so point its cache at the backend's lockfile.
+          cache-dependency-path: backend/pdm.lock
 
       # xmlparser and pdfparser are public GitHub repos fetched over HTTPS;
       # d3textdb and apiadapters are local path deps tracked in this monorepo.

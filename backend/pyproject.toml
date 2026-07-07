@@ -16,6 +16,8 @@ dependencies = [
   "sqlmodel>=0.0.24",
   "tokenizers>=0.21.1",
   "uvicorn>=0.34.2",
+  "d3textdb",
+  "apiadapters",
   "xmlparser @ git+https://github.com/manuquadros/xmlparser.git@master",
   "pdfparser @ git+https://github.com/manuquadros/pdfparser.git@main",
   "gunicorn>=25.3.0",
@@ -78,11 +80,16 @@ audit = "pip-audit"
 name = "private"
 url = "https://download.pytorch.org/whl/cu124"
 
-[tool.pdm.dev-dependencies]
-local = [
-  "-e file:///${PROJECT_ROOT}/../apiadapters#egg=apiadapters",
-  "-e file:///${PROJECT_ROOT}/../d3textdb#egg=d3textdb",
-]
+# d3textdb and apiadapters are vendored as git subtrees at the repo root and are
+# runtime dependencies of the backend. They are declared as bare names in
+# [project.dependencies] and pointed at the local checkouts here so both dev
+# (`pdm install`) and production (`pdm install --prod`) resolve them offline.
+# This uses uv's source table because the project runs on the uv resolver, which
+# cannot expand pdm's ${PROJECT_ROOT} in a PEP 508 file:// URL.
+[tool.uv.sources]
+d3textdb = { path = "../d3textdb", editable = true }
+apiadapters = { path = "../apiadapters", editable = true }
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 
