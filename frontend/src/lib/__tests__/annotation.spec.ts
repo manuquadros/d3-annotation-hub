@@ -6,6 +6,8 @@ import {
     allOccurrences,
     uncoveredOffsets,
     AnnotationState,
+    createRangeFromOffsets,
+    buildTextNodeIndex,
 } from "$lib/annotation.svelte.ts";
 
 function makePointers(
@@ -136,6 +138,51 @@ function makeState(
         completed: false,
     });
 }
+
+describe("createRangeFromOffsets", () => {
+    function div(html: string): HTMLDivElement {
+        const el = document.createElement("div");
+        el.innerHTML = html;
+        return el;
+    }
+
+    test("resolves an offset span within a single text node", () => {
+        const el = div("Hello world foo");
+        const range = createRangeFromOffsets(el, 6, 11);
+        expect(range?.toString()).toBe("world");
+    });
+
+    test("resolves a span that crosses element (text-node) boundaries", () => {
+        // plain text: "Hello brave world" across three text nodes.
+        const el = div("Hello <b>brave</b> world");
+        expect(el.textContent).toBe("Hello brave world");
+
+        expect(createRangeFromOffsets(el, 6, 11)?.toString()).toBe("brave");
+        // "lo brave wo" spans the leading node, the <b> node, and the trailing.
+        expect(createRangeFromOffsets(el, 3, 14)?.toString()).toBe(
+            "lo brave wo",
+        );
+    });
+
+    test("a span reaching the very end of the text resolves", () => {
+        const el = div("abc<i>def</i>");
+        expect(createRangeFromOffsets(el, 3, 6)?.toString()).toBe("def");
+    });
+
+    test("returns null when the end offset is out of range", () => {
+        const el = div("short");
+        expect(createRangeFromOffsets(el, 0, 999)).toBeNull();
+    });
+
+    test("passing a prebuilt index yields the same range as without", () => {
+        const el = div("Hello <b>brave</b> world");
+        const index = buildTextNodeIndex(el);
+        const withIndex = createRangeFromOffsets(el, 6, 11, index);
+        const withoutIndex = createRangeFromOffsets(el, 6, 11);
+        expect(withIndex?.toString()).toBe("brave");
+        expect(withoutIndex?.toString()).toBe("brave");
+    });
+});
 
 describe("AnnotationState.pointerCountByEntity", () => {
     test("counts pointers per entity id", () => {

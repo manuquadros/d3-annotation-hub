@@ -714,6 +714,10 @@ export function annotateHTMLString(
     const plainText = elem.textContent || "";
     const fieldPointers = pointers.filter((p) => p.field === field);
 
+    // All ranges are resolved against this single DOM snapshot before any
+    // markRange() mutates it, so one index serves every pointer.
+    const textNodeIndex = buildTextNodeIndex(elem);
+
     const ranges: Array<AnnotatedRange & { range: Range }> = fieldPointers
         .entrySeq()
         .map(([key, pointer]) => {
@@ -724,6 +728,7 @@ export function annotateHTMLString(
                     elem,
                     resolved.offset,
                     resolved.offset + resolved.length,
+                    textNodeIndex,
                 ),
                 pointer_id: key,
             };
@@ -772,43 +777,64 @@ function getTextNodes(element: HTMLElement): Text[] {
     return textNodes;
 }
 
+/**
+ * A snapshot of `element`'s text nodes with their cumulative plain-text end
+ * offsets, enabling binary-search offset lookups. Build once per DOM state and
+ * pass to `createRangeFromOffsets` to avoid re-walking the tree per pointer.
+ * Invalidated by any DOM mutation (e.g. a `Range.extractContents()`).
+ */
+export interface TextNodeIndex {
+    nodes: Text[];
+    /** `starts[i]` is the plain-text offset at which `nodes[i]` begins. */
+    starts: number[];
+    /** `ends[i] === starts[i] + nodes[i].length`; strictly increasing. */
+    ends: number[];
+}
+
+export function buildTextNodeIndex(element: HTMLElement): TextNodeIndex {
+    element.normalize();
+    const nodes = getTextNodes(element);
+    const starts = new Array<number>(nodes.length);
+    const ends = new Array<number>(nodes.length);
+    let acc = 0;
+    for (let i = 0; i < nodes.length; i++) {
+        starts[i] = acc;
+        acc += nodes[i].length;
+        ends[i] = acc;
+    }
+    return { nodes, starts, ends };
+}
+
+/** First index `i` where `test(ends[i])` holds, or `ends.length` if none. */
+function firstIndexWhere(
+    ends: number[],
+    test: (end: number) => boolean,
+): number {
+    let lo = 0;
+    let hi = ends.length;
+    while (lo < hi) {
+        const mid = (lo + hi) >> 1;
+        if (test(ends[mid])) hi = mid;
+        else lo = mid + 1;
+    }
+    return lo;
+}
+
 export function createRangeFromOffsets(
     element: HTMLElement,
     startOffset: number,
     endOffset: number,
+    index?: TextNodeIndex,
 ): Range | null {
-    element.normalize();
+    const { nodes, starts, ends } = index ?? buildTextNodeIndex(element);
+    if (nodes.length === 0) return null;
 
-    const textNodes = getTextNodes(element);
-    let currentOffset = 0;
-    let startNode: Text | null = null;
-    let endNode: Text | null = null;
-    let startNodeOffset = 0;
-    let endNodeOffset = 0;
+    const startIdx = firstIndexWhere(ends, (e) => e > startOffset);
+    const endIdx = firstIndexWhere(ends, (e) => e >= endOffset);
+    if (startIdx >= nodes.length || endIdx >= nodes.length) return null;
 
-    for (const node of textNodes) {
-        const nodeLength = node.length;
-
-        if (currentOffset + nodeLength > startOffset && !startNode) {
-            startNode = node;
-            startNodeOffset = startOffset - currentOffset;
-        }
-
-        if (currentOffset + nodeLength >= endOffset && !endNode) {
-            endNode = node;
-            endNodeOffset = endOffset - currentOffset;
-            break;
-        }
-
-        currentOffset += nodeLength;
-    }
-
-    if (startNode && endNode) {
-        const range = element.ownerDocument.createRange();
-        range.setStart(startNode, startNodeOffset);
-        range.setEnd(endNode, endNodeOffset);
-        return range;
-    }
-
-    return null;
+    const range = element.ownerDocument.createRange();
+    range.setStart(nodes[startIdx], startOffset - starts[startIdx]);
+    range.setEnd(nodes[endIdx], endOffset - starts[endIdx]);
+    return range;
 }
