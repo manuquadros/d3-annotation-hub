@@ -2014,38 +2014,47 @@ class D3TextDB:
             entity_curies = {p.entity_id for p in pointers}
             entities: list[EntityAnnotation] = []
             if entity_curies:
-                rows = list(
+                entity_rows = list(
                     session.scalars(
                         select(Entity).where(Entity.curie.in_(entity_curies))
                     )
                 )
-                for entity in rows:
-                    # Preferred name: EntityName row with is_preferred=True.
-                    preferred_name = (
-                        session.scalar(
-                            select(Name.label)
-                            .join(EntityName, Name.id == EntityName.name_id)
-                            .where(EntityName.entity_id == entity.entity_id)
-                            .where(EntityName.is_preferred.is_(True))
-                        )
-                        or ""
-                    )
 
-                    # Synonyms: all other EntityName rows.
-                    synonyms = list(
-                        session.scalars(
-                            select(Name.label)
-                            .join(EntityName, Name.id == EntityName.name_id)
-                            .where(EntityName.entity_id == entity.entity_id)
-                            .where(EntityName.is_preferred.is_(False))
+                # Resolve every entity's names in a single query. This is the
+                # hottest read path (annotation-open) and an article can
+                # reference hundreds of distinct entities; the old code ran two
+                # queries per entity (preferred + synonyms) → a 2N N+1.
+                internal_ids = [e.entity_id for e in entity_rows]
+                preferred_by_entity: dict[int, str] = {}
+                synonyms_by_entity: dict[int, list[str]] = {
+                    eid: [] for eid in internal_ids
+                }
+                if internal_ids:
+                    name_rows = session.execute(
+                        select(
+                            EntityName.entity_id,
+                            Name.label,
+                            EntityName.is_preferred,
                         )
-                    )
+                        .join(Name, Name.id == EntityName.name_id)
+                        .where(EntityName.entity_id.in_(internal_ids))
+                        .order_by(EntityName.entity_id, EntityName.id)
+                    ).all()
+                    for ent_id, label, is_preferred in name_rows:
+                        if is_preferred:
+                            preferred_by_entity.setdefault(ent_id, label)
+                        else:
+                            synonyms_by_entity[ent_id].append(label)
+
+                for entity in entity_rows:
                     entities.append(
                         EntityAnnotation(
                             entity_id=entity.curie,
-                            preferred_name=preferred_name,
+                            preferred_name=preferred_by_entity.get(
+                                entity.entity_id, ""
+                            ),
                             kind=entity.type,
-                            synonyms=synonyms,
+                            synonyms=synonyms_by_entity[entity.entity_id],
                             confirmed=entity.confirmed,
                             is_class=entity.is_class,
                         )

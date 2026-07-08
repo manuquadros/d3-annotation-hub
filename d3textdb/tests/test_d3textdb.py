@@ -462,6 +462,87 @@ def test_get_reference_annotation() -> None:
     assert retrieved.completed is False
 
 
+def test_get_reference_annotation_resolves_names_and_synonyms() -> None:
+    """Retrieved entities carry their preferred name and synonyms.
+
+    Guards the batched name resolution (one EntityName⋈Name IN(...) query for
+    the whole article) against a regression back to the per-entity N+1 or a
+    grouping bug that misattributes names across entities.
+    """
+    from uuid import UUID
+
+    db = D3TextDB()
+    project_id = db.create_project("Names Project")
+    user = User(
+        user_id=UUID("f47f7e7b-3913-457e-911c-6da6275de3ec"),
+        email="names@dsmz.de",
+    )
+    db.create_user(user, "pw")
+
+    reference = Reference(
+        reference_id=1,
+        pubmed_id=424242,
+        authors="A, B.",
+        title="Names",
+        journal="J.",
+        volume="1",
+        pages="1-2",
+        year=2025,
+        body="body text",
+    )
+    annotation = ReferenceAnnotation(
+        user=user,
+        reference=reference,
+        entities=[
+            EntityAnnotation(
+                entity_id="X:1",
+                preferred_name="Alpha",
+                kind="d3o:Bacteria",
+                synonyms=["a-one", "a-two"],
+            ),
+            EntityAnnotation(
+                entity_id="X:2",
+                preferred_name="Beta",
+                kind="d3o:Enzyme",
+                synonyms=["b-one"],
+            ),
+            # No names at all → preferred_name "" and empty synonyms.
+            EntityAnnotation(
+                entity_id="X:3",
+                preferred_name="",
+                kind="d3o:Strain",
+                synonyms=[],
+            ),
+        ],
+        pointers=[
+            Pointer(entity_id="X:1", reference_id=1, offset=0, length=1),
+            Pointer(entity_id="X:2", reference_id=1, offset=2, length=1),
+            Pointer(entity_id="X:3", reference_id=1, offset=4, length=1),
+        ],
+        relations=[],
+        completed=False,
+        last_updated=_NOW,
+        project_id=project_id,
+    )
+    db.store_annotation(annotation)
+
+    retrieved = db.get_reference_annotation(
+        pubmed_id=424242, user_id=user.user_id, project_id=project_id
+    )
+
+    by_curie = {e.entity_id: e for e in retrieved.entities}
+    assert set(by_curie) == {"X:1", "X:2", "X:3"}
+
+    assert by_curie["X:1"].preferred_name == "Alpha"
+    assert sorted(by_curie["X:1"].synonyms) == ["a-one", "a-two"]
+    assert by_curie["X:2"].preferred_name == "Beta"
+    assert by_curie["X:2"].synonyms == ["b-one"]
+    # Names must not leak across entities.
+    assert "a-one" not in by_curie["X:2"].synonyms
+    assert by_curie["X:3"].preferred_name == ""
+    assert by_curie["X:3"].synonyms == []
+
+
 def test_get_reference_annotation_user_not_found() -> None:
     """Test that get_reference_annotation raises ValueError when user doesn't exist."""
     from uuid import UUID
