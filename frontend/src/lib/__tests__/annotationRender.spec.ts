@@ -1,8 +1,6 @@
 import { describe, expect, test, vi, beforeEach } from "vitest";
 import { Map } from "immutable";
-import type { Map as ImmutableMap } from "immutable";
-import { Set } from "immutable";
-import type { Entity, Pointer } from "$lib/types.ts";
+import type { Pointer } from "$lib/types.ts";
 
 // annotateHTMLString mounts a ResourceCard per pointer; here we intercept
 // svelte's mount/unmount to assert the leak fix (TICKET-23): every mounted card
@@ -34,16 +32,6 @@ function pointer(overrides: Partial<Pointer>): Pointer {
     };
 }
 
-const entities: ImmutableMap<string, Entity> = Map({
-    e1: {
-        entity_id: "e1",
-        preferred_name: "Hello",
-        kind: "Enzyme",
-        synonyms: Set<string>(),
-        confirmed: true,
-    },
-});
-
 const HTML = "<p>Hello world foo bar</p>"; // plain text: "Hello world foo bar"
 
 let elem: HTMLDivElement;
@@ -64,13 +52,7 @@ describe("annotateHTMLString mount lifecycle (TICKET-23)", () => {
             p2: pointer({ offset: 6, length: 5, exact_text: "world" }),
         });
 
-        const cleanup = annotateHTMLString(
-            elem,
-            HTML,
-            pointers,
-            entities,
-            "body",
-        );
+        const cleanup = annotateHTMLString(elem, HTML, pointers, "body");
 
         expect(mountMock).toHaveBeenCalledTimes(2);
         expect(typeof cleanup).toBe("function");
@@ -83,13 +65,7 @@ describe("annotateHTMLString mount lifecycle (TICKET-23)", () => {
             p2: pointer({ offset: 6, length: 5, exact_text: "world" }),
         });
 
-        const cleanup = annotateHTMLString(
-            elem,
-            HTML,
-            pointers,
-            entities,
-            "body",
-        );
+        const cleanup = annotateHTMLString(elem, HTML, pointers, "body");
         const mountedInstances = mountMock.mock.results.map((r) => r.value);
 
         cleanup();
@@ -104,13 +80,7 @@ describe("annotateHTMLString mount lifecycle (TICKET-23)", () => {
         const first = Map<string, Pointer>({
             p1: pointer({ offset: 0, length: 5, exact_text: "Hello" }),
         });
-        const cleanup1 = annotateHTMLString(
-            elem,
-            HTML,
-            first,
-            entities,
-            "body",
-        );
+        const cleanup1 = annotateHTMLString(elem, HTML, first, "body");
         expect(mountMock).toHaveBeenCalledTimes(1);
 
         // Simulate the attachment tearing down before the next render.
@@ -121,13 +91,7 @@ describe("annotateHTMLString mount lifecycle (TICKET-23)", () => {
             p1: pointer({ offset: 0, length: 5, exact_text: "Hello" }),
             p2: pointer({ offset: 6, length: 5, exact_text: "world" }),
         });
-        const cleanup2 = annotateHTMLString(
-            elem,
-            HTML,
-            second,
-            entities,
-            "body",
-        );
+        const cleanup2 = annotateHTMLString(elem, HTML, second, "body");
         expect(mountMock).toHaveBeenCalledTimes(3); // 1 + 2, not accumulating stale mounts
 
         unmountMock.mockClear();
@@ -141,13 +105,7 @@ describe("annotateHTMLString mount lifecycle (TICKET-23)", () => {
             missing: pointer({ offset: 0, length: 5, exact_text: "absent" }),
         });
 
-        const cleanup = annotateHTMLString(
-            elem,
-            HTML,
-            pointers,
-            entities,
-            "body",
-        );
+        const cleanup = annotateHTMLString(elem, HTML, pointers, "body");
 
         expect(mountMock).toHaveBeenCalledTimes(1);
         cleanup();

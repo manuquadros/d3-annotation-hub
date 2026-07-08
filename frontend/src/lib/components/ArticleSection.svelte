@@ -20,11 +20,10 @@
     let container: HTMLDivElement;
 
     const pointers = $derived(annotationState.pointers);
-    const entities = $derived(annotationState.entities);
 
     const renderAnnotated: Attachment<HTMLDivElement> = (element) => {
         if (html) {
-            return annotateHTMLString(element, html, pointers, entities, field);
+            return annotateHTMLString(element, html, pointers, field);
         }
         element.replaceChildren();
     };

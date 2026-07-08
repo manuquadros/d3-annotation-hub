@@ -9,7 +9,6 @@ import ResourceCard from "$lib/components/ResourceCard.svelte";
 interface AnnotatedRange {
     range: Range | null;
     pointer_id: string;
-    label: string;
 }
 
 interface Snapshot {
@@ -674,6 +673,12 @@ const _sanitizeCache = new WeakMap<
  * Renders annotated HTML into `elem`, highlighting only pointers that belong
  * to the given `field`. Uses TextQuoteSelector to resolve offsets robustly.
  *
+ * Depends only on `pointers` — never on entity metadata. The caller's
+ * attachment therefore re-runs on pointer changes but not on entity
+ * rename/synonym/URI/class edits, which never alter the article text or which
+ * spans are highlighted (the label/color live inside each `ResourceCard`,
+ * which reacts to `AnnotationState` on its own).
+ *
  * Returns a cleanup that unmounts every `ResourceCard` this call mounted. The
  * caller (the `{@attach}` in `ArticleSection.svelte`) must invoke it before the
  * next render and on destroy: `mount()`ed cards own live `$derived` state that
@@ -685,7 +690,6 @@ export function annotateHTMLString(
     elem: HTMLDivElement,
     html: string,
     pointers: ImmutableMap<string, Pointer>,
-    entities: ImmutableMap<string, Entity>,
     field: "abstract" | "body",
 ): () => void {
     const cached = _sanitizeCache.get(elem);
@@ -710,7 +714,7 @@ export function annotateHTMLString(
         .entrySeq()
         .map(([key, pointer]) => {
             const resolved = resolvePointerOffset(pointer, plainText);
-            if (!resolved) return { range: null, pointer_id: key, label: "" };
+            if (!resolved) return { range: null, pointer_id: key };
             return {
                 range: createRangeFromOffsets(
                     elem,
@@ -718,7 +722,6 @@ export function annotateHTMLString(
                     resolved.offset + resolved.length,
                 ),
                 pointer_id: key,
-                label: entities.get(pointer.entity_id)?.kind || "",
             };
         })
         .filter(
