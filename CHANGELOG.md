@@ -21,6 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The curation page's CURIE editor now uses the same component as the admin panel, gaining explicit Save/Cancel buttons for consistent behavior.
 - Failed create/save/delete actions now show a consistent error message, surfacing the server's reason or a non-JSON gateway/proxy body instead of a generic status or raw JSON.
 - Editing an entity's metadata (rename, class/type change, synonym, or URI) no longer rebuilds and re-highlights the whole article body — the annotation render now depends only on where the annotations are, so metadata edits stay instant even on long, heavily annotated articles.
+- The annotation sidebar's per-entity mention counts are computed once per edit and shared across the buttons instead of each button rescanning every annotation, keeping the sidebar responsive on documents with many entities and mentions.
 
 ### Fixed
 

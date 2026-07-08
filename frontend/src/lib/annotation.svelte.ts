@@ -132,6 +132,14 @@ export class AnnotationState {
     canUndo = $derived(this.#past.length > 0);
     canRedo = $derived(this.#future.length > 0);
 
+    pointerCountByEntity = $derived.by(() => {
+        const counts = new globalThis.Map<string, number>();
+        for (const p of this.pointers.values()) {
+            counts.set(p.entity_id, (counts.get(p.entity_id) ?? 0) + 1);
+        }
+        return counts;
+    });
+
     constructor(annotationData: string | object) {
         const parsed =
             typeof annotationData === "string"
@@ -672,12 +680,8 @@ const _sanitizeCache = new WeakMap<
 /**
  * Renders annotated HTML into `elem`, highlighting only pointers that belong
  * to the given `field`. Uses TextQuoteSelector to resolve offsets robustly.
- *
- * Depends only on `pointers` — never on entity metadata. The caller's
- * attachment therefore re-runs on pointer changes but not on entity
- * rename/synonym/URI/class edits, which never alter the article text or which
- * spans are highlighted (the label/color live inside each `ResourceCard`,
- * which reacts to `AnnotationState` on its own).
+ * Reflects pointer positions only, not entity metadata — labels and colors are
+ * rendered inside each `ResourceCard`, not here.
  *
  * Returns a cleanup that unmounts every `ResourceCard` this call mounted. The
  * caller (the `{@attach}` in `ArticleSection.svelte`) must invoke it before the

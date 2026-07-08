@@ -2,7 +2,11 @@ import { describe, expect, test } from "vitest";
 import { Map } from "immutable";
 import type { Map as ImmutableMap } from "immutable";
 import type { Pointer } from "$lib/types.ts";
-import { allOccurrences, uncoveredOffsets } from "$lib/annotation.svelte.ts";
+import {
+    allOccurrences,
+    uncoveredOffsets,
+    AnnotationState,
+} from "$lib/annotation.svelte.ts";
 
 function makePointers(
     spans: Array<{ offset: number; length: number }>,
@@ -86,5 +90,65 @@ describe("uncoveredOffsets", () => {
         expect(uncoveredOffsets([covered, uncovered], pointers)).toEqual([
             uncovered,
         ]);
+    });
+});
+
+function makeState(
+    pointerEntityIds: string[],
+    entityIds: string[],
+): AnnotationState {
+    return new AnnotationState({
+        user: {
+            user_id: "550e8400-e29b-41d4-a716-446655440000",
+            email: "test@example.com",
+        },
+        project_id: 1,
+        reference: {
+            reference_id: 1,
+            pubmed_id: 1,
+            pmc_id: null,
+            pmc_open: null,
+            doi: null,
+            authors: "A",
+            title: "T",
+            journal: "J",
+            volume: "1",
+            number: null,
+            pages: "1",
+            year: 2020,
+            body: "x".repeat(200),
+        },
+        entities: entityIds.map((id) => ({
+            entity_id: id,
+            preferred_name: id,
+            kind: "Bacteria",
+            synonyms: [],
+            confirmed: true,
+            uri: null,
+        })),
+        pointers: pointerEntityIds.map((entity_id, i) => ({
+            entity_id,
+            reference_id: 1,
+            offset: i,
+            length: 1,
+        })),
+        relations: [],
+        completed: false,
+    });
+}
+
+describe("AnnotationState.pointerCountByEntity", () => {
+    test("counts pointers per entity id", () => {
+        const state = makeState(["a", "a", "a", "b"], ["a", "b"]);
+        expect(state.pointerCountByEntity.get("a")).toBe(3);
+        expect(state.pointerCountByEntity.get("b")).toBe(1);
+        expect(state.pointerCountByEntity.get("missing") ?? 0).toBe(0);
+    });
+
+    test("recomputes after a pointer is deleted", () => {
+        const state = makeState(["a", "a", "b"], ["a", "b"]);
+        expect(state.pointerCountByEntity.get("a")).toBe(2);
+        state.delete("ptr_0");
+        expect(state.pointerCountByEntity.get("a")).toBe(1);
     });
 });

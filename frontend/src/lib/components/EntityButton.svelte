@@ -16,11 +16,8 @@
 
     const entity = $derived(annotationState.entity(entityId));
 
-    const entityPointers = $derived(
-        annotationState.pointers
-            .entrySeq()
-            .filter(([, p]) => p.entity_id === entityId)
-            .toArray(),
+    const pointerCount = $derived(
+        annotationState.pointerCountByEntity.get(entityId) ?? 0,
     );
 
     const displayName = $derived(entity?.preferred_name ?? "");
@@ -123,7 +120,7 @@
     aria-label={`Edit ${displayName}`}
 >
     {displayName}
-    <span class="entity-count">{entityPointers.length}</span>
+    <span class="entity-count">{pointerCount}</span>
 </button>
 
 <style>
