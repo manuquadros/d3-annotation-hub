@@ -9,12 +9,15 @@ from fastapi import (
     Depends,
     Header,
     HTTPException,
+    Request,
     Response,
     status,
 )
 from fastapi.security import OAuth2PasswordRequestForm
 from jwt.exceptions import InvalidTokenError
 from pydantic import BaseModel
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 
 from ahbackend import config
 from ahbackend.db import User, UserAuth
@@ -22,6 +25,16 @@ from ahbackend.db.operations import update_password
 from ahbackend.db.queries import get_user, get_user_auth, get_user_project_roles
 
 router = APIRouter()
+
+# Shared across the whole app: api.py attaches this instance to `app.state` and
+# registers slowapi's exception handler. Keyed by client IP.
+limiter = Limiter(key_func=get_remote_address)
+
+MIN_PASSWORD_LENGTH = 8
+# bcrypt silently truncates the password to 72 bytes before hashing, so two
+# passwords that share a 72-byte prefix would verify against the same hash.
+# Rejecting longer inputs keeps that truncation from masking a weak suffix.
+MAX_PASSWORD_BYTES = 72
 
 
 class Token(BaseModel):
@@ -37,12 +50,33 @@ def verify_password(plain_password: str, hashed: str) -> bool:
     )
 
 
+# A bcrypt hash of a value no one can supply, used only to spend the same time
+# verifying a password when the account (or its auth row) is missing. Without
+# it, the login path would skip bcrypt for unknown emails and answer faster,
+# turning response latency into a user-enumeration oracle.
+_DUMMY_HASH: str = bcrypt.hashpw(
+    b"constant-time login placeholder", bcrypt.gensalt()
+).decode("utf-8")
+
+
 def is_valid_credentials(password: str, user_auth: UserAuth | None) -> bool:
-    return (
-        user_auth is not None
-        and not user_auth.disabled
-        and verify_password(password, user_auth.hashed_password)
-    )
+    # Always run bcrypt — even for a missing/disabled account — so the response
+    # time doesn't reveal whether the email is registered. The boolean checks
+    # run only after the (constant-cost) verification.
+    hashed = user_auth.hashed_password if user_auth else _DUMMY_HASH
+    password_ok = verify_password(password, hashed)
+    return password_ok and user_auth is not None and not user_auth.disabled
+
+
+def validate_password_policy(password: str) -> str | None:
+    """Return a reason the password is unacceptable, or None if it's fine."""
+    if len(password) < MIN_PASSWORD_LENGTH:
+        return (
+            f"Password must be at least {MIN_PASSWORD_LENGTH} characters long"
+        )
+    if len(password.encode("utf-8")) > MAX_PASSWORD_BYTES:
+        return f"Password must be at most {MAX_PASSWORD_BYTES} bytes long"
+    return None
 
 
 def authenticate_user(username: str, password: str) -> User | None:
@@ -148,7 +182,9 @@ def create_access_token(
 
 
 @router.post("/token")
+@limiter.limit(config.LOGIN_RATE_LIMIT)
 async def login_for_access_token(
+    request: Request,
     response: Response,
     form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
 ) -> Token:
@@ -184,7 +220,9 @@ class ChangePasswordRequest(BaseModel):
 
 
 @router.post("/change-password")
+@limiter.limit(config.CHANGE_PASSWORD_RATE_LIMIT)
 async def change_password(
+    request: Request,
     body: ChangePasswordRequest,
     current_user: Annotated[User, Depends(get_current_active_user)],
 ) -> None:
@@ -195,6 +233,16 @@ async def change_password(
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Current password is incorrect",
+        )
+    if body.new_password == body.current_password:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="New password must be different from the current password",
+        )
+    policy_error = validate_password_policy(body.new_password)
+    if policy_error is not None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=policy_error
         )
     update_password(current_user.user_id, body.new_password)
 

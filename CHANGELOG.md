@@ -46,6 +46,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Reading a project's OWL/proposed properties, scoping an entity search to a project, and fetching a project reference now require membership in that project (403 otherwise), so a project's privately coined proposed entities/properties are no longer readable by non-members.
 - Ontology import is hardened against malicious XML (entity-expansion/XXE and "billion laughs" bombs) while still accepting OBO namespace entities.
 - API proxy routes now percent-encode route and query parameters through a shared helper, closing a path/parameter-smuggling hole where a value such as `..%2Fontologies%2F5` could redirect a token-bearing request to a different backend endpoint. The helper also bounds the upstream time-to-first-byte and no longer forwards backend `Set-Cookie` headers to the browser.
+- Login no longer leaks whether an email is registered: a failed sign-in now runs the same bcrypt verification whether or not the account exists, so response time can't be used to enumerate accounts.
+- Login and change-password are rate-limited per client IP (default 10/minute each, configurable), throttling password brute-force and enumeration attempts.
+- Changing a password now enforces a policy: the new password must be at least 8 characters, differ from the current one, and stay within bcrypt's 72-byte limit (so a long password can't be silently truncated).
 
 ## [0.1.4]
 

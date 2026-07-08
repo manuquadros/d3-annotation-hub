@@ -64,6 +64,7 @@
                     type="password"
                     bind:value={newPassword}
                     required
+                    minlength={8}
                     disabled={pending}
                     autocomplete="new-password"
                 />

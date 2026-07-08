@@ -39,6 +39,8 @@ from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, ConfigDict, EmailStr, field_validator
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 from xkcdpass import xkcd_password as xp
 from xmlparser import (
     XMLSyntaxError,
@@ -121,6 +123,12 @@ from ahbackend.db.queries import (
 from ahbackend.fetch import fetch_reference_from_ncbi
 
 app = FastAPI()
+
+# slowapi rate limiting: the limiter lives in the users module (it decorates
+# /token and /change-password); the app just needs the instance on its state
+# and the 429 handler registered.
+app.state.limiter = users.limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 
 @app.exception_handler(DuplicateCurieError)

@@ -17,6 +17,13 @@ with pathlib.Path("config.toml").open(mode="r") as cfg:
     COOKIE_SECURE: bool = config.value["authentication"].get(
         "cookie_secure", False
     )
+    # slowapi rate-limit strings (per client IP). Tunable without a code change.
+    LOGIN_RATE_LIMIT: str = config.value["authentication"].get(
+        "login_rate_limit", "10/minute"
+    )
+    CHANGE_PASSWORD_RATE_LIMIT: str = config.value["authentication"].get(
+        "change_password_rate_limit", "10/minute"
+    )
     PK_PATH: str | None = config.value["authentication"].get(
         "D3HUB_PKPATH"
     ) or os.getenv("D3HUB_PKPATH")

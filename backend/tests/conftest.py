@@ -35,6 +35,21 @@ def _fast_bcrypt(monkeypatch):
     )
 
 
+@pytest.fixture(autouse=True)
+def _reset_rate_limiter():
+    """Keep slowapi's in-memory counters from bleeding across tests.
+
+    The limiter lives on the shared ``app`` instance, so its per-IP counts
+    would otherwise accumulate across the whole session and throttle unrelated
+    tests. Disable it by default and clear its store; the dedicated
+    rate-limit test re-enables it explicitly.
+    """
+    app.state.limiter.enabled = False
+    app.state.limiter.reset()
+    yield
+    app.state.limiter.reset()
+
+
 @pytest.fixture()
 def db(monkeypatch) -> D3TextDB:
     """A fresh in-memory database patched into the query/operation modules."""

@@ -7,7 +7,12 @@ import pytest
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from d3textdb.schema import UserAuth
 
-from ahbackend.users.users import create_access_token, is_valid_credentials
+from ahbackend.users import users as users_module
+from ahbackend.users.users import (
+    create_access_token,
+    is_valid_credentials,
+    validate_password_policy,
+)
 
 _DUMMY_UUID = UUID("00000000-0000-0000-0000-000000000000")
 
@@ -95,3 +100,52 @@ class TestIsValidCredentials:
     ):
         auth = _make_user_auth(hashed_password)
         assert is_valid_credentials(_PLAIN_PASSWORD, auth)
+
+    def test_runs_bcrypt_even_for_a_missing_account(self, monkeypatch):
+        """A missing auth row must still cost a bcrypt verification (against the
+        dummy hash), otherwise the faster reply leaks that the email is
+        unregistered — the user-enumeration timing oracle in TICKET-27."""
+        seen: list[str] = []
+        real_verify = users_module.verify_password
+
+        def spy(password: str, hashed: str) -> bool:
+            seen.append(hashed)
+            return real_verify(password, hashed)
+
+        monkeypatch.setattr(users_module, "verify_password", spy)
+        assert not is_valid_credentials("anything", None)
+        assert seen == [users_module._DUMMY_HASH]
+
+    def test_runs_bcrypt_even_for_a_disabled_account(
+        self, monkeypatch, hashed_password
+    ):
+        seen: list[str] = []
+        real_verify = users_module.verify_password
+
+        def spy(password: str, hashed: str) -> bool:
+            seen.append(hashed)
+            return real_verify(password, hashed)
+
+        monkeypatch.setattr(users_module, "verify_password", spy)
+        auth = _make_user_auth(hashed_password, disabled=True)
+        assert not is_valid_credentials(_PLAIN_PASSWORD, auth)
+        assert seen == [hashed_password]
+
+
+class TestValidatePasswordPolicy:
+    def test_accepts_a_reasonable_password(self):
+        assert validate_password_policy("a-decent-password") is None
+
+    def test_rejects_a_too_short_password(self):
+        assert validate_password_policy("short") is not None
+
+    def test_rejects_an_empty_password(self):
+        assert validate_password_policy("") is not None
+
+    def test_rejects_a_password_over_72_bytes(self):
+        assert validate_password_policy("a" * 73) is not None
+
+    def test_counts_utf8_bytes_not_characters(self):
+        # 40 two-byte characters = 80 bytes > 72, though only 40 code points, so
+        # a character-count check would wrongly accept a truncatable password.
+        assert validate_password_policy("é" * 40) is not None

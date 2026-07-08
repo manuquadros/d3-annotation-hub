@@ -62,6 +62,36 @@ class TestChangePassword:
         )
         assert r.status_code == 401
 
+    def test_unchanged_password_is_rejected(self, user):
+        client, auth = user
+        r = client.post(
+            "/change-password",
+            json={"current_password": _PASSWORD, "new_password": _PASSWORD},
+            headers=auth,
+        )
+        assert r.status_code == 400
+        assert _login_status(client, _EMAIL, _PASSWORD) == 200
+
+    def test_too_short_new_password_is_rejected(self, user):
+        client, auth = user
+        r = client.post(
+            "/change-password",
+            json={"current_password": _PASSWORD, "new_password": "short"},
+            headers=auth,
+        )
+        assert r.status_code == 400
+        assert _login_status(client, _EMAIL, _PASSWORD) == 200
+
+    def test_new_password_over_72_bytes_is_rejected(self, user):
+        client, auth = user
+        r = client.post(
+            "/change-password",
+            json={"current_password": _PASSWORD, "new_password": "a" * 73},
+            headers=auth,
+        )
+        assert r.status_code == 400
+        assert _login_status(client, _EMAIL, _PASSWORD) == 200
+
 
 class TestLogout:
     def test_logout_clears_the_auth_cookie(self, user):
