@@ -36,6 +36,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The ontology-detail page now shows a consistent number of rows per page: the first page and every Next/Previous step use the same page size, so classes and triples shown on the initial load are no longer skipped when paging forward.
 - Filtering or paging the ontology-detail tables can no longer leave stale rows on screen: when a newer filter or page is requested, a slower earlier request is superseded instead of overwriting the table.
 - User email addresses are now unique: the database enforces a UNIQUE constraint on `email`, and user creation refuses a second account for an address that already exists, so duplicate accounts (which made login/identity ambiguous) can no longer be created.
+- Editing an already-selected class in the annotation editor's class picker no longer blanks the field and swallows the first keystroke; the typed text is kept and the selection clears only once it stops matching.
 
 ### Security
 

@@ -12,10 +12,28 @@
     let query = $state("");
     let open = $state(false);
 
-    // Keep the displayed query in sync when value is set externally
+    function format(curie: string): string {
+        const found = options.find((o) => o.curie === curie);
+        return found ? `${found.label} (${found.curie})` : curie;
+    }
+
+    // The `value` the visible `query` currently reflects. Tracking it lets the
+    // sync effect below tell an *external* value change (parent or an option
+    // pick — overwrite the text) apart from the `value = ""` that handleInput
+    // sets when the user edits away from a selection (must NOT clobber what
+    // they are typing, or the input blanks and eats the keystroke).
+    let syncedValue: string | undefined = undefined;
+
     $effect(() => {
-        const found = options.find((o) => o.curie === value);
-        query = found ? `${found.label} (${found.curie})` : value;
+        const formatted = format(value);
+        if (value !== syncedValue) {
+            query = formatted;
+            syncedValue = value;
+        } else if (query === value && formatted !== value) {
+            // Same selection, but async `options` finished loading and can now
+            // render a bare CURIE as its full label.
+            query = formatted;
+        }
     });
 
     const filtered: KindOption[] = $derived.by(() => {
@@ -41,10 +59,11 @@
     }
 
     function handleInput() {
-        // If the user edits away from the current selection, clear the value
-        const found = options.find((o) => o.curie === value);
-        if (found && query !== `${found.label} (${found.curie})`) {
+        // The typed text no longer matches the selection: drop it. Record the
+        // cleared value as already-synced so the effect leaves `query` alone.
+        if (query !== format(value)) {
             value = "";
+            syncedValue = "";
         }
         open = true;
     }
