@@ -1247,7 +1247,7 @@ class D3TextDB:
             user_id: UUID | None = session.scalar(
                 insert(User)
                 .values(user.model_dump(exclude_none=True))
-                .on_conflict_do_nothing()
+                .on_conflict_do_nothing(index_elements=["email"])
                 .returning(User.user_id)
             )
             if user_id is None:

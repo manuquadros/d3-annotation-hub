@@ -1182,3 +1182,35 @@ def test_delete_entity_with_curation_rows_succeeds() -> None:
             ).scalar()
             == 0
         )
+
+
+def test_create_user_returns_id_for_new_email() -> None:
+    db = D3TextDB()
+
+    user_id = db.create_user(User(email="new@example.com"), "password")
+
+    assert user_id is not None
+    assert db.get_user_auth(user_id) is not None
+
+
+def test_create_user_dedups_on_email() -> None:
+    """A second create_user with an existing email is a no-op returning None."""
+    db = D3TextDB()
+
+    first_id = db.create_user(User(email="dup@example.com"), "password")
+    second_id = db.create_user(User(email="dup@example.com"), "other")
+
+    assert first_id is not None
+    assert second_id is None
+
+    with Session(db.engine) as session:
+        assert (
+            session.execute(
+                text(
+                    "SELECT count(*) FROM user WHERE email = 'dup@example.com'"
+                )
+            ).scalar()
+            == 1
+        )
+    # The original credentials are untouched by the rejected second insert.
+    assert db.get_user("dup@example.com").user_id == first_id

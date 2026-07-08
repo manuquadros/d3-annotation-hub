@@ -35,6 +35,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Autosave (both annotation and curation) now aborts an older in-flight save when a newer one starts, so a slow earlier request can no longer land after a newer one and overwrite it with stale data; a save superseded by rapid editing is no longer shown as a save failure.
 - The ontology-detail page now shows a consistent number of rows per page: the first page and every Next/Previous step use the same page size, so classes and triples shown on the initial load are no longer skipped when paging forward.
 - Filtering or paging the ontology-detail tables can no longer leave stale rows on screen: when a newer filter or page is requested, a slower earlier request is superseded instead of overwriting the table.
+- User email addresses are now unique: the database enforces a UNIQUE constraint on `email`, and user creation refuses a second account for an address that already exists, so duplicate accounts (which made login/identity ambiguous) can no longer be created.
 
 ### Security
 

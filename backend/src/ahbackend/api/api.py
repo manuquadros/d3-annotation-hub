@@ -701,7 +701,7 @@ def get_all_users(
 
 
 class CreateUserRequest(BaseModel):
-    email: str
+    email: EmailStr
     password: str | None = None
 
 

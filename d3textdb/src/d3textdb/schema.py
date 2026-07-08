@@ -410,7 +410,7 @@ class User(SQLModel, table=True):
         default_factory=uuid4,
         sa_column=Column(SqliteUUID, primary_key=True),
     )
-    email: EmailStr
+    email: EmailStr = Field(unique=True)
 
 
 class UserAuth(SQLModel, table=True):
