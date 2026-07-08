@@ -5,6 +5,7 @@ into the query and operation modules. ``transform_article`` (XML rendering) is
 stubbed to a no-op so tests don't depend on well-formed JATS XML fixtures.
 """
 
+import bcrypt
 import pytest
 from d3textdb import D3TextDB
 from d3textdb.schema import User as DbUser
@@ -14,6 +15,24 @@ import ahbackend.api.api as api_module
 import ahbackend.db.operations as operations_module
 import ahbackend.db.queries as queries_module
 from ahbackend.api.api import app
+
+
+@pytest.fixture(autouse=True)
+def _fast_bcrypt(monkeypatch):
+    """Hash at bcrypt's minimum cost factor in tests.
+
+    ``d3textdb`` hashes with the default cost 12 (~250ms per call), which
+    dominates the suite runtime through ``make_user``/``login`` setup. Cost 4
+    is ~256x cheaper and equally valid against non-adversarial fixture data.
+    ``checkpw`` derives its cost from the stored hash, so patching salt
+    generation speeds up verification too.
+    """
+    real_gensalt = bcrypt.gensalt
+    monkeypatch.setattr(
+        bcrypt,
+        "gensalt",
+        lambda rounds=4, prefix=b"2b": real_gensalt(rounds, prefix),
+    )
 
 
 @pytest.fixture()
