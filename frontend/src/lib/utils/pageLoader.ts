@@ -1,9 +1,7 @@
 import { SaveSequencer } from "./saveSequencer";
 
 export type SequencedPage<B> =
-    | { status: "ok"; data: B }
-    | { status: "superseded" }
-    | { status: "error" };
+    { status: "ok"; data: B } | { status: "superseded" } | { status: "error" };
 
 /**
  * Fetches one page of a filtered/paginated list through a {@link SaveSequencer}

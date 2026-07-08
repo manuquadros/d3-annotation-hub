@@ -109,8 +109,7 @@
                 bind:value={input}
                 placeholder="36828727&#10;10.1038/s41586-023-05881-4&#10;37001221"
                 rows={6}
-                disabled={submitting}
-            ></textarea>
+                disabled={submitting}></textarea>
 
             {#if errorMessage}
                 <p class="error">{errorMessage}</p>

@@ -358,11 +358,11 @@
     let autosaved = $state(false);
 
     function buildCurationPayload() {
-        const pointers: PointerOut[] = [...selectedPointers].map(
-            (k) => pointerData.get(k)!,
+        const pointers: PointerOut[] = [...selectedPointers].map((k) =>
+            pointerData.get(k)!,
         );
-        const relations: RelationOut[] = [...selectedRelations].map(
-            (k) => relationData.get(k)!,
+        const relations: RelationOut[] = [...selectedRelations].map((k) =>
+            relationData.get(k)!,
         );
         return { pointers, relations };
     }
