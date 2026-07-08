@@ -75,14 +75,20 @@
     }
 
     let removingId = $state<number | null>(null);
+    let removeError = $state<string | null>(null);
 
     async function handleRemove(ontologyId: number) {
         removingId = ontologyId;
+        removeError = null;
         try {
-            await fetch(
+            const res = await fetch(
                 `/api/projects/${data.projectId}/ontologies/${ontologyId}`,
                 { method: "DELETE" },
             );
+            if (!res.ok) {
+                removeError = await errorDetail(res);
+                return;
+            }
             projectOntologies = projectOntologies.filter(
                 (o) => o.ontology_id !== ontologyId,
             );
@@ -139,6 +145,8 @@
                 </tbody>
             </table>
         {/if}
+
+        {#if removeError}<p class="error">{removeError}</p>{/if}
 
         {#if assignableOntologies.length > 0}
             <div class="assign-row">

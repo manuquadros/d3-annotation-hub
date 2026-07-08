@@ -48,22 +48,33 @@
         return "User";
     }
 
+    let managePending = $state<string | null>(null);
+    let manageError = $state<Record<string, string>>({});
+
     async function setCanManage(u: UserRecord, can_manage: boolean) {
-        const res = await fetch(
-            `/api/admin/users/${encodeURIComponent(u.email)}/permissions`,
-            {
-                method: "PUT",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    is_super_user: u.is_super_user,
-                    can_manage,
-                }),
-            },
-        );
-        if (res.ok) {
-            allUsers = allUsers.map((x) =>
-                x.user_id === u.user_id ? { ...x, can_manage } : x,
+        managePending = u.user_id;
+        manageError[u.user_id] = "";
+        try {
+            const res = await fetch(
+                `/api/admin/users/${encodeURIComponent(u.email)}/permissions`,
+                {
+                    method: "PUT",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        is_super_user: u.is_super_user,
+                        can_manage,
+                    }),
+                },
             );
+            if (res.ok) {
+                allUsers = allUsers.map((x) =>
+                    x.user_id === u.user_id ? { ...x, can_manage } : x,
+                );
+            } else {
+                manageError[u.user_id] = await errorDetail(res);
+            }
+        } finally {
+            managePending = null;
         }
     }
 
@@ -229,37 +240,54 @@
         }
     }
 
+    let removeMemberPending = $state<string | null>(null);
+    let removeMemberError = $state<Record<number, string>>({});
+
     async function handleRemoveMember(
         projectId: number,
         userId: string,
         role: string,
     ) {
-        const res = await fetch(
-            `/api/projects/${projectId}/members/${userId}/${role}`,
-            { method: "DELETE" },
-        );
-        if (res.ok) {
-            projectMembers[projectId] = (projectMembers[projectId] ?? [])
-                .map((m) =>
-                    m.user_id === userId
-                        ? { ...m, roles: m.roles.filter((r) => r !== role) }
-                        : m,
-                )
-                .filter((m) => m.roles.length > 0);
+        removeMemberPending = `${userId}:${role}`;
+        removeMemberError[projectId] = "";
+        try {
+            const res = await fetch(
+                `/api/projects/${projectId}/members/${userId}/${role}`,
+                { method: "DELETE" },
+            );
+            if (res.ok) {
+                projectMembers[projectId] = (projectMembers[projectId] ?? [])
+                    .map((m) =>
+                        m.user_id === userId
+                            ? { ...m, roles: m.roles.filter((r) => r !== role) }
+                            : m,
+                    )
+                    .filter((m) => m.roles.length > 0);
+            } else {
+                removeMemberError[projectId] = await errorDetail(res);
+            }
+        } finally {
+            removeMemberPending = null;
         }
     }
 
     let assignOntologyId = $state<Record<number, number | null>>({});
     let assignOntologyPending = $state<number | null>(null);
+    let assignOntologyError = $state<Record<number, string>>({});
 
     async function handleAssignOntology(projectId: number) {
         const ontologyId = assignOntologyId[projectId];
         if (!ontologyId) return;
         assignOntologyPending = projectId;
+        assignOntologyError[projectId] = "";
         try {
-            await fetch(`/api/projects/${projectId}/ontologies/${ontologyId}`, {
-                method: "POST",
-            });
+            const res = await fetch(
+                `/api/projects/${projectId}/ontologies/${ontologyId}`,
+                { method: "POST" },
+            );
+            if (!res.ok) {
+                assignOntologyError[projectId] = await errorDetail(res);
+            }
         } finally {
             assignOntologyPending = null;
         }
@@ -591,6 +619,8 @@
                                                                     {#each member.roles as role (role)}
                                                                         <button
                                                                             class="btn small danger"
+                                                                            disabled={removeMemberPending ===
+                                                                                `${member.user_id}:${role}`}
                                                                             onclick={() =>
                                                                                 handleRemoveMember(
                                                                                     project.project_id,
@@ -607,6 +637,13 @@
                                                         {/each}
                                                     </tbody>
                                                 </table>
+                                            {/if}
+                                            {#if removeMemberError[project.project_id]}
+                                                <p class="error">
+                                                    {removeMemberError[
+                                                        project.project_id
+                                                    ]}
+                                                </p>
                                             {/if}
 
                                             <form
@@ -709,6 +746,13 @@
                                                             : "Assign"}
                                                     </button>
                                                 </div>
+                                                {#if assignOntologyError[project.project_id]}
+                                                    <p class="error">
+                                                        {assignOntologyError[
+                                                            project.project_id
+                                                        ]}
+                                                    </p>
+                                                {/if}
                                             </div>
                                         {/if}
                                     </div>
@@ -844,10 +888,14 @@
                                     {#if !u.can_manage && !u.is_super_user && !u.disabled}
                                         <button
                                             class="btn small muted"
+                                            disabled={managePending ===
+                                                u.user_id}
                                             onclick={() =>
                                                 setCanManage(u, true)}
                                         >
-                                            Make project manager
+                                            {managePending === u.user_id
+                                                ? "…"
+                                                : "Make project manager"}
                                         </button>
                                     {/if}
                                     {#if u.can_manage && !u.is_super_user && !u.disabled}
@@ -857,10 +905,19 @@
                                             >
                                             <button
                                                 class="btn small danger filled"
-                                                onclick={() => {
-                                                    setCanManage(u, false);
-                                                    confirmAction = null;
-                                                }}>Yes</button
+                                                disabled={managePending ===
+                                                    u.user_id}
+                                                onclick={async () => {
+                                                    await setCanManage(
+                                                        u,
+                                                        false,
+                                                    );
+                                                    if (!manageError[u.user_id])
+                                                        confirmAction = null;
+                                                }}
+                                                >{managePending === u.user_id
+                                                    ? "…"
+                                                    : "Yes"}</button
                                             >
                                             <button
                                                 class="btn small muted"
@@ -880,6 +937,11 @@
                                                 Remove project manager
                                             </button>
                                         {/if}
+                                    {/if}
+                                    {#if manageError[u.user_id]}
+                                        <span class="error"
+                                            >{manageError[u.user_id]}</span
+                                        >
                                     {/if}
                                     {#if !u.disabled}
                                         <span
