@@ -2,21 +2,35 @@ import re
 from collections.abc import Collection, Iterable, MutableMapping, Sequence
 from functools import singledispatchmethod
 from types import TracebackType
-from typing import Any, NamedTuple, Self, cast
+from typing import Annotated, Any, NamedTuple, Self, TypeAlias, cast
 
 import httpx
 import tinydb
 from apiadapters import APIAdapter, AsyncAPIAdapter, BaseAPIAdapter, stderr_logger
-from pydantic import Annotated, BaseModel, Field, ValidationError
+from pydantic import BaseModel, Field, PlainSerializer, ValidationError
 from tinydb import TinyDB
 
 api_root = "https://api.straininfo.dsmz.de/v1/"
+
+StringSet: TypeAlias = Annotated[
+    frozenset[str],
+    Field(default=frozenset()),
+    PlainSerializer(sorted),
+]
 
 
 class Taxon(BaseModel):
     name: str
     lpsn: int | None = None
     ncbi: int | None = None
+
+
+class Culture(BaseModel, frozen=True):
+    siid: int = Field(
+        description="The id of the culture on StrainInfo",
+        validation_alias="id",
+    )
+    strain_number: str
 
 
 class Strain(BaseModel):
