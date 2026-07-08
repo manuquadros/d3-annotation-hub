@@ -1,3 +1,4 @@
+import inspect
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
@@ -130,6 +131,73 @@ class TestIsValidCredentials:
         auth = _make_user_auth(hashed_password, disabled=True)
         assert not is_valid_credentials(_PLAIN_PASSWORD, auth)
         assert seen == [hashed_password]
+
+
+class TestAuthDependenciesStaySync:
+    """The auth dependencies must be plain ``def`` so FastAPI runs their
+    synchronous SQLite work in a threadpool. Reverting any of them to
+    ``async def`` would put the DB reads back on the event loop (TICKET-43),
+    which no functional test would catch."""
+
+    @pytest.mark.parametrize(
+        "dependency",
+        [
+            users_module.get_current_user,
+            users_module.get_current_user_auth,
+            users_module.get_current_active_user,
+            users_module.get_current_admin,
+            users_module.get_current_superuser,
+            users_module.require_manager,
+        ],
+    )
+    def test_dependency_is_not_a_coroutine(self, dependency):
+        assert not inspect.iscoroutinefunction(dependency)
+
+
+class TestAuthRowDeduplication:
+    def test_stacked_auth_dependencies_fetch_auth_row_once(
+        self, client, make_user, monkeypatch
+    ):
+        """A request whose dependency chain stacks active-user + admin checks
+        should hit ``get_user_auth`` a single time — the shared
+        ``get_current_user_auth`` dependency is cached per request rather than
+        re-fetched by each layer (TICKET-43)."""
+        headers = make_user(
+            "admin@example.com", "a-decent-password", can_manage=True
+        )
+        real_get_user_auth = users_module.get_user_auth
+        calls: list = []
+
+        def spy(user_id):
+            calls.append(user_id)
+            return real_get_user_auth(user_id)
+
+        # Patch after login so only the counted request contributes.
+        monkeypatch.setattr(users_module, "get_user_auth", spy)
+        response = client.get("/admin/ontologies", headers=headers)
+
+        assert response.status_code == 200, response.text
+        assert len(calls) == 1
+
+    def test_route_body_reuses_dependency_auth_row(
+        self, client, make_user, monkeypatch
+    ):
+        """A route whose body needs the auth row (``/me``) reads it from the
+        injected, already-cached dependency instead of issuing its own
+        ``get_user_auth`` query (TICKET-43)."""
+        headers = make_user("member@example.com", "a-decent-password")
+        real_get_user_auth = users_module.get_user_auth
+        calls: list = []
+
+        def spy(user_id):
+            calls.append(user_id)
+            return real_get_user_auth(user_id)
+
+        monkeypatch.setattr(users_module, "get_user_auth", spy)
+        response = client.get("/me", headers=headers)
+
+        assert response.status_code == 200, response.text
+        assert len(calls) == 1
 
 
 class TestValidatePasswordPolicy:

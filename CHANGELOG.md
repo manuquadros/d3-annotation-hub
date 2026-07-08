@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Large ontology imports are faster: the search index's per-row sync triggers are suppressed during a bulk load and the index is rebuilt once at the end.
 - Ontology imports are substantially faster still: the entity, triple, and property loaders now write each batch with a few multi-row statements instead of ~7 database round-trips per entity (a 20k-entity load dropped from ~57 s to ~4 s in a local benchmark).
 - Ontology import streams uploads, so very large ontologies (e.g. NCBITaxon 1.5 GB+) import without exhausting memory; entity/triple progress shows a running count.
+- Sign-in and authenticated requests no longer block the server's async event loop: password hashing (login and change-password) and the per-request auth/permission lookups now run off the loop, so one slow login can't stall every other in-flight request. Each request also fetches its auth row once instead of 2–4 times. Under concurrent load this is a large win — 20 parallel logins dropped from ~3.7 s to ~0.3 s (~12×) in a local benchmark.
 - Curation CURIE rename is restricted to proposed (unconfirmed) entities; renaming a confirmed entity is rejected.
 - The curation and admin CURIE editors show the rejection reason inline and stay open for correction.
 - In the admin panel, a proposed entity's CURIE is edited by clicking the CURIE itself (the "Edit CURIE" button was removed).

@@ -188,8 +188,9 @@ def fetch_annotation(
     ref_identifier: str,
     project_id: int,
     current_user: Annotated[User, Depends(users.get_current_active_user)],
+    user_auth: Annotated[UserAuth | None, Depends(users.get_current_user_auth)],
 ) -> str:
-    _require_project_member(project_id, current_user)
+    _require_project_member(project_id, current_user, user_auth)
     try:
         reference_annotation = get_reference_annotation(
             ref_identifier, str(current_user.user_id), project_id
@@ -229,9 +230,9 @@ class UserInfo(BaseModel):
 @app.get("/me")
 def get_me(
     current_user: Annotated[User, Depends(users.get_current_active_user)],
+    user_auth: Annotated[UserAuth | None, Depends(users.get_current_user_auth)],
 ) -> UserInfo:
     """Return the authenticated user's profile and role."""
-    user_auth = get_user_auth(current_user.user_id)
     return UserInfo(
         user_id=str(current_user.user_id),
         email=str(current_user.email),
@@ -777,6 +778,7 @@ def list_entity_types(
 def entity_search(
     q: str,
     current_user: Annotated[User, Depends(users.get_current_active_user)],
+    user_auth: Annotated[UserAuth | None, Depends(users.get_current_user_auth)],
     limit: LimitParam = 20,
     project_id: int | None = None,
     is_class: bool = False,
@@ -785,19 +787,19 @@ def entity_search(
     # A project scope surfaces that project's unconfirmed (proposed) entities,
     # so it may only be used by a member; the unscoped search stays open.
     if project_id is not None:
-        _require_project_member(project_id, current_user)
+        _require_project_member(project_id, current_user, user_auth)
     return search_entities(q, limit, project_id, is_class)
 
 
 @app.post("/save/")
 def store_annotation(
     current_user: Annotated[User, Depends(users.get_current_active_user)],
+    user_auth: Annotated[UserAuth | None, Depends(users.get_current_user_auth)],
     json_data: str = Body(..., embed=True),
 ) -> None:
     """Update annotation in the database"""
     annotation = ReferenceAnnotation.model_validate_json(json_data)
     roles = get_user_project_roles(current_user.user_id, annotation.project_id)
-    user_auth = get_user_auth(current_user.user_id)
     if not can_access_project(user_auth, roles):
         raise HTTPException(status_code=403, detail="Access denied")
     # Persist under the authenticated identity; a client-supplied user/project
@@ -867,9 +869,9 @@ def archive_one_project(
 @app.get("/projects")
 def list_all_projects(
     current_user: Annotated[User, Depends(users.get_current_active_user)],
+    user_auth: Annotated[UserAuth | None, Depends(users.get_current_user_auth)],
 ) -> list[ProjectResponse]:
     """List projects. Superusers see all; other users see only their own."""
-    user_auth = get_user_auth(current_user.user_id)
     if user_auth and (user_auth.can_manage or user_auth.is_super_user):
         projects = list_projects()
     else:
@@ -881,12 +883,12 @@ def list_all_projects(
 def get_one_project(
     project_id: int,
     current_user: Annotated[User, Depends(users.get_current_active_user)],
+    user_auth: Annotated[UserAuth | None, Depends(users.get_current_user_auth)],
 ) -> ProjectResponse:
     """Return a single project. Accessible to any member or superuser."""
     project = get_project(project_id)
     if project is None:
         raise HTTPException(status_code=404, detail="Project not found")
-    user_auth = get_user_auth(current_user.user_id)
     if not (user_auth and (user_auth.can_manage or user_auth.is_super_user)):
         roles = get_user_project_roles(current_user.user_id, project_id)
         if not roles:
@@ -1057,10 +1059,11 @@ def assign_ontology(
 def list_project_properties(
     project_id: int,
     current_user: Annotated[User, Depends(users.get_current_active_user)],
+    user_auth: Annotated[UserAuth | None, Depends(users.get_current_user_auth)],
 ) -> list[PropertyResponse]:
     """Return OWL object properties plus pending proposed properties for
     the project."""
-    _require_project_member(project_id, current_user)
+    _require_project_member(project_id, current_user, user_auth)
     owl_props = [
         PropertyResponse.model_validate(p)
         for p in get_project_properties(project_id)
@@ -1130,9 +1133,10 @@ def create_project_proposed_entity(
     project_id: int,
     body: ProposedEntityRequest,
     current_user: Annotated[User, Depends(users.get_current_active_user)],
+    user_auth: Annotated[UserAuth | None, Depends(users.get_current_user_auth)],
 ) -> dict:
     """Record an annotator-proposed entity for the project."""
-    _require_project_member(project_id, current_user)
+    _require_project_member(project_id, current_user, user_auth)
     return store_proposed_entity(
         project_id,
         label=body.label,
@@ -1159,9 +1163,10 @@ def create_project_proposed_property(
     project_id: int,
     body: ProposedPropertyRequest,
     current_user: Annotated[User, Depends(users.get_current_active_user)],
+    user_auth: Annotated[UserAuth | None, Depends(users.get_current_user_auth)],
 ) -> dict:
     """Record an annotator-proposed property for the project."""
-    _require_project_member(project_id, current_user)
+    _require_project_member(project_id, current_user, user_auth)
     return store_proposed_property(
         project_id,
         label=body.label,
@@ -1298,10 +1303,10 @@ class QueueItem(BaseModel):
 def project_annotation_queue(
     project_id: int,
     current_user: Annotated[User, Depends(users.get_current_active_user)],
+    user_auth: Annotated[UserAuth | None, Depends(users.get_current_user_auth)],
 ) -> list[QueueItem]:
     """Return the annotation queue for the current user within a project."""
     roles = get_user_project_roles(current_user.user_id, project_id)
-    user_auth = get_user_auth(current_user.user_id)
     if not can_access_project(user_auth, roles):
         raise HTTPException(status_code=403, detail="Access denied")
     items = get_project_queue_with_status(project_id, current_user.user_id)
@@ -1316,10 +1321,10 @@ def complete_queue_item(
     project_id: int,
     ref: str,
     current_user: Annotated[User, Depends(users.get_current_active_user)],
+    user_auth: Annotated[UserAuth | None, Depends(users.get_current_user_auth)],
 ) -> None:
     """Mark a reference as complete for the current user within a project."""
     roles = get_user_project_roles(current_user.user_id, project_id)
-    user_auth = get_user_auth(current_user.user_id)
     if not can_access_project(user_auth, roles):
         raise HTTPException(status_code=403, detail="Access denied")
     mark_annotation_complete(project_id, current_user.user_id, ref)
@@ -1330,10 +1335,10 @@ def uncomplete_queue_item(
     project_id: int,
     ref: str,
     current_user: Annotated[User, Depends(users.get_current_active_user)],
+    user_auth: Annotated[UserAuth | None, Depends(users.get_current_user_auth)],
 ) -> None:
     """Mark a reference as incomplete for the current user within a project."""
     roles = get_user_project_roles(current_user.user_id, project_id)
-    user_auth = get_user_auth(current_user.user_id)
     if not can_access_project(user_auth, roles):
         raise HTTPException(status_code=403, detail="Access denied")
     mark_annotation_incomplete(project_id, current_user.user_id, ref)
@@ -1345,12 +1350,13 @@ def curator_rename_entity_curie(
     curie: str,
     body: UpdateCurieRequest,
     current_user: Annotated[User, Depends(users.get_current_active_user)],
+    user_auth: Annotated[UserAuth | None, Depends(users.get_current_user_auth)],
 ) -> None:
     """Rename a proposed entity's CURIE (curator access).
 
     Only unconfirmed (proposed) entities may be renamed via this endpoint.
     """
-    _require_curator(project_id, current_user)
+    _require_curator(project_id, current_user, user_auth)
     entities = get_entities_by_curies([curie])
     if not entities:
         raise HTTPException(status_code=404, detail="Entity not found")
@@ -1376,10 +1382,10 @@ def curator_rename_entity_curie(
 def curation_queue(
     project_id: int,
     current_user: Annotated[User, Depends(users.get_current_active_user)],
+    user_auth: Annotated[UserAuth | None, Depends(users.get_current_user_auth)],
 ) -> list[ReferenceInfo]:
     """Return references ready for curation (have enough annotator
     completions)."""
-    user_auth = get_user_auth(current_user.user_id)
     roles = get_user_project_roles(current_user.user_id, project_id)
     if not can_curate_project(user_auth, roles):
         raise HTTPException(status_code=403, detail="Curator access required")
@@ -1436,9 +1442,9 @@ class ClaimsResponse(BaseModel):
 def curation_claims(
     project_id: int,
     current_user: Annotated[User, Depends(users.get_current_active_user)],
+    user_auth: Annotated[UserAuth | None, Depends(users.get_current_user_auth)],
 ) -> ClaimsResponse:
     """Return all unique relations from completed annotations, with evidence."""
-    user_auth = get_user_auth(current_user.user_id)
     roles = get_user_project_roles(current_user.user_id, project_id)
     if not can_curate_project(user_auth, roles):
         raise HTTPException(status_code=403, detail="Curator access required")
@@ -1516,9 +1522,9 @@ def set_claim_verdict(
     relation_id: int,
     body: VerdictBody,
     current_user: Annotated[User, Depends(users.get_current_active_user)],
+    user_auth: Annotated[UserAuth | None, Depends(users.get_current_user_auth)],
 ) -> None:
     """Record the current curator's accept/reject verdict on a relation."""
-    user_auth = get_user_auth(current_user.user_id)
     roles = get_user_project_roles(current_user.user_id, project_id)
     if not can_curate_project(user_auth, roles):
         raise HTTPException(status_code=403, detail="Curator access required")
@@ -1584,15 +1590,17 @@ def can_curate_project(user_auth: UserAuth | None, roles: list[str]) -> bool:
     return "curator" in roles or "manager" in roles
 
 
-def _require_project_member(project_id: int, current_user: User) -> None:
-    user_auth = get_user_auth(current_user.user_id)
+def _require_project_member(
+    project_id: int, current_user: User, user_auth: UserAuth | None
+) -> None:
     roles = get_user_project_roles(current_user.user_id, project_id)
     if not can_access_project(user_auth, roles):
         raise HTTPException(status_code=403, detail="Access denied")
 
 
-def _require_curator(project_id: int, current_user: User) -> None:
-    user_auth = get_user_auth(current_user.user_id)
+def _require_curator(
+    project_id: int, current_user: User, user_auth: UserAuth | None
+) -> None:
     roles = get_user_project_roles(current_user.user_id, project_id)
     if not can_curate_project(user_auth, roles):
         raise HTTPException(status_code=403, detail="Curator access required")
@@ -1603,13 +1611,14 @@ def annotator_snapshots(
     project_id: int,
     reference_id: int,
     current_user: Annotated[User, Depends(users.get_current_active_user)],
+    user_auth: Annotated[UserAuth | None, Depends(users.get_current_user_auth)],
 ) -> SnapshotsResponse:
     """Return each annotator's completed snapshot for a reference.
 
     Also includes entity metadata (name, kind) for every CURIE referenced in
     any pointer, so the frontend can display meaningful labels.
     """
-    _require_curator(project_id, current_user)
+    _require_curator(project_id, current_user, user_auth)
     ref = get_reference_by_id(reference_id)
     if ref is None:
         raise HTTPException(status_code=404, detail="Reference not found")
@@ -1730,13 +1739,14 @@ def save_curated(
     reference_id: int,
     body: SaveCuratedRequest,
     current_user: Annotated[User, Depends(users.get_current_active_user)],
+    user_auth: Annotated[UserAuth | None, Depends(users.get_current_user_auth)],
 ) -> None:
     """Persist the curator's curated annotation for a reference.
 
     Replaces any previous curated annotation by the same curator for this
     (project, reference) pair.
     """
-    _require_curator(project_id, current_user)
+    _require_curator(project_id, current_user, user_auth)
     pointers = [
         Pointer(
             reference_id=p.reference_id,

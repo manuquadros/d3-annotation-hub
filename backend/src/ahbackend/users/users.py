@@ -13,6 +13,7 @@ from fastapi import (
     Response,
     status,
 )
+from fastapi.concurrency import run_in_threadpool
 from fastapi.security import OAuth2PasswordRequestForm
 from jwt.exceptions import InvalidTokenError
 from pydantic import BaseModel
@@ -100,7 +101,11 @@ async def get_token(
     )
 
 
-async def get_current_user(
+# These auth dependencies are plain `def`, not `async def`, on purpose: each
+# does synchronous SQLite work, and FastAPI runs `def` dependencies in a thread
+# instead of on the event loop. As `async def` they blocked the loop on every
+# request (jwt.decode is µs and could stay async, but the DB reads cannot).
+def get_current_user(
     token: Annotated[str, Depends(get_token)],
 ) -> User:
     credentials_exception = HTTPException(
@@ -124,41 +129,55 @@ async def get_current_user(
         return user
 
 
-async def get_current_active_user(
+def get_current_user_auth(
     current_user: Annotated[User, Depends(get_current_user)],
+) -> UserAuth | None:
+    """Load the caller's auth row once per request.
+
+    FastAPI caches a dependency's result within a request, so routing every
+    auth check (active/admin/superuser/manager) and any route body that needs
+    the auth row through this single dependency collapses what used to be 2-4
+    ``get_user_auth`` queries per request into one. Returns ``None`` (rather
+    than raising) so each consumer keeps its own missing-auth semantics.
+    """
+    return get_user_auth(current_user.user_id)
+
+
+def get_current_active_user(
+    current_user: Annotated[User, Depends(get_current_user)],
+    user_auth: Annotated[UserAuth | None, Depends(get_current_user_auth)],
 ) -> User:
-    user_auth = get_user_auth(current_user.user_id)
     if user_auth and user_auth.disabled:
         raise HTTPException(status_code=400, detail="Inactive user")
     return current_user
 
 
-async def get_current_superuser(
+def get_current_superuser(
     current_user: Annotated[User, Depends(get_current_active_user)],
+    user_auth: Annotated[UserAuth | None, Depends(get_current_user_auth)],
 ) -> User:
-    user_auth = get_user_auth(current_user.user_id)
     if not user_auth or not user_auth.is_super_user:
         raise HTTPException(status_code=403, detail="Superuser access required")
     return current_user
 
 
-async def get_current_admin(
+def get_current_admin(
     current_user: Annotated[User, Depends(get_current_active_user)],
+    user_auth: Annotated[UserAuth | None, Depends(get_current_user_auth)],
 ) -> User:
     """Allow users with the can_manage permission flag."""
-    user_auth = get_user_auth(current_user.user_id)
     if not user_auth or not user_auth.can_manage:
         raise HTTPException(status_code=403, detail="Admin access required")
     return current_user
 
 
-async def require_manager(
+def require_manager(
     project_id: int,
     current_user: Annotated[User, Depends(get_current_active_user)],
+    user_auth: Annotated[UserAuth | None, Depends(get_current_user_auth)],
 ) -> User:
     """Allow users with can_manage permission or a project-level manager
     role."""
-    user_auth = get_user_auth(current_user.user_id)
     if user_auth and user_auth.can_manage:
         return current_user
     roles = get_user_project_roles(current_user.user_id, project_id)
@@ -189,7 +208,12 @@ async def login_for_access_token(
     response: Response,
     form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
 ) -> Token:
-    user = authenticate_user(form_data.username, form_data.password)
+    # authenticate_user runs bcrypt (~180ms at prod cost) plus two SQLite reads;
+    # run it in a thread so it can't block the event loop for every other
+    # in-flight request (TICKET-27 makes bcrypt run unconditionally per login).
+    user = await run_in_threadpool(
+        authenticate_user, form_data.username, form_data.password
+    )
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -226,10 +250,12 @@ async def change_password(
     request: Request,
     body: ChangePasswordRequest,
     current_user: Annotated[User, Depends(get_current_active_user)],
+    user_auth: Annotated[UserAuth | None, Depends(get_current_user_auth)],
 ) -> None:
-    user_auth = get_user_auth(current_user.user_id)
-    if user_auth is None or not verify_password(
-        body.current_password, user_auth.hashed_password
+    # Both bcrypt calls (verify, then hash-on-update) go through the threadpool
+    # so /change-password doesn't block the loop the way /token would.
+    if user_auth is None or not await run_in_threadpool(
+        verify_password, body.current_password, user_auth.hashed_password
     ):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -245,7 +271,9 @@ async def change_password(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail=policy_error
         )
-    update_password(current_user.user_id, body.new_password)
+    await run_in_threadpool(
+        update_password, current_user.user_id, body.new_password
+    )
 
 
 @router.post("/logout")
