@@ -98,11 +98,17 @@ testpaths = ["tests"]
 line-length = 80
 target-version = "py313"
 
+# TCH is intentionally omitted: the stack uses beartype/pydantic runtime type
+# checking, which needs annotation imports available at runtime, not moved into
+# a TYPE_CHECKING block.
 [tool.ruff.lint]
-select = ["E", "F", "I", "N", "W", "UP", "B", "SIM", "TCH", "C90"]
+select = ["E", "F", "I", "N", "W", "UP", "B", "SIM", "C90"]
 
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401"]
+# Test fixtures carry real-world data (abstracts, XML bodies) and use short
+# import aliases / blind exception asserts by convention.
+"tests/**" = ["E501", "N817", "B017"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["ahbackend"]

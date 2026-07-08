@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 import bcrypt
@@ -32,7 +32,7 @@ class TestCreateAccessToken:
     def test_deterministic_with_same_inputs(self, key_pair):
         """Same inputs always produce the same token."""
         private_key, _ = key_pair
-        now = datetime(2024, 6, 15, 9, 30, 0, tzinfo=timezone.utc)
+        now = datetime(2024, 6, 15, 9, 30, 0, tzinfo=UTC)
 
         token1 = create_access_token(
             data={"sub": "test@example.com"},
@@ -53,7 +53,7 @@ class TestCreateAccessToken:
 
     def test_input_data_is_not_mutated(self, key_pair):
         private_key, _ = key_pair
-        now = datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+        now = datetime(2024, 1, 1, 12, 0, 0, tzinfo=UTC)
         data = {"sub": "user@example.com"}
 
         create_access_token(

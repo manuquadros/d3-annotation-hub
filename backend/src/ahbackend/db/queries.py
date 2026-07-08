@@ -229,7 +229,7 @@ def get_annotator_snapshots(
     return annodb.get_annotator_snapshots(project_id, reference_id)
 
 
-def get_curation_claims(
+def get_curation_claims(  # noqa: C901
     project_id: int,
 ) -> tuple[
     dict[tuple[str, str, str], dict[int, dict[str, set[tuple[int, int]]]]],
@@ -395,7 +395,7 @@ def query(pmid: int) -> Reference:
 
 
 @multimethod
-def query(predicate: str, subject: str, object: str) -> str:
+def query(predicate: str, subject: str, object: str) -> str:  # noqa: F811
     relation = annodb.get_relation(
         predicate=predicate, subject=subject, object=object
     )

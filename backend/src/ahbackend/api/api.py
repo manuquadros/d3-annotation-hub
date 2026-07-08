@@ -7,7 +7,7 @@ import string
 import tempfile
 import uuid
 from collections.abc import AsyncIterator
-from typing import TYPE_CHECKING, Annotated, Literal
+from typing import Annotated, Literal
 
 from d3textdb import DuplicateCurieError, OntologyInUseError
 from d3textdb.owl import (
@@ -158,13 +158,17 @@ def _sse(event: str, data: object) -> str:
 
 
 def reference_body_xml(ref: Reference) -> str:
-    """Wrap a body fragment with the minimal article envelope needed by the XSL."""
+    """Wrap a body fragment with the minimal article envelope needed by
+    the XSL."""
     pmc_tag = (
         f'<article-id pub-id-type="pmcid">PMC{ref.pmc_id}</article-id>'
         if ref.pmc_id
         else ""
     )
-    return f"<article><front><article-meta>{pmc_tag}</article-meta></front>{ref.body or ''}</article>"
+    return (
+        f"<article><front><article-meta>{pmc_tag}</article-meta></front>"
+        f"{ref.body or ''}</article>"
+    )
 
 
 origins = ["http://localhost:5173"]
@@ -295,7 +299,8 @@ async def peek_ontology(
     current_user: Annotated[User, Depends(users.get_current_admin)],
     file: UploadFile,
 ) -> OntologyPeek:
-    """Extract ontology metadata from an uploaded OWL file without importing it."""
+    """Extract ontology metadata from an uploaded OWL file without
+    importing it."""
     # Non-XML serializations (Turtle, RDF/XML, JSON-LD) require a complete
     # document to parse, so read the whole file up to the cap. Reading one extra
     # byte lets us detect files that exceed it and skip the (potentially slow)
@@ -548,7 +553,8 @@ def list_ontology_triples(
 def rebuild_fts_index(
     current_user: Annotated[User, Depends(users.get_current_admin)],
 ) -> dict:
-    """Rebuild the FTS5 name search index from the current Name table contents."""
+    """Rebuild the FTS5 name search index from the current Name table
+    contents."""
     rebuild_fts()
     return {"status": "ok"}
 
@@ -1052,7 +1058,8 @@ def list_project_properties(
     project_id: int,
     current_user: Annotated[User, Depends(users.get_current_active_user)],
 ) -> list[PropertyResponse]:
-    """Return OWL object properties plus pending proposed properties for the project."""
+    """Return OWL object properties plus pending proposed properties for
+    the project."""
     _require_project_member(project_id, current_user)
     owl_props = [
         PropertyResponse.model_validate(p)
@@ -1069,7 +1076,8 @@ def list_project_properties(
         for p in proposed
         if p["status"] == "pending" and p["curie"]
     ]
-    # Deduplicate: OWL properties take precedence over proposed ones with the same curie.
+    # Deduplicate: OWL properties take precedence over proposed ones with
+    # the same curie.
     seen = {p.curie for p in owl_props}
     return owl_props + [p for p in proposed_props if p.curie not in seen]
 
@@ -1369,7 +1377,8 @@ def curation_queue(
     project_id: int,
     current_user: Annotated[User, Depends(users.get_current_active_user)],
 ) -> list[ReferenceInfo]:
-    """Return references ready for curation (have enough annotator completions)."""
+    """Return references ready for curation (have enough annotator
+    completions)."""
     user_auth = get_user_auth(current_user.user_id)
     roles = get_user_project_roles(current_user.user_id, project_id)
     if not can_curate_project(user_auth, roles):
@@ -1471,12 +1480,12 @@ def curation_claims(
                     title=ref.title,
                     body=body_html,
                     subject_pointers=[
-                        EvidencePointerItem(offset=o, length=l)
-                        for o, l in ptrs["subject_pointers"]
+                        EvidencePointerItem(offset=offset, length=length)
+                        for offset, length in ptrs["subject_pointers"]
                     ],
                     object_pointers=[
-                        EvidencePointerItem(offset=o, length=l)
-                        for o, l in ptrs["object_pointers"]
+                        EvidencePointerItem(offset=offset, length=length)
+                        for offset, length in ptrs["object_pointers"]
                     ],
                 )
             )

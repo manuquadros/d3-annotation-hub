@@ -1,7 +1,7 @@
 """Declaration of the database schema."""
 
 import enum
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import TypedDict
 from uuid import UUID, uuid4
 
@@ -234,9 +234,7 @@ class ProposedProperty(SQLModel, table=True):
     status: str = Field(
         default="pending", index=True
     )  # pending|accepted|rejected
-    created_at: datetime = Field(
-        default_factory=lambda: datetime.now(timezone.utc)
-    )
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
 class Triple(SQLModel, table=True):
@@ -305,14 +303,12 @@ class PdfIngestJob(SQLModel, table=True):
         default=None, foreign_key="reference.reference_id"
     )
     leased_at: datetime | None = None
-    created_at: datetime = Field(
-        default_factory=lambda: datetime.now(timezone.utc)
-    )
-    # onupdate so a status transition advances updated_at on its own — the worker
-    # never has to remember to set it.
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    # onupdate so a status transition advances updated_at on its own —
+    # the worker never has to remember to set it.
     updated_at: datetime = Field(
-        default_factory=lambda: datetime.now(timezone.utc),
-        sa_column_kwargs={"onupdate": lambda: datetime.now(timezone.utc)},
+        default_factory=lambda: datetime.now(UTC),
+        sa_column_kwargs={"onupdate": lambda: datetime.now(UTC)},
     )
 
 
@@ -370,20 +366,17 @@ class Relation(SQLModel, table=True):
     predicate: str
     # ON UPDATE CASCADE — see Pointer.entity_id.
     subject: str = Field(
-        sa_column=Column(
-            String, ForeignKey("entity.curie", onupdate="CASCADE")
-        )
+        sa_column=Column(String, ForeignKey("entity.curie", onupdate="CASCADE"))
     )
     object: str = Field(
-        sa_column=Column(
-            String, ForeignKey("entity.curie", onupdate="CASCADE")
-        )
+        sa_column=Column(String, ForeignKey("entity.curie", onupdate="CASCADE"))
     )
     relation_references: list["UserRelationReference"] = Relationship()
 
 
 class UserRelationReference(SQLModel, table=True):
-    """Association table mapping users and literature references to relations."""
+    """Association table mapping users and literature references to
+    relations."""
 
     __tablename__ = "user_relation_reference"
     user_id: UUID = Field(
@@ -485,7 +478,8 @@ class AnnotationState(SQLModel, table=True):
 
 
 class StatePointer(SQLModel, table=True):
-    """Association table recording which Pointers belong to an AnnotationState."""
+    """Association table recording which Pointers belong to an
+    AnnotationState."""
 
     __tablename__ = "state_pointer"
     __table_args__ = (
@@ -512,7 +506,8 @@ class StatePointer(SQLModel, table=True):
 
 
 class StateRelation(SQLModel, table=True):
-    """Association table recording which Relations belong to an AnnotationState."""
+    """Association table recording which Relations belong to an
+    AnnotationState."""
 
     __tablename__ = "state_relation"
 
@@ -545,7 +540,8 @@ class AnnotationSnapshot(SQLModel, table=True):
 
 
 class SnapshotPointer(SQLModel, table=True):
-    """Association table recording which Pointers belong to an AnnotationSnapshot."""
+    """Association table recording which Pointers belong to an
+    AnnotationSnapshot."""
 
     __tablename__ = "snapshot_pointer"
     __table_args__ = (
@@ -572,7 +568,8 @@ class SnapshotPointer(SQLModel, table=True):
 
 
 class SnapshotRelation(SQLModel, table=True):
-    """Association table recording which Relations belong to an AnnotationSnapshot."""
+    """Association table recording which Relations belong to an
+    AnnotationSnapshot."""
 
     __tablename__ = "snapshot_relation"
 
@@ -607,7 +604,8 @@ class CuratedAnnotation(SQLModel, table=True):
 
 
 class CuratedAnnotationPointer(SQLModel, table=True):
-    """Association table recording which Pointers belong to a CuratedAnnotation."""
+    """Association table recording which Pointers belong to a
+    CuratedAnnotation."""
 
     __tablename__ = "curated_annotation_pointer"
     __table_args__ = (
@@ -634,7 +632,8 @@ class CuratedAnnotationPointer(SQLModel, table=True):
 
 
 class CuratedAnnotationRelation(SQLModel, table=True):
-    """Association table recording which Relations belong to a CuratedAnnotation."""
+    """Association table recording which Relations belong to a
+    CuratedAnnotation."""
 
     __tablename__ = "curated_annotation_relation"
 

@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 from sqlalchemy import func, text
@@ -15,7 +15,7 @@ from d3textdb.schema import (
     User,
 )
 
-_NOW = datetime(2025, 1, 1, tzinfo=timezone.utc)
+_NOW = datetime(2025, 1, 1, tzinfo=UTC)
 
 
 def ref_annotations(project_id: int):
@@ -217,7 +217,9 @@ def test_db_schema() -> None:
     for ann in refannotations:
         db.store_annotation(ann)
 
-    fromdb = db.get_reference_annotation(pubmed_id=15117974, user_id=user_id, project_id=project_id)
+    fromdb = db.get_reference_annotation(
+        pubmed_id=15117974, user_id=user_id, project_id=project_id
+    )
     original = refannotations[1]
 
     # User
@@ -234,14 +236,14 @@ def test_db_schema() -> None:
     assert len(fromdb.pointers) == len(original.pointers)
     from_sorted = sorted(fromdb.pointers, key=lambda p: p.offset)
     orig_sorted = sorted(original.pointers, key=lambda p: p.offset)
-    for fp, op in zip(from_sorted, orig_sorted):
+    for fp, op in zip(from_sorted, orig_sorted, strict=False):
         assert fp.entity_id == op.entity_id
         assert fp.offset == op.offset
         assert fp.length == op.length
 
     # Relations
     assert len(fromdb.relations) == len(original.relations)
-    for fr, orr in zip(fromdb.relations, original.relations):
+    for fr, orr in zip(fromdb.relations, original.relations, strict=False):
         assert fr.predicate == orr.predicate
         assert fr.subject == orr.subject
         assert fr.object == orr.object
@@ -344,7 +346,9 @@ def test_store_annotation_with_existing_reference_id() -> None:
     db.store_annotation(annotation)
 
     fromdb = db.get_reference_annotation(
-        pubmed_id=15117974, user_id=user.user_id, project_id=annotation.project_id
+        pubmed_id=15117974,
+        user_id=user.user_id,
+        project_id=annotation.project_id,
     )
 
     # Check that all pointers were stored
@@ -396,9 +400,9 @@ def test_update_entity_curie_with_snapshot_pointers() -> None:
             ).scalar_one()
             assert stale == 0, f"{tbl} still references the old curie"
             assert moved > 0, f"{tbl} was not updated to the new curie"
-        assert session.execute(
-            text("PRAGMA foreign_key_check")
-        ).fetchall() == []
+        assert (
+            session.execute(text("PRAGMA foreign_key_check")).fetchall() == []
+        )
 
 
 def test_get_reference_annotation() -> None:
@@ -410,7 +414,9 @@ def test_get_reference_annotation() -> None:
     db.store_annotation(annotation)
 
     retrieved = db.get_reference_annotation(
-        pubmed_id=payload["reference"]["pubmed_id"], user_id=user.user_id, project_id=annotation.project_id
+        pubmed_id=payload["reference"]["pubmed_id"],
+        user_id=user.user_id,
+        project_id=annotation.project_id,
     )
 
     # Verify user
@@ -459,6 +465,7 @@ def test_get_reference_annotation() -> None:
 def test_get_reference_annotation_user_not_found() -> None:
     """Test that get_reference_annotation raises ValueError when user doesn't exist."""
     from uuid import UUID
+
     import pytest
 
     db = D3TextDB()
@@ -502,7 +509,9 @@ def test_get_reference_annotation_reference_not_found() -> None:
         match=f"Reference with pubmed_id {non_existent_pubmed_id} not found",
     ):
         db.get_reference_annotation(
-            pubmed_id=non_existent_pubmed_id, user_id=user.user_id, project_id=project_id
+            pubmed_id=non_existent_pubmed_id,
+            user_id=user.user_id,
+            project_id=project_id,
         )
 
 
@@ -517,7 +526,9 @@ def test_store_annotation_idempotent() -> None:
     db.store_annotation(annotation)
 
     retrieved = db.get_reference_annotation(
-        pubmed_id=payload["reference"]["pubmed_id"], user_id=user.user_id, project_id=annotation.project_id
+        pubmed_id=payload["reference"]["pubmed_id"],
+        user_id=user.user_id,
+        project_id=annotation.project_id,
     )
 
     assert len(retrieved.pointers) == 3
@@ -536,7 +547,9 @@ def test_store_annotation_new_state_supersedes_old() -> None:
 
     # Verify initial state
     retrieved = db.get_reference_annotation(
-        pubmed_id=payload["reference"]["pubmed_id"], user_id=user.user_id, project_id=initial_annotation.project_id
+        pubmed_id=payload["reference"]["pubmed_id"],
+        user_id=user.user_id,
+        project_id=initial_annotation.project_id,
     )
     assert len(retrieved.pointers) == 3
     assert len(retrieved.relations) == 1
@@ -578,7 +591,9 @@ def test_store_annotation_new_state_supersedes_old() -> None:
     db.store_annotation(updated_annotation)
 
     retrieved = db.get_reference_annotation(
-        pubmed_id=payload["reference"]["pubmed_id"], user_id=user.user_id, project_id=initial_annotation.project_id
+        pubmed_id=payload["reference"]["pubmed_id"],
+        user_id=user.user_id,
+        project_id=initial_annotation.project_id,
     )
 
     # Only the new pointers should be in the latest state
@@ -614,7 +629,9 @@ def test_store_annotation_transaction_rollback() -> None:
     db.store_annotation(initial_annotation)
 
     retrieved = db.get_reference_annotation(
-        pubmed_id=payload["reference"]["pubmed_id"], user_id=user.user_id, project_id=initial_annotation.project_id
+        pubmed_id=payload["reference"]["pubmed_id"],
+        user_id=user.user_id,
+        project_id=initial_annotation.project_id,
     )
     initial_pointer_count = len(retrieved.pointers)
     initial_relation_count = len(retrieved.relations)
@@ -644,11 +661,12 @@ def test_store_annotation_transaction_rollback() -> None:
 
     # Old state must still be returned
     retrieved = db.get_reference_annotation(
-        pubmed_id=payload["reference"]["pubmed_id"], user_id=user.user_id, project_id=initial_annotation.project_id
+        pubmed_id=payload["reference"]["pubmed_id"],
+        user_id=user.user_id,
+        project_id=initial_annotation.project_id,
     )
     assert len(retrieved.pointers) == initial_pointer_count
     assert len(retrieved.relations) == initial_relation_count
-
 
 
 def test_search_entities_matches_fts_token_prefix() -> None:
@@ -666,9 +684,24 @@ def test_search_entities_matches_fts_token_prefix() -> None:
     db.load_ontology_entities(
         ontology_id,
         [
-            EA(entity_id="T:1", preferred_name="Bacterium acidiphilum", kind="d3o:Bacteria", synonyms=[]),
-            EA(entity_id="T:2", preferred_name="Escherichia coli", kind="d3o:Bacteria", synonyms=[]),
-            EA(entity_id="T:3", preferred_name="Mycobacterium bovis", kind="d3o:Bacteria", synonyms=[]),
+            EA(
+                entity_id="T:1",
+                preferred_name="Bacterium acidiphilum",
+                kind="d3o:Bacteria",
+                synonyms=[],
+            ),
+            EA(
+                entity_id="T:2",
+                preferred_name="Escherichia coli",
+                kind="d3o:Bacteria",
+                synonyms=[],
+            ),
+            EA(
+                entity_id="T:3",
+                preferred_name="Mycobacterium bovis",
+                kind="d3o:Bacteria",
+                synonyms=[],
+            ),
         ],
     )
 
@@ -694,8 +727,18 @@ def test_search_entities_ranks_prefix_before_contains() -> None:
     db.load_ontology_entities(
         ontology_id,
         [
-            EA(entity_id="T:1", preferred_name="Coli phage", kind="d3o:Bacteria", synonyms=[]),
-            EA(entity_id="T:2", preferred_name="Escherichia coli", kind="d3o:Bacteria", synonyms=[]),
+            EA(
+                entity_id="T:1",
+                preferred_name="Coli phage",
+                kind="d3o:Bacteria",
+                synonyms=[],
+            ),
+            EA(
+                entity_id="T:2",
+                preferred_name="Escherichia coli",
+                kind="d3o:Bacteria",
+                synonyms=[],
+            ),
         ],
     )
 
@@ -722,11 +765,19 @@ def test_load_ontology_entities_suppresses_then_restores_fts_triggers() -> None:
     db.load_ontology_entities(
         ontology_id,
         [
-            EA(entity_id="T:1", preferred_name="Escherichia coli", kind="d3o:Bacteria", synonyms=[]),
+            EA(
+                entity_id="T:1",
+                preferred_name="Escherichia coli",
+                kind="d3o:Bacteria",
+                synonyms=[],
+            ),
         ],
     )
 
-    assert any(r.preferred_name == "Escherichia coli" for r in db.search_entities("coli"))
+    assert any(
+        r.preferred_name == "Escherichia coli"
+        for r in db.search_entities("coli")
+    )
 
     with db.engine.connect() as conn:
         triggers = set(
@@ -776,12 +827,22 @@ def test_load_ontology_entities_flags_preferred_not_synonyms() -> None:
     ontology_id = db.store_ontology("O", "O", "http://o/")
     db.load_ontology_entities(
         ontology_id,
-        [EA(entity_id="O:1", preferred_name="Pref", kind="d3o:Bacteria", synonyms=["a", "b"], is_class=True)],
+        [
+            EA(
+                entity_id="O:1",
+                preferred_name="Pref",
+                kind="d3o:Bacteria",
+                synonyms=["a", "b"],
+                is_class=True,
+            )
+        ],
     )
     assert _entity_names(db, "O:1") == {"Pref": True, "a": False, "b": False}
 
 
-def test_load_ontology_entities_reimport_resets_preferred_and_refreshes_is_class() -> None:
+def test_load_ontology_entities_reimport_resets_preferred_and_refreshes_is_class() -> (
+    None
+):
     """Re-importing an entity with a new preferred name flags only the new name
     and refreshes is_class, while keeping type and ontology_id."""
     from d3textdb.schema import EntityAnnotation as EA
@@ -790,11 +851,27 @@ def test_load_ontology_entities_reimport_resets_preferred_and_refreshes_is_class
     ontology_id = db.store_ontology("O", "O", "http://o/")
     db.load_ontology_entities(
         ontology_id,
-        [EA(entity_id="O:1", preferred_name="Pref", kind="d3o:Bacteria", synonyms=["a"], is_class=True)],
+        [
+            EA(
+                entity_id="O:1",
+                preferred_name="Pref",
+                kind="d3o:Bacteria",
+                synonyms=["a"],
+                is_class=True,
+            )
+        ],
     )
     db.load_ontology_entities(
         ontology_id,
-        [EA(entity_id="O:1", preferred_name="NewPref", kind="d3o:Bacteria", synonyms=["a"], is_class=False)],
+        [
+            EA(
+                entity_id="O:1",
+                preferred_name="NewPref",
+                kind="d3o:Bacteria",
+                synonyms=["a"],
+                is_class=False,
+            )
+        ],
     )
 
     names = _entity_names(db, "O:1")
@@ -804,12 +881,16 @@ def test_load_ontology_entities_reimport_resets_preferred_and_refreshes_is_class
 
     with Session(db.engine) as session:
         row = session.execute(
-            select(Entity.type, Entity.ontology_id, Entity.is_class).where(Entity.curie == "O:1")
+            select(Entity.type, Entity.ontology_id, Entity.is_class).where(
+                Entity.curie == "O:1"
+            )
         ).one()
     assert row == ("d3o:Bacteria", ontology_id, False)
 
 
-def test_load_ontology_entities_dedupes_repeated_and_preferred_synonyms() -> None:
+def test_load_ontology_entities_dedupes_repeated_and_preferred_synonyms() -> (
+    None
+):
     """A synonym equal to the preferred name (or a repeated synonym) must not
     crash the multi-row upsert or demote the preferred flag."""
     from d3textdb.schema import EntityAnnotation as EA
@@ -818,7 +899,15 @@ def test_load_ontology_entities_dedupes_repeated_and_preferred_synonyms() -> Non
     ontology_id = db.store_ontology("O", "O", "http://o/")
     db.load_ontology_entities(
         ontology_id,
-        [EA(entity_id="O:2", preferred_name="Dup", kind="d3o:Bacteria", synonyms=["Dup", "x", "x"], is_class=True)],
+        [
+            EA(
+                entity_id="O:2",
+                preferred_name="Dup",
+                kind="d3o:Bacteria",
+                synonyms=["Dup", "x", "x"],
+                is_class=True,
+            )
+        ],
     )
     assert _entity_names(db, "O:2") == {"Dup": True, "x": False}
 
@@ -832,7 +921,13 @@ def test_load_ontology_entities_reuses_shared_synonym_across_batches() -> None:
     db = D3TextDB()
     ontology_id = db.store_ontology("O", "O", "http://o/")
     entities = [
-        EA(entity_id=f"O:{i}", preferred_name=f"name {i}", kind="d3o:Bacteria", synonyms=["shared"], is_class=True)
+        EA(
+            entity_id=f"O:{i}",
+            preferred_name=f"name {i}",
+            kind="d3o:Bacteria",
+            synonyms=["shared"],
+            is_class=True,
+        )
         for i in range(1100)
     ]
     assert db.load_ontology_entities(ontology_id, entities) == 1100
@@ -842,7 +937,9 @@ def test_load_ontology_entities_reuses_shared_synonym_across_batches() -> None:
             select(Name.id).where(Name.label == "shared")
         ).scalar_one()
         link_count = session.execute(
-            select(func.count()).select_from(EntityName).where(EntityName.name_id == shared_id)
+            select(func.count())
+            .select_from(EntityName)
+            .where(EntityName.name_id == shared_id)
         ).scalar_one()
     assert link_count == 1100
 
@@ -857,23 +954,43 @@ def test_load_ontology_triples_skips_unresolved_and_dedupes() -> None:
     db.load_ontology_entities(
         ontology_id,
         [
-            EA(entity_id="O:1", preferred_name="One", kind="d3o:Bacteria", synonyms=[], is_class=True),
-            EA(entity_id="O:2", preferred_name="Two", kind="d3o:Bacteria", synonyms=[], is_class=True),
+            EA(
+                entity_id="O:1",
+                preferred_name="One",
+                kind="d3o:Bacteria",
+                synonyms=[],
+                is_class=True,
+            ),
+            EA(
+                entity_id="O:2",
+                preferred_name="Two",
+                kind="d3o:Bacteria",
+                synonyms=[],
+                is_class=True,
+            ),
         ],
     )
 
-    attempted = db.load_ontology_triples([
-        ParsedTriple("O:1", "rdfs:subClassOf", "O:2"),
-        ParsedTriple("O:1", "rdfs:subClassOf", "O:2"),          # dup
-        ParsedTriple("O:missing", "rdfs:subClassOf", "O:2"),    # unresolved subject
-        ParsedTriple("O:2", "skos:definition", None, "a def"),  # literal object
-    ])
+    attempted = db.load_ontology_triples(
+        [
+            ParsedTriple("O:1", "rdfs:subClassOf", "O:2"),
+            ParsedTriple("O:1", "rdfs:subClassOf", "O:2"),  # dup
+            ParsedTriple(
+                "O:missing", "rdfs:subClassOf", "O:2"
+            ),  # unresolved subject
+            ParsedTriple(
+                "O:2", "skos:definition", None, "a def"
+            ),  # literal object
+        ]
+    )
 
     # Counts triples with a resolved subject (the unresolved one is skipped),
     # even when the insert is a no-op due to the unique constraint.
     assert attempted == 3
     with Session(db.engine) as session:
-        stored = session.execute(select(func.count()).select_from(Triple)).scalar_one()
+        stored = session.execute(
+            select(func.count()).select_from(Triple)
+        ).scalar_one()
     assert stored == 2  # duplicate collapsed by ON CONFLICT DO NOTHING
 
 
@@ -905,9 +1022,27 @@ def test_get_entity_types_ranks_prefix_match_before_contains_match() -> None:
     db.load_ontology_entities(
         ontology_id,
         [
-            EA(entity_id="T:1", preferred_name="Bacteria", kind="d3o:Bacteria", synonyms=[], is_class=True),
-            EA(entity_id="T:2", preferred_name="Anaerobic Bacteria", kind="d3o:Bacteria", synonyms=[], is_class=True),
-            EA(entity_id="T:3", preferred_name="16S (Bacterial)", kind="d3o:Bacteria", synonyms=[], is_class=True),
+            EA(
+                entity_id="T:1",
+                preferred_name="Bacteria",
+                kind="d3o:Bacteria",
+                synonyms=[],
+                is_class=True,
+            ),
+            EA(
+                entity_id="T:2",
+                preferred_name="Anaerobic Bacteria",
+                kind="d3o:Bacteria",
+                synonyms=[],
+                is_class=True,
+            ),
+            EA(
+                entity_id="T:3",
+                preferred_name="16S (Bacterial)",
+                kind="d3o:Bacteria",
+                synonyms=[],
+                is_class=True,
+            ),
         ],
     )
 
@@ -928,8 +1063,18 @@ def _make_ontology_with_annotations(db: D3TextDB) -> tuple[int, int]:
     db.load_ontology_entities(
         ontology_id,
         [
-            EntityAnnotation(entity_id="TEST:1", preferred_name="Alpha", kind="d3o:Enzyme", synonyms=[]),
-            EntityAnnotation(entity_id="TEST:2", preferred_name="Beta",  kind="d3o:Strain", synonyms=[]),
+            EntityAnnotation(
+                entity_id="TEST:1",
+                preferred_name="Alpha",
+                kind="d3o:Enzyme",
+                synonyms=[],
+            ),
+            EntityAnnotation(
+                entity_id="TEST:2",
+                preferred_name="Beta",
+                kind="d3o:Strain",
+                synonyms=[],
+            ),
         ],
     )
 
@@ -951,7 +1096,9 @@ def _make_ontology_with_annotations(db: D3TextDB) -> tuple[int, int]:
     annotation = ReferenceAnnotation(
         user=user,
         reference=ref,
-        pointers=[Pointer(entity_id="TEST:1", reference_id=None, offset=0, length=5)],
+        pointers=[
+            Pointer(entity_id="TEST:1", reference_id=None, offset=0, length=5)
+        ],
         relations=[],
         completed=False,
         last_updated=_NOW,
@@ -978,8 +1125,18 @@ def test_delete_ontology_raises_when_relation_references_entity() -> None:
     db.load_ontology_entities(
         ontology_id,
         [
-            EntityAnnotation(entity_id="REL:1", preferred_name="Subject", kind="d3o:Enzyme", synonyms=[]),
-            EntityAnnotation(entity_id="REL:2", preferred_name="Object",  kind="d3o:Strain", synonyms=[]),
+            EntityAnnotation(
+                entity_id="REL:1",
+                preferred_name="Subject",
+                kind="d3o:Enzyme",
+                synonyms=[],
+            ),
+            EntityAnnotation(
+                entity_id="REL:2",
+                preferred_name="Object",
+                kind="d3o:Strain",
+                synonyms=[],
+            ),
         ],
     )
 
@@ -1005,7 +1162,9 @@ def test_delete_ontology_raises_when_relation_references_entity() -> None:
             Pointer(entity_id="REL:1", reference_id=None, offset=0, length=3),
             Pointer(entity_id="REL:2", reference_id=None, offset=10, length=3),
         ],
-        relations=[Relation(predicate="d3o:HasEnzyme", subject="REL:1", object="REL:2")],
+        relations=[
+            Relation(predicate="d3o:HasEnzyme", subject="REL:1", object="REL:2")
+        ],
         completed=False,
         last_updated=_NOW,
         project_id=project_id,
@@ -1019,10 +1178,19 @@ def test_delete_ontology_raises_when_relation_references_entity() -> None:
 def test_delete_ontology_succeeds_without_annotations() -> None:
     """An ontology with no annotations must be deleted cleanly."""
     db = D3TextDB()
-    ontology_id = db.store_ontology("Clean Ontology", "CLN", "http://clean.org/")
+    ontology_id = db.store_ontology(
+        "Clean Ontology", "CLN", "http://clean.org/"
+    )
     db.load_ontology_entities(
         ontology_id,
-        [EntityAnnotation(entity_id="CLN:1", preferred_name="Gamma", kind="d3o:Enzyme", synonyms=[])],
+        [
+            EntityAnnotation(
+                entity_id="CLN:1",
+                preferred_name="Gamma",
+                kind="d3o:Enzyme",
+                synonyms=[],
+            )
+        ],
     )
 
     db.delete_ontology(ontology_id)  # must not raise
@@ -1062,7 +1230,9 @@ def test_update_entity_curie_cascades_to_referencing_rows() -> None:
                 field="abstract",
             )
         )
-        session.add(Relation(predicate="d3o:x", subject="PROP:1", object="OBJ:1"))
+        session.add(
+            Relation(predicate="d3o:x", subject="PROP:1", object="OBJ:1")
+        )
         session.commit()
 
     db.update_entity_curie("PROP:1", "CHEBI:2")
@@ -1103,9 +1273,7 @@ def test_get_entity_project_id() -> None:
 
     db.backfill_entity_project("PROP:1", project_id)  # no-op when already set
     with Session(db.engine) as session:
-        row = session.exec(
-            select(Entity).where(Entity.curie == "PROP:1")
-        ).one()
+        row = session.exec(select(Entity).where(Entity.curie == "PROP:1")).one()
         row.project_id = None
         session.add(row)
         session.commit()
@@ -1183,7 +1351,9 @@ def test_fk_cascade_migration_upgrades_legacy_database(tmp_path) -> None:
                 field="abstract",
             )
         )
-        session.add(Relation(predicate="d3o:x", subject="PROP:1", object="OBJ:1"))
+        session.add(
+            Relation(predicate="d3o:x", subject="PROP:1", object="OBJ:1")
+        )
         session.commit()
 
     for table in ("pointer", "relation"):
@@ -1196,7 +1366,9 @@ def test_fk_cascade_migration_upgrades_legacy_database(tmp_path) -> None:
     for table in ("pointer", "relation"):
         assert not db._entity_fk_needs_cascade(table)
     with Session(db.engine) as session:
-        assert session.execute(text("SELECT count(*) FROM pointer")).scalar() == 1
+        assert (
+            session.execute(text("SELECT count(*) FROM pointer")).scalar() == 1
+        )
         assert (
             session.execute(text("SELECT count(*) FROM relation")).scalar() == 1
         )

@@ -13,6 +13,7 @@ from pathlib import Path
 from uuid import uuid4
 
 import tqdm
+
 from d3textdb.d3textdb import D3TextDB
 from d3textdb.schema import Reference, User
 
@@ -34,7 +35,10 @@ def parse_args() -> argparse.Namespace:
         type=Path,
         nargs="?",
         default=None,
-        help="Path to a TinyDB JSON database to import references from (optional).",
+        help=(
+            "Path to a TinyDB JSON database to import references from "
+            "(optional)."
+        ),
     )
     parser.add_argument(
         "--admin-email",
@@ -53,7 +57,8 @@ def load_documents(tinydb_path: Path) -> list[dict]:
 
 
 def is_eligible(doc: dict) -> bool:
-    """Return True if the document has bacteria entries but no strain entries."""
+    """Return True if the document has bacteria entries but no strain
+    entries."""
     fulltext = bool(doc.get("fulltext", ""))
     bacteria = doc.get("bacteria", {})
     strains = doc.get("strains", [])
@@ -110,7 +115,8 @@ def main() -> None:
             all_docs = load_documents(args.tinydb_path)
             eligible = [doc for doc in all_docs if is_eligible(doc)]
             print(
-                f"Found {len(all_docs)} documents, {len(eligible)} eligible for import."
+                f"Found {len(all_docs)} documents, "
+                f"{len(eligible)} eligible for import."
             )
             for doc in tqdm.tqdm(eligible):
                 db.store_reference(to_reference(doc))

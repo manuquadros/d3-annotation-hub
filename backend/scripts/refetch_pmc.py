@@ -7,10 +7,11 @@ Run from backend/:
 import argparse
 import sys
 
-from ahbackend.db._annodb import annodb
-from ahbackend.fetch import fetch_reference_from_ncbi
 from d3textdb.schema import Reference
 from sqlmodel import Session, select
+
+from ahbackend.db._annodb import annodb
+from ahbackend.fetch import fetch_reference_from_ncbi
 
 
 def refetch(pubmed_id: int) -> str:

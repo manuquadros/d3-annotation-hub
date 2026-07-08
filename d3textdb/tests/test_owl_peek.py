@@ -25,7 +25,7 @@ def owl_xml(
         attrs += f' xml:base="{xml_base}" xmlns:xml="{_XML_NS}"'
 
     body = ""
-    for pfx_name, pfx_iri in (prefixes or []):
+    for pfx_name, pfx_iri in prefixes or []:
         body += f'<Prefix name="{pfx_name}" IRI="{pfx_iri}"/>\n'
     if label:
         body += (
@@ -79,8 +79,11 @@ def test_peek_owl_xml_prefers_iri_matching_prefix_over_first_declared() -> None:
     content = owl_xml(
         ontology_iri="https://example.org/myonto/",
         prefixes=[
-            ("ENVO", "http://purl.obolibrary.org/obo/ENVO_"),  # imported, listed first
-            ("myonto", "https://example.org/myonto/"),          # own, listed second
+            (
+                "ENVO",
+                "http://purl.obolibrary.org/obo/ENVO_",
+            ),  # imported, listed first
+            ("myonto", "https://example.org/myonto/"),  # own, listed second
         ],
     )
     meta = peek_ontology_metadata(content)
@@ -97,15 +100,17 @@ def test_peek_owl_xml_reserved_xml_prefix_is_never_suggested() -> None:
     assert meta.prefix is None
 
 
-def test_peek_owl_xml_imported_prefixes_on_other_hosts_yield_no_suggestion() -> None:
+def test_peek_owl_xml_imported_prefixes_on_other_hosts_yield_no_suggestion() -> (
+    None
+):
     """When the own namespace is the unnamed default prefix, imported vocabularies
     (schema.org, the xml namespace) on other hosts must not be suggested."""
     content = owl_xml(
         ontology_iri="https://purl.dsmz.de/schema/",
         prefixes=[
-            ("", "https://purl.dsmz.de/schema"),      # own namespace, unnamed
-            ("xml", _XML_NS),                          # reserved
-            ("schema", "http://schema.org/"),          # imported, other host
+            ("", "https://purl.dsmz.de/schema"),  # own namespace, unnamed
+            ("xml", _XML_NS),  # reserved
+            ("schema", "http://schema.org/"),  # imported, other host
         ],
     )
     meta = peek_ontology_metadata(content)
@@ -118,8 +123,11 @@ def test_peek_owl_xml_same_host_prefix_used_when_no_iri_prefix_match() -> None:
     content = owl_xml(
         ontology_iri="http://purl.obolibrary.org/obo/iao.owl",
         prefixes=[
-            ("schema", "http://schema.org/"),                    # imported, other host
-            ("IAO", "http://purl.obolibrary.org/obo/IAO_"),      # own host, no prefix match
+            ("schema", "http://schema.org/"),  # imported, other host
+            (
+                "IAO",
+                "http://purl.obolibrary.org/obo/IAO_",
+            ),  # own host, no prefix match
         ],
     )
     meta = peek_ontology_metadata(content)
@@ -146,7 +154,9 @@ def test_peek_owl_xml_version_extracted_from_version_iri() -> None:
     assert meta.version == "2024-07-03"
 
 
-def test_peek_owl_xml_explicit_version_info_takes_priority_over_version_iri() -> None:
+def test_peek_owl_xml_explicit_version_info_takes_priority_over_version_iri() -> (
+    None
+):
     content = owl_xml(
         version_iri="https://example.org/releases/2000-01-01/onto.owl",
         version_info="2.0",
@@ -167,7 +177,7 @@ def test_peek_rdflib_longest_prefix_match_wins_over_parent_namespace() -> None:
         b"@prefix parent: <https://example.org/> .\n"
         b"@prefix child: <https://example.org/specific/> .\n"
         b"\n"
-        b'<https://example.org/specific/> a owl:Ontology ;\n'
+        b"<https://example.org/specific/> a owl:Ontology ;\n"
         b'    rdfs:label "Specific Ontology" .\n'
     )
     meta = peek_ontology_metadata(turtle)
@@ -182,7 +192,7 @@ def test_peek_rdflib_turtle_extracts_name_and_version() -> None:
         b"@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .\n"
         b"@prefix myonto: <https://example.org/myonto/> .\n"
         b"\n"
-        b'<https://example.org/myonto/> a owl:Ontology ;\n'
+        b"<https://example.org/myonto/> a owl:Ontology ;\n"
         b'    rdfs:label "My Turtle Ontology" ;\n'
         b'    <http://www.w3.org/2002/07/owl#versionInfo> "3.1" .\n'
     )
@@ -196,9 +206,13 @@ def test_peek_rdflib_turtle_extracts_name_and_version() -> None:
 # ── error handling ────────────────────────────────────────────────────────────
 
 
-def test_peek_owl_xml_truncated_after_root_tag_returns_iri_but_not_label() -> None:
+def test_peek_owl_xml_truncated_after_root_tag_returns_iri_but_not_label() -> (
+    None
+):
     """Root-element attributes survive truncation; child annotations do not."""
-    full = owl_xml(ontology_iri="https://example.org/myonto/", label="Full Label")
+    full = owl_xml(
+        ontology_iri="https://example.org/myonto/", label="Full Label"
+    )
     # Slice right after the <Ontology ...> opening line, before any child elements
     cut = full.index(b"\n", full.index(b"<Ontology")) + 1
     meta = peek_ontology_metadata(full[:cut])
@@ -221,17 +235,17 @@ def test_peek_rejects_entity_expansion_bomb() -> None:
     """A billion-laughs entity bomb must not be expanded; metadata comes back empty."""
     bomb = (
         b'<?xml version="1.0"?>\n'
-        b'<!DOCTYPE lolz [\n'
+        b"<!DOCTYPE lolz [\n"
         b'  <!ENTITY a "AAAAAAAAAA">\n'
         b'  <!ENTITY b "&a;&a;&a;&a;&a;&a;&a;&a;&a;&a;">\n'
         b'  <!ENTITY c "&b;&b;&b;&b;&b;&b;&b;&b;&b;&b;">\n'
-        b']>\n'
+        b"]>\n"
         b'<Ontology xmlns="http://www.w3.org/2002/07/owl#" ontologyIRI="https://example.org/o/">\n'
-        b'  <Annotation>\n'
+        b"  <Annotation>\n"
         b'    <AnnotationProperty abbreviatedIRI="rdfs:label"/>\n'
-        b'    <Literal>&c;</Literal>\n'
-        b'  </Annotation>\n'
-        b'</Ontology>'
+        b"    <Literal>&c;</Literal>\n"
+        b"  </Annotation>\n"
+        b"</Ontology>"
     )
     meta = peek_ontology_metadata(bomb)
     assert meta == OntologyMetadata()

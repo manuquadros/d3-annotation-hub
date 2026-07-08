@@ -5,7 +5,7 @@ from pathlib import Path
 from uuid import UUID
 
 from d3textdb.d3textdb import D3TextDB
-from d3textdb.schema import Entity, Pointer, Reference, Relation, User, UserAuth
+from d3textdb.schema import Entity, Pointer, Reference, Relation, User
 
 
 def main() -> None:

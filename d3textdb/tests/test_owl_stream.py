@@ -9,6 +9,7 @@ import tempfile
 from pathlib import Path
 
 import pytest
+
 from d3textdb.owl import (
     OntologyStreamParser,
     _reject_entity_expansion_bomb,
@@ -42,7 +43,9 @@ def test_rdfxml_entities_prefer_english_label_and_extract_kind() -> None:
     parsed = parse_owl(_RDFXML, "NCBITaxon", "")
     by_id = {e.entity_id: e for e in parsed.entities}
     assert set(by_id) == {"NCBITaxon:9606", "NCBITaxon:9605"}
-    assert by_id["NCBITaxon:9606"].preferred_name == "Homo sapiens"  # not "Homme"
+    assert (
+        by_id["NCBITaxon:9606"].preferred_name == "Homo sapiens"
+    )  # not "Homme"
     assert by_id["NCBITaxon:9606"].kind == "NCBITaxon:9605"
     assert by_id["NCBITaxon:9606"].synonyms == ["human"]
     # owl:Thing is not a named superclass.
@@ -151,10 +154,7 @@ def test_reject_bomb_allows_flat_namespace_entities() -> None:
 
 def test_reject_bomb_flags_recursive_entities() -> None:
     recursive = (
-        b"<!DOCTYPE rdf:RDF [\n"
-        b'  <!ENTITY a "AAAA">\n'
-        b'  <!ENTITY b "&a;&a;">\n'
-        b"]>"
+        b'<!DOCTYPE rdf:RDF [\n  <!ENTITY a "AAAA">\n  <!ENTITY b "&a;&a;">\n]>'
     )
     with pytest.raises(ValueError, match="expansion bomb"):
         _reject_entity_expansion_bomb(recursive)

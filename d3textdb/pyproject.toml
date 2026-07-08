@@ -33,18 +33,31 @@ strict = true
 warn_unreachable = true
 warn_no_return = true
 
-[tool.ruff]
-line-length = 80
-
 [[tool.mypy.overrides]]
 # Don't require test functions to include types
 module = "tests.*"
 allow_untyped_defs = true
 disable_error_code = "attr-defined"
 
+# Formatting/lint config unified with the backend (backend/pyproject.toml).
+[tool.ruff]
+line-length = 80
+target-version = "py313"
+
+# TCH is intentionally omitted: this project uses beartype runtime type
+# checking, which needs annotation imports available at runtime, not moved into
+# a TYPE_CHECKING block.
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "UP", "B", "SIM", "C90"]
+
 [tool.ruff.lint.per-file-ignores]
-"**/scripts/**" = ["INP001"]
-"**/tests/**" = ["D100", "D103", "S101", "PLR2004"]
+"__init__.py" = ["F401"]
+# Test fixtures carry real-world data (abstracts, XML bodies) and use short
+# import aliases / blind exception asserts by convention.
+"tests/**" = ["E501", "N817", "B017"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["d3textdb"]
 
 [dependency-groups]
 dev = [

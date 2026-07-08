@@ -11,7 +11,6 @@ down that all three now require membership. Shared ``db``/``client``/``login``/
 
 import pytest
 from d3textdb.schema import Reference
-from d3textdb.schema import User as DbUser
 
 _PMID = 32000001
 _MEMBER_EMAIL = "member@access-test.example"

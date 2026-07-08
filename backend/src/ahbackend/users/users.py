@@ -1,5 +1,5 @@
-from datetime import datetime, timedelta, timezone
-from typing import Annotated, Optional
+from datetime import UTC, datetime, timedelta
+from typing import Annotated
 
 import bcrypt
 import jwt
@@ -86,8 +86,8 @@ def authenticate_user(username: str, password: str) -> User | None:
 
 
 async def get_token(
-    authorization: Annotated[Optional[str], Header()] = None,
-    auth_token: Annotated[Optional[str], Cookie()] = None,
+    authorization: Annotated[str | None, Header()] = None,
+    auth_token: Annotated[str | None, Cookie()] = None,
 ) -> str:
     if authorization and authorization.startswith("Bearer "):
         return authorization[7:]
@@ -116,7 +116,7 @@ async def get_current_user(
         if username is None:
             raise credentials_exception
     except InvalidTokenError:
-        raise credentials_exception
+        raise credentials_exception from None
     else:
         user = get_user(username)
         if user is None:
@@ -156,7 +156,8 @@ async def require_manager(
     project_id: int,
     current_user: Annotated[User, Depends(get_current_active_user)],
 ) -> User:
-    """Allow users with can_manage permission or a project-level manager role."""
+    """Allow users with can_manage permission or a project-level manager
+    role."""
     user_auth = get_user_auth(current_user.user_id)
     if user_auth and user_auth.can_manage:
         return current_user
@@ -199,7 +200,7 @@ async def login_for_access_token(
     access_token = create_access_token(
         data={"sub": user.email},
         expires_delta=access_token_expires,
-        now=datetime.now(timezone.utc),
+        now=datetime.now(UTC),
         private_key=config.PRIVATE_KEY,
         algorithm=config.ALGORITHM,
     )

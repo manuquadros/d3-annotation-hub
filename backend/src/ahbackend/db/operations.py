@@ -1,6 +1,5 @@
 from collections.abc import Iterable
-from datetime import datetime, timezone
-from typing import TYPE_CHECKING
+from datetime import UTC, datetime
 from uuid import UUID
 
 from d3textdb import ParsedOntology, ParsedProperty, ParsedTriple
@@ -271,7 +270,8 @@ def _resolve_reference(ref_identifier: str) -> Reference | None:
 def mark_annotation_complete(
     project_id: int, user_id: UUID, ref_identifier: str
 ) -> None:
-    """Idempotent: does nothing if a snapshot already exists for the (project, user, reference) triple."""
+    """Idempotent: does nothing if a snapshot already exists for the
+    (project, user, reference) triple."""
     ref = _resolve_reference(ref_identifier)
     if ref is None:
         return
@@ -304,7 +304,7 @@ def mark_annotation_complete(
             user_id=user_id,
             reference_id=reference_id,
             content_hash=content_hash,
-            created_at=datetime.now(timezone.utc),
+            created_at=datetime.now(UTC),
         )
         session.add(snapshot)
         session.flush()
@@ -345,7 +345,8 @@ def mark_annotation_complete(
 def mark_annotation_incomplete(
     project_id: int, user_id: UUID, ref_identifier: str
 ) -> None:
-    """Delete all AnnotationSnapshot rows for the (project, user, reference) triple."""
+    """Delete all AnnotationSnapshot rows for the (project, user,
+    reference) triple."""
     ref = _resolve_reference(ref_identifier)
     if ref is None:
         return

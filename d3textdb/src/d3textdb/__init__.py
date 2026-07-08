@@ -12,7 +12,16 @@ except ModuleNotFoundError:
     pass
 
 from .d3textdb import D3TextDB, DuplicateCurieError, OntologyInUseError
-from .owl import MAX_PEEK_BYTES, OntologyMetadata, OntologyStreamParser, ParsedOntology, ParsedProperty, ParsedTriple, parse_owl, peek_ontology_metadata
+from .owl import (
+    MAX_PEEK_BYTES,
+    OntologyMetadata,
+    OntologyStreamParser,
+    ParsedOntology,
+    ParsedProperty,
+    ParsedTriple,
+    parse_owl,
+    peek_ontology_metadata,
+)
 
 try:
     import stackprinter

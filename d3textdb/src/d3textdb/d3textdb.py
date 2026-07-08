@@ -7,12 +7,11 @@ import os
 import re
 from collections.abc import Iterable
 from contextlib import contextmanager
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import UUID
 
 import bcrypt
 import pysqlite3
-from pydantic import EmailStr
 from sqlalchemy import (
     case,
     column,
@@ -171,7 +170,8 @@ class D3TextDB:
         self.engine.dispose()
 
     def _setup_fts(self) -> None:
-        """Create the FTS5 virtual table and sync triggers for the Name table."""
+        """Create the FTS5 virtual table and sync triggers for the Name
+        table."""
         with self.engine.begin() as conn:
             conn.execute(
                 text(
@@ -191,23 +191,30 @@ class D3TextDB:
         with self.engine.begin() as conn:
             conn.execute(
                 text(
-                    "CREATE TRIGGER IF NOT EXISTS name_ai AFTER INSERT ON name BEGIN "
-                    "INSERT INTO name_fts(rowid, label) VALUES (new.id, new.label); "
+                    "CREATE TRIGGER IF NOT EXISTS name_ai "
+                    "AFTER INSERT ON name BEGIN "
+                    "INSERT INTO name_fts(rowid, label) "
+                    "VALUES (new.id, new.label); "
                     "END"
                 )
             )
             conn.execute(
                 text(
-                    "CREATE TRIGGER IF NOT EXISTS name_au AFTER UPDATE ON name BEGIN "
-                    "INSERT INTO name_fts(name_fts, rowid, label) VALUES ('delete', old.id, old.label); "
-                    "INSERT INTO name_fts(rowid, label) VALUES (new.id, new.label); "
+                    "CREATE TRIGGER IF NOT EXISTS name_au "
+                    "AFTER UPDATE ON name BEGIN "
+                    "INSERT INTO name_fts(name_fts, rowid, label) "
+                    "VALUES ('delete', old.id, old.label); "
+                    "INSERT INTO name_fts(rowid, label) "
+                    "VALUES (new.id, new.label); "
                     "END"
                 )
             )
             conn.execute(
                 text(
-                    "CREATE TRIGGER IF NOT EXISTS name_ad AFTER DELETE ON name BEGIN "
-                    "INSERT INTO name_fts(name_fts, rowid, label) VALUES ('delete', old.id, old.label); "
+                    "CREATE TRIGGER IF NOT EXISTS name_ad "
+                    "AFTER DELETE ON name BEGIN "
+                    "INSERT INTO name_fts(name_fts, rowid, label) "
+                    "VALUES ('delete', old.id, old.label); "
                     "END"
                 )
             )
@@ -220,7 +227,8 @@ class D3TextDB:
 
     @contextmanager
     def _fts_bulk_reindex(self):
-        """Suppress the per-row FTS triggers for a bulk write, rebuild once after.
+        """Suppress the per-row FTS triggers for a bulk write, rebuild
+        once after.
 
         Drops the sync triggers on entry so a large import/delete doesn't pay
         per-row trigger cost, then on exit (even on error) recreates them and
@@ -258,7 +266,8 @@ class D3TextDB:
         return any(row[5] != "CASCADE" for row in entity_fks)
 
     def _rebuild_table_from_metadata(self, table: str) -> None:
-        """Recreate ``table`` from the current SQLModel definition, copying rows.
+        """Recreate ``table`` from the current SQLModel definition, copying
+        rows.
 
         SQLite cannot ALTER a foreign key's action, so the only way to change it
         on an existing table is the standard rebuild (rename → create → copy →
@@ -266,7 +275,8 @@ class D3TextDB:
         (``isolation_level = None``) so an explicit BEGIN/COMMIT makes the whole
         rebuild atomic — pysqlite otherwise issues an implicit COMMIT before
         each DDL statement, which would break a SQLAlchemy transaction. ``PRAGMA
-        foreign_keys`` is toggled here too, since SQLite ignores it mid-transaction.
+        foreign_keys`` is toggled here too, since SQLite ignores it
+        mid-transaction.
         """
         md_table = SQLModel.metadata.tables[table]
         columns = ", ".join(f'"{col.name}"' for col in md_table.columns)
@@ -336,11 +346,13 @@ class D3TextDB:
 
         Results are ranked: preferred-name exact match → preferred-name prefix
         match → preferred-name contains match → synonym-only match. Within each
-        tier, entities whose names prefix-match rank above contains-only matches,
-        then by shortest matching name length.
+        tier, entities whose names prefix-match rank above contains-only
+        matches, then by shortest matching name length.
 
-        If `is_class` is True, only OWL classes are returned (for class pickers).
-        If False (default), only non-class individuals are returned (for annotation search).
+        If `is_class` is True, only OWL classes are returned (for class
+        pickers).
+        If False (default), only non-class individuals are returned (for
+        annotation search).
         If `project_id` is given, results include:
           - confirmed entities whose ontology is assigned to that project, AND
           - unconfirmed (proposed) entities that belong to that project.
@@ -380,9 +392,8 @@ class D3TextDB:
                 Entity.curie,
                 Entity.type,
                 Entity.confirmed,
-                func.max(pref_name.label).label(
-                    "preferred_name"
-                ),  # MAX collapses the group; each entity has one preferred name
+                # MAX collapses the group; each entity has one preferred name
+                func.max(pref_name.label).label("preferred_name"),
                 func.min(func.length(match_name.label)).label("best_len"),
             )
             .join(EntityName, EntityName.entity_id == Entity.entity_id)
@@ -413,9 +424,9 @@ class D3TextDB:
                 (ProjectOntology.project_id == project_id)
                 # OR proposed entity belonging to this project
                 | (
-                    (Entity.confirmed == False)
+                    (Entity.confirmed == False)  # noqa: E712
                     & (Entity.project_id == project_id)
-                )  # noqa: E712
+                )
             )
 
         with Session(self.engine) as session:
@@ -534,12 +545,13 @@ class D3TextDB:
         kind: str,
         proposed_by: str | None = None,
     ) -> dict:
-        """Insert a new proposed entity into the entity table and return it as a dict.
+        """Insert a new proposed entity into the entity table and return it
+        as a dict.
 
         Raises DuplicateCurieError if ``curie`` already exists (``entity.curie``
         is UNIQUE), so the caller can map it to a 409 rather than a 500.
         """
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         with Session(self.engine) as session:
             row = Entity(
                 curie=curie,
@@ -644,7 +656,8 @@ class D3TextDB:
             }
 
     def confirm_entity(self, curie: str) -> None:
-        """Promote a proposed entity: set confirmed=True and clear proposal metadata."""
+        """Promote a proposed entity: set confirmed=True and clear proposal
+        metadata."""
         with Session(self.engine) as session:
             entity = session.scalars(
                 select(Entity).where(Entity.curie == curie)
@@ -845,7 +858,7 @@ class D3TextDB:
                 )
             session.commit()
 
-    def store_annotation(self, ann: ReferenceAnnotation) -> None:
+    def store_annotation(self, ann: ReferenceAnnotation) -> None:  # noqa: C901
         """Persist an annotation state to the database.
 
         Stores the reference, pointers (entities must already exist), relations,
@@ -859,17 +872,17 @@ class D3TextDB:
             pointer.reference_id = reference_id
 
         content_hash = _content_hash(ann.pointers, ann.relations)
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         with Session(self.engine, autoflush=False) as session:
             # Upsert entities before inserting pointers.
             for entity in ann.entities:
                 if not entity.confirmed:
-                    # Proposed (annotator-coined) entities live in the entity table
-                    # with confirmed=False and project-scoping metadata.
-                    # on_conflict_do_update with a no-op set lets us always get the
-                    # entity_id back (needed to link Name rows), while leaving existing
-                    # rows unchanged on re-save.
+                    # Proposed (annotator-coined) entities live in the entity
+                    # table with confirmed=False and project-scoping metadata.
+                    # on_conflict_do_update with a no-op set lets us always get
+                    # the entity_id back (needed to link Name rows), while
+                    # leaving existing rows unchanged on re-save.
                     int_entity_id = session.execute(
                         insert(Entity)
                         .values(
@@ -942,7 +955,8 @@ class D3TextDB:
                     for s in entity.synonyms
                     if s != entity.preferred_name
                 ]
-                # Clears stale flags when a preferred name changes across imports.
+                # Clears stale flags when a preferred name changes across
+                # imports.
                 self._clear_preferred_flags(session, int_entity_id)
                 for label, is_preferred in all_names:
                     name_id = session.execute(
@@ -1154,7 +1168,8 @@ class D3TextDB:
             session.commit()
 
     def store_items(self, items: Iterable[SQLModel]) -> None:
-        """Store ``items`` into the database in accordance to their model class."""
+        """Store ``items`` into the database in accordance to their model
+        class."""
         models: dict = {}
         for item in items:
             models.setdefault(item.__class__, []).append(item)
@@ -1281,7 +1296,8 @@ class D3TextDB:
         return user_id
 
     def user_has_references(self, user_id: UUID) -> bool:
-        """Return True if any table other than User/UserAuth references this user_id."""
+        """Return True if any table other than User/UserAuth references this
+        user_id."""
         checks = [
             select(AnnotationState).where(AnnotationState.user_id == user_id),
             select(AnnotationSnapshot).where(
@@ -1375,12 +1391,13 @@ class D3TextDB:
         return project_id
 
     def archive_project(self, project_id: int) -> None:
-        """Soft-delete a project; preserve annotation data, drop relational/config rows."""
+        """Soft-delete a project; preserve annotation data, drop
+        relational/config rows."""
         with Session(self.engine) as session:
             session.execute(
                 update(Project)
                 .where(Project.project_id == project_id)
-                .values(archived_at=datetime.now(timezone.utc))
+                .values(archived_at=datetime.now(UTC))
             )
             session.execute(
                 sa_delete(ProjectMembership).where(
@@ -1775,7 +1792,7 @@ class D3TextDB:
         :returns: The ``curated_id`` of the stored record.
         """
         content_hash = _content_hash(pointers, relations)
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         with Session(self.engine) as session:
             existing = session.scalar(
                 select(CuratedAnnotation)
@@ -1850,8 +1867,8 @@ class D3TextDB:
     def get_curated_annotation(
         self, project_id: int, reference_id: int, curator_id: UUID
     ) -> AnnotatorSnapshot | None:
-        """Return a curator's curated annotation as an :class:`AnnotatorSnapshot`,
-        or ``None`` if it does not exist yet.
+        """Return a curator's curated annotation as an
+        :class:`AnnotatorSnapshot`, or ``None`` if it does not exist yet.
         """
         with Session(self.engine) as session:
             curated = session.scalar(
@@ -1973,7 +1990,7 @@ class D3TextDB:
                     pointers=[],
                     relations=[],
                     completed=False,
-                    last_updated=datetime.now(timezone.utc),
+                    last_updated=datetime.now(UTC),
                 )
 
             # Load pointers via JOIN with StatePointer.
@@ -2115,8 +2132,8 @@ class D3TextDB:
 
         Rows are committed in batches of ``batch_size`` for memory efficiency.
         The FTS5 sync triggers are suppressed for the duration and the index is
-        rebuilt once at the end, which is much faster than paying per-row trigger
-        cost for large ontologies.
+        rebuilt once at the end, which is much faster than paying per-row
+        trigger cost for large ontologies.
 
         Returns the total number of entities processed.
         """
@@ -2134,7 +2151,7 @@ class D3TextDB:
                 total += len(batch)
         return total
 
-    def _load_entity_batch(
+    def _load_entity_batch(  # noqa: C901
         self, ontology_id: int, entities: list[EntityAnnotation]
     ) -> None:
         """Upsert a batch of ontology entities and their names set-at-a-time.
@@ -2217,8 +2234,9 @@ class D3TextDB:
                     ).all()
                 )
 
-            # Reset preferred flags across the batch in one UPDATE so a preferred
-            # name changed across re-imports doesn't leave two flagged rows.
+            # Reset preferred flags across the batch in one UPDATE so a
+            # preferred name changed across re-imports doesn't leave two
+            # flagged rows.
             entity_ids = list(names_by_entity)
             for chunk in _chunks(entity_ids, _MAX_SQL_VARIABLES):
                 session.execute(
@@ -2362,7 +2380,8 @@ class D3TextDB:
         return len(properties)
 
     def get_project_properties(self, project_id: int) -> list[OntologyProperty]:
-        """Return all OWL object properties from ontologies assigned to a project."""
+        """Return all OWL object properties from ontologies assigned to a
+        project."""
         with Session(self.engine) as session:
             rows = list(
                 session.scalars(
@@ -2455,28 +2474,28 @@ class D3TextDB:
         """Return a page of entities for an ontology and the total count."""
         with Session(self.engine) as session:
             pref_en = aliased(EntityName)
-            PrefName = aliased(Name)
+            pref_name = aliased(Name)
 
             base = (
                 select(
                     Entity.entity_id,
                     Entity.curie,
                     Entity.type,
-                    PrefName.label.label("preferred_name"),
+                    pref_name.label.label("preferred_name"),
                 )
                 .outerjoin(
                     pref_en,
                     (pref_en.entity_id == Entity.entity_id)
                     & pref_en.is_preferred,
                 )
-                .outerjoin(PrefName, PrefName.id == pref_en.name_id)
+                .outerjoin(pref_name, pref_name.id == pref_en.name_id)
                 .where(Entity.ontology_id == ontology_id)
             )
 
             if curie_filter:
                 base = base.where(Entity.curie.ilike(f"%{curie_filter}%"))
             if name_filter:
-                base = base.where(PrefName.label.ilike(f"%{name_filter}%"))
+                base = base.where(pref_name.label.ilike(f"%{name_filter}%"))
             if type_filter:
                 base = base.where(Entity.type.ilike(f"%{type_filter}%"))
 
@@ -2518,23 +2537,25 @@ class D3TextDB:
         object_name, object_literal.  Returns (rows, total_count).
         """
         with Session(self.engine) as session:
-            SubjectEnt = aliased(Entity)
-            ObjectEnt = aliased(Entity)
+            subject_ent = aliased(Entity)
+            object_ent = aliased(Entity)
 
             base = (
                 select(
                     Triple.predicate,
                     Triple.object_literal,
-                    SubjectEnt.curie.label("subject_curie"),
-                    ObjectEnt.curie.label("object_curie"),
+                    subject_ent.curie.label("subject_curie"),
+                    object_ent.curie.label("object_curie"),
                 )
-                .join(SubjectEnt, Triple.subject_id == SubjectEnt.entity_id)
-                .outerjoin(ObjectEnt, Triple.object_id == ObjectEnt.entity_id)
-                .where(SubjectEnt.ontology_id == ontology_id)
+                .join(subject_ent, Triple.subject_id == subject_ent.entity_id)
+                .outerjoin(object_ent, Triple.object_id == object_ent.entity_id)
+                .where(subject_ent.ontology_id == ontology_id)
             )
 
             if subject_filter:
-                base = base.where(SubjectEnt.curie.ilike(f"%{subject_filter}%"))
+                base = base.where(
+                    subject_ent.curie.ilike(f"%{subject_filter}%")
+                )
             if predicate_filter:
                 base = base.where(
                     Triple.predicate.ilike(f"%{predicate_filter}%")
@@ -2542,7 +2563,7 @@ class D3TextDB:
             if object_filter:
                 base = base.where(
                     or_(
-                        ObjectEnt.curie.ilike(f"%{object_filter}%"),
+                        object_ent.curie.ilike(f"%{object_filter}%"),
                         Triple.object_literal.ilike(f"%{object_filter}%"),
                     )
                 )
@@ -2555,7 +2576,7 @@ class D3TextDB:
             )
 
             rows = session.execute(
-                base.order_by(SubjectEnt.curie, Triple.predicate)
+                base.order_by(subject_ent.curie, Triple.predicate)
                 .limit(limit)
                 .offset(offset)
             ).fetchall()
@@ -2566,14 +2587,14 @@ class D3TextDB:
             }
             curie_to_name: dict[str, str] = {}
             if all_curies:
-                PrefName = aliased(Name)
+                pref_name = aliased(Name)
                 for curie, label in session.execute(
-                    select(Entity.curie, PrefName.label)
+                    select(Entity.curie, pref_name.label)
                     .join(
                         EntityName,
                         EntityName.entity_id == Entity.entity_id,
                     )
-                    .join(PrefName, PrefName.id == EntityName.name_id)
+                    .join(pref_name, pref_name.id == EntityName.name_id)
                     .where(
                         EntityName.is_preferred == True,  # noqa: E712
                         Entity.curie.in_(all_curies),
@@ -2614,7 +2635,8 @@ class D3TextDB:
             )
 
     def delete_ontology(self, ontology_id: int) -> None:
-        """Delete an ontology and cascade-remove its entities, names, and triples.
+        """Delete an ontology and cascade-remove its entities, names, and
+        triples.
 
         Raises OntologyInUseError if any Pointer or Relation rows reference the
         ontology's entities — the ontology must be free of annotations first.
@@ -2723,7 +2745,7 @@ class D3TextDB:
         verdict: Verdict,
     ) -> None:
         """Upsert a curator's accept/reject verdict on a relation triple."""
-        from datetime import datetime, timezone
+        from datetime import datetime
 
         with Session(self.engine) as session:
             existing = session.get(
@@ -2731,7 +2753,7 @@ class D3TextDB:
             )
             if existing:
                 existing.verdict = verdict
-                existing.decided_at = datetime.now(timezone.utc)
+                existing.decided_at = datetime.now(UTC)
             else:
                 session.add(
                     CurationDecision(
@@ -2739,7 +2761,7 @@ class D3TextDB:
                         relation_id=relation_id,
                         curator_id=curator_id,
                         verdict=verdict,
-                        decided_at=datetime.now(timezone.utc),
+                        decided_at=datetime.now(UTC),
                     )
                 )
             session.commit()

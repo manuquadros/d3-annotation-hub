@@ -25,10 +25,21 @@ _OWL_NS = "http://www.w3.org/2002/07/owl#"
 _RDFS_NS = "http://www.w3.org/2000/01/rdf-schema#"
 _XML_NS = "http://www.w3.org/XML/1998/namespace"
 
-_STANDARD_PREFIXES = frozenset({
-    "", "xml", "owl", "rdf", "rdfs", "xsd", "dc", "dcterms", "skos",
-    "obo", "oboInOwl",
-})
+_STANDARD_PREFIXES = frozenset(
+    {
+        "",
+        "xml",
+        "owl",
+        "rdf",
+        "rdfs",
+        "xsd",
+        "dc",
+        "dcterms",
+        "skos",
+        "obo",
+        "oboInOwl",
+    }
+)
 
 # Upper bound on how many bytes peek_ontology_metadata will read and parse.
 # OWL/XML metadata lives in the header and is streamed cheaply (parsing stops at
@@ -157,7 +168,7 @@ def _rdflib_format(content: bytes) -> str:
     return "turtle"
 
 
-def _parse_owl_xml(
+def _parse_owl_xml(  # noqa: C901
     content: bytes, prefix: str, base_iri: str
 ) -> ParsedOntology:
     """Parse OWL/XML (Functional Syntax in XML serialization) using ElementTree.
@@ -579,7 +590,7 @@ class OntologyStreamParser:
                 pass
         return self._properties or []
 
-    def _iter_rdf_entities(self) -> Iterator[EntityAnnotation]:
+    def _iter_rdf_entities(self) -> Iterator[EntityAnnotation]:  # noqa: C901
         acc: dict[str, _SubjectAcc] = {}
         for quad in self._rdf_quads():
             subject = quad.subject
@@ -681,17 +692,20 @@ def _select_own_prefix(
     return None
 
 
-def _peek_owl_xml_meta(content: bytes) -> OntologyMetadata:
-    # Tags that signal the end of the header section (start of class/property body)
-    _HEADER_END_TAGS = frozenset({
-        f"{{{_OWL_NS}}}Declaration",
-        f"{{{_OWL_NS}}}SubClassOf",
-        f"{{{_OWL_NS}}}EquivalentClasses",
-        f"{{{_OWL_NS}}}DisjointClasses",
-        f"{{{_OWL_NS}}}AnnotationAssertion",
-        f"{{{_OWL_NS}}}ObjectPropertyDomain",
-        f"{{{_OWL_NS}}}ObjectPropertyRange",
-    })
+def _peek_owl_xml_meta(content: bytes) -> OntologyMetadata:  # noqa: C901
+    # Tags that signal the end of the header section (start of
+    # class/property body)
+    header_end_tags = frozenset(
+        {
+            f"{{{_OWL_NS}}}Declaration",
+            f"{{{_OWL_NS}}}SubClassOf",
+            f"{{{_OWL_NS}}}EquivalentClasses",
+            f"{{{_OWL_NS}}}DisjointClasses",
+            f"{{{_OWL_NS}}}AnnotationAssertion",
+            f"{{{_OWL_NS}}}ObjectPropertyDomain",
+            f"{{{_OWL_NS}}}ObjectPropertyRange",
+        }
+    )
 
     base_iri: str | None = None
     version_iri: str | None = None
@@ -707,15 +721,21 @@ def _peek_owl_xml_meta(content: bytes) -> OntologyMetadata:
     try:
         # _safe_iterparse forbids entity expansion (billion-laughs / XXE) on
         # the uploaded file, which a plain ET.iterparse would be vulnerable to.
-        for event, elem in _safe_iterparse(io.BytesIO(content), events=("start", "end")):
+        for event, elem in _safe_iterparse(
+            io.BytesIO(content), events=("start", "end")
+        ):
             tag = elem.tag
             if event == "start":
                 depth += 1
                 if depth == 1 and tag == f"{{{_OWL_NS}}}Ontology":
-                    base_iri = elem.get("ontologyIRI") or elem.get(f"{{{_XML_NS}}}base") or None
+                    base_iri = (
+                        elem.get("ontologyIRI")
+                        or elem.get(f"{{{_XML_NS}}}base")
+                        or None
+                    )
                     version_iri = elem.get("versionIRI") or None
                 elif depth == 2:
-                    if tag in _HEADER_END_TAGS:
+                    if tag in header_end_tags:
                         break  # past the header — no more metadata to find
                     if tag == f"{{{_OWL_NS}}}Prefix":
                         pfx_name = elem.get("name", "")
@@ -728,10 +748,15 @@ def _peek_owl_xml_meta(content: bytes) -> OntologyMetadata:
                         current_literal = None
                 elif in_top_annotation:
                     if tag == f"{{{_OWL_NS}}}AnnotationProperty":
-                        prop_iri = elem.get("abbreviatedIRI") or elem.get("IRI", "")
+                        prop_iri = elem.get("abbreviatedIRI") or elem.get(
+                            "IRI", ""
+                        )
                         if prop_iri in ("rdfs:label", f"{_RDFS_NS}label"):
                             current_prop = "label"
-                        elif prop_iri in ("owl:versionInfo", f"{_OWL_NS}versionInfo"):
+                        elif prop_iri in (
+                            "owl:versionInfo",
+                            f"{_OWL_NS}versionInfo",
+                        ):
                             current_prop = "version"
             elif event == "end":
                 if in_top_annotation:
@@ -739,9 +764,17 @@ def _peek_owl_xml_meta(content: bytes) -> OntologyMetadata:
                         current_literal = elem.text
                     elif tag == f"{{{_OWL_NS}}}Annotation" and depth == 2:
                         in_top_annotation = False
-                        if current_prop == "label" and current_literal and name is None:
+                        if (
+                            current_prop == "label"
+                            and current_literal
+                            and name is None
+                        ):
                             name = current_literal
-                        elif current_prop == "version" and current_literal and version is None:
+                        elif (
+                            current_prop == "version"
+                            and current_literal
+                            and version is None
+                        ):
                             version = current_literal
                 depth -= 1
     except ET.ParseError:
@@ -754,7 +787,9 @@ def _peek_owl_xml_meta(content: bytes) -> OntologyMetadata:
 
     prefix = _select_own_prefix(candidates, base_iri)
 
-    return OntologyMetadata(name=name, prefix=prefix, base_iri=base_iri, version=version)
+    return OntologyMetadata(
+        name=name, prefix=prefix, base_iri=base_iri, version=version
+    )
 
 
 def _peek_owl_rdflib_meta(content: bytes, fmt: str) -> OntologyMetadata:
@@ -788,14 +823,19 @@ def _peek_owl_rdflib_meta(content: bytes, fmt: str) -> OntologyMetadata:
         for pfx, ns in g.namespaces():
             pfx_str = str(pfx)
             ns_str = str(ns)
-            if (pfx_str and pfx_str not in _STANDARD_PREFIXES
-                    and onto_iri.startswith(ns_str)
-                    and len(ns_str) > best_ns_len):
+            if (
+                pfx_str
+                and pfx_str not in _STANDARD_PREFIXES
+                and onto_iri.startswith(ns_str)
+                and len(ns_str) > best_ns_len
+            ):
                 best_pfx = pfx_str
                 best_ns_len = len(ns_str)
         prefix = best_pfx
 
-    return OntologyMetadata(name=name, prefix=prefix, base_iri=onto_iri, version=version)
+    return OntologyMetadata(
+        name=name, prefix=prefix, base_iri=onto_iri, version=version
+    )
 
 
 def peek_ontology_metadata(content: bytes) -> OntologyMetadata:
@@ -837,7 +877,7 @@ def parse_owl(
     This materializes the whole result in memory; for large ontologies prefer
     :class:`OntologyStreamParser` and load its ``iter_*`` output in batches.
     """
-    if isinstance(source, (str, Path)):
+    if isinstance(source, str | Path):
         parser = OntologyStreamParser(
             path=source, prefix=prefix, base_iri=base_iri
         )
