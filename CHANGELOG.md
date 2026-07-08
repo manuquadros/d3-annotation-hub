@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Entity search now matches per-word prefixes through the FTS index instead of scanning for arbitrary substrings, so it stays fast on large ontologies; searching a mid-word fragment (e.g. "bacterium" to find "Mycobacterium") no longer matches, but any leading or non-leading whole-word prefix still does.
 - Large ontology imports are faster: the search index's per-row sync triggers are suppressed during a bulk load and the index is rebuilt once at the end.
+- Ontology imports are substantially faster still: the entity, triple, and property loaders now write each batch with a few multi-row statements instead of ~7 database round-trips per entity (a 20k-entity load dropped from ~57 s to ~4 s in a local benchmark).
 - Ontology import streams uploads, so very large ontologies (e.g. NCBITaxon 1.5 GB+) import without exhausting memory; entity/triple progress shows a running count.
 - Curation CURIE rename is restricted to proposed (unconfirmed) entities; renaming a confirmed entity is rejected.
 - The curation and admin CURIE editors show the rejection reason inline and stay open for correction.

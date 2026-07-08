@@ -119,6 +119,19 @@ class DuplicateCurieError(Exception):
     would violate the ``entity.curie`` UNIQUE constraint."""
 
 
+# SQLite caps bound parameters per statement (32766 since 3.32); stay well
+# under so a multi-row insert / expanded IN clause never overflows. The bulk
+# loaders below build one statement per chunk of this many *parameters*.
+_MAX_SQL_VARIABLES = 20000
+
+
+def _chunks(seq: list, size: int):
+    """Yield successive ``size``-length slices of ``seq`` (size >= 1)."""
+    size = max(1, size)
+    for start in range(0, len(seq), size):
+        yield seq[start : start + size]
+
+
 class D3TextDB:
     def __init__(
         self,
@@ -2124,54 +2137,116 @@ class D3TextDB:
     def _load_entity_batch(
         self, ontology_id: int, entities: list[EntityAnnotation]
     ) -> None:
+        """Upsert a batch of ontology entities and their names set-at-a-time.
+
+        Each phase is a handful of multi-row statements rather than ~7
+        round-trips per entity: upsert every Entity, resolve their ids, upsert
+        every distinct Name, reset the batch's preferred flags once, then upsert
+        every EntityName link. On conflict an Entity keeps its ``type`` /
+        ``ontology_id`` and only refreshes ``is_class`` (as the prior per-row
+        upsert did).
+        """
+        # A multi-row ON CONFLICT DO UPDATE cannot touch the same row twice, so
+        # dedupe by curie within the batch (later occurrence wins, matching the
+        # old sequential upserts).
+        by_curie: dict[str, EntityAnnotation] = {
+            entity.entity_id: entity for entity in entities
+        }
+        deduped = list(by_curie.values())
+        if not deduped:
+            return
+
         with Session(self.engine) as session:
-            for entity in entities:
-                int_entity_id: int = session.execute(
-                    insert(Entity)
-                    .values(
-                        curie=entity.entity_id,
-                        type=entity.kind,
-                        ontology_id=ontology_id,
-                        is_class=entity.is_class,
-                    )
-                    .on_conflict_do_update(
+            entity_rows = [
+                {
+                    "curie": entity.entity_id,
+                    "type": entity.kind,
+                    "ontology_id": ontology_id,
+                    "is_class": entity.is_class,
+                }
+                for entity in deduped
+            ]
+            for chunk in _chunks(entity_rows, _MAX_SQL_VARIABLES // 4):
+                stmt = insert(Entity).values(chunk)
+                session.execute(
+                    stmt.on_conflict_do_update(
                         index_elements=["curie"],
-                        set_={
-                            "type": Entity.type,
-                            "ontology_id": Entity.ontology_id,
-                            "is_class": entity.is_class,
-                        },
+                        set_={"is_class": stmt.excluded.is_class},
                     )
-                    .returning(Entity.entity_id)
-                ).scalar_one()
+                )
 
-                all_names: list[tuple[str, bool]] = [
-                    (entity.preferred_name, True)
-                ] + [(s, False) for s in entity.synonyms]
-
-                self._clear_preferred_flags(session, int_entity_id)
-                for label, is_preferred in all_names:
-                    name_id: int = session.execute(
-                        insert(Name)
-                        .values(label=label)
-                        .on_conflict_do_update(
-                            index_elements=["label"],
-                            set_={"label": Name.label},
-                        )
-                        .returning(Name.id)
-                    ).scalar_one()
+            curie_to_id: dict[str, int] = {}
+            curies = [entity.entity_id for entity in deduped]
+            for chunk in _chunks(curies, _MAX_SQL_VARIABLES):
+                curie_to_id.update(
                     session.execute(
-                        insert(EntityName)
-                        .values(
-                            entity_id=int_entity_id,
-                            name_id=name_id,
-                            is_preferred=is_preferred,
+                        select(Entity.curie, Entity.entity_id).where(
+                            Entity.curie.in_(chunk)
                         )
-                        .on_conflict_do_update(
-                            index_elements=["entity_id", "name_id"],
-                            set_={"is_preferred": is_preferred},
-                        )
+                    ).all()
+                )
+
+            # Build the per-entity name lists and the distinct label set. Drop
+            # any synonym equal to the preferred name so its EntityName link
+            # can't be demoted to is_preferred=False (matches store_annotation).
+            names_by_entity: dict[int, list[tuple[str, bool]]] = {}
+            distinct_labels: dict[str, None] = {}
+            for entity in deduped:
+                entity_id = curie_to_id[entity.entity_id]
+                labels = [(entity.preferred_name, True)] + [
+                    (s, False)
+                    for s in entity.synonyms
+                    if s != entity.preferred_name
+                ]
+                names_by_entity[entity_id] = labels
+                for label, _ in labels:
+                    distinct_labels[label] = None
+
+            label_list = list(distinct_labels)
+            for chunk in _chunks(label_list, _MAX_SQL_VARIABLES):
+                session.execute(
+                    insert(Name)
+                    .values([{"label": label} for label in chunk])
+                    .on_conflict_do_nothing(index_elements=["label"])
+                )
+            label_to_id: dict[str, int] = {}
+            for chunk in _chunks(label_list, _MAX_SQL_VARIABLES):
+                label_to_id.update(
+                    session.execute(
+                        select(Name.label, Name.id).where(Name.label.in_(chunk))
+                    ).all()
+                )
+
+            # Reset preferred flags across the batch in one UPDATE so a preferred
+            # name changed across re-imports doesn't leave two flagged rows.
+            entity_ids = list(names_by_entity)
+            for chunk in _chunks(entity_ids, _MAX_SQL_VARIABLES):
+                session.execute(
+                    update(EntityName)
+                    .where(EntityName.entity_id.in_(chunk))
+                    .values(is_preferred=False)
+                )
+
+            # Collapse duplicate (entity_id, name_id) pairs (e.g. a repeated
+            # synonym) into one row, preferring is_preferred=True.
+            link_flags: dict[tuple[int, int], bool] = {}
+            for entity_id, labels in names_by_entity.items():
+                for label, is_preferred in labels:
+                    key = (entity_id, label_to_id[label])
+                    link_flags[key] = link_flags.get(key, False) or is_preferred
+            link_rows = [
+                {"entity_id": eid, "name_id": nid, "is_preferred": pref}
+                for (eid, nid), pref in link_flags.items()
+            ]
+            for chunk in _chunks(link_rows, _MAX_SQL_VARIABLES // 3):
+                stmt = insert(EntityName).values(chunk)
+                session.execute(
+                    stmt.on_conflict_do_update(
+                        index_elements=["entity_id", "name_id"],
+                        set_={"is_preferred": stmt.excluded.is_preferred},
                     )
+                )
+
             session.commit()
 
     def rebuild_fts(self) -> None:
@@ -2200,19 +2275,23 @@ class D3TextDB:
             return 0
 
         with Session(self.engine) as session:
-            # Resolve all referenced CURIEs to integer entity IDs in one query
-            all_curies = {t.subject_curie for t in triples} | {
-                t.object_curie for t in triples if t.object_curie
-            }
-            curie_to_id: dict[str, int] = dict(
-                session.execute(
-                    select(Entity.curie, Entity.entity_id).where(
-                        Entity.curie.in_(all_curies)
-                    )
-                ).fetchall()
+            # Resolve all referenced CURIEs to integer entity IDs, chunking the
+            # IN clause so a large ontology can't overflow the parameter limit.
+            all_curies = list(
+                {t.subject_curie for t in triples}
+                | {t.object_curie for t in triples if t.object_curie}
             )
+            curie_to_id: dict[str, int] = {}
+            for chunk in _chunks(all_curies, _MAX_SQL_VARIABLES):
+                curie_to_id.update(
+                    session.execute(
+                        select(Entity.curie, Entity.entity_id).where(
+                            Entity.curie.in_(chunk)
+                        )
+                    ).all()
+                )
 
-            count = 0
+            rows: list[dict] = []
             for triple in triples:
                 subject_id = curie_to_id.get(triple.subject_curie)
                 if subject_id is None:
@@ -2222,20 +2301,22 @@ class D3TextDB:
                     if triple.object_curie
                     else None
                 )
-                session.execute(
-                    insert(Triple)
-                    .values(
-                        subject_id=subject_id,
-                        predicate=triple.predicate,
-                        object_id=object_id,
-                        object_literal=triple.object_literal,
-                    )
-                    .on_conflict_do_nothing()
+                rows.append(
+                    {
+                        "subject_id": subject_id,
+                        "predicate": triple.predicate,
+                        "object_id": object_id,
+                        "object_literal": triple.object_literal,
+                    }
                 )
-                count += 1
+
+            for chunk in _chunks(rows, _MAX_SQL_VARIABLES // 4):
+                session.execute(
+                    insert(Triple).values(chunk).on_conflict_do_nothing()
+                )
 
             session.commit()
-        return count
+        return len(rows)
 
     def load_ontology_properties(
         self, ontology_id: int, properties: list[ParsedProperty]
@@ -2249,23 +2330,31 @@ class D3TextDB:
         """
         if not properties:
             return 0
+        # Dedupe by curie within the batch (later wins) for the multi-row
+        # upsert, which cannot touch the same (ontology_id, curie) row twice.
+        by_curie: dict[str, ParsedProperty] = {
+            prop.curie: prop for prop in properties
+        }
+        rows = [
+            {
+                "ontology_id": ontology_id,
+                "curie": prop.curie,
+                "label": prop.label,
+                "domain_curie": prop.domain_curie,
+                "range_curie": prop.range_curie,
+            }
+            for prop in by_curie.values()
+        ]
         with Session(self.engine) as session:
-            for prop in properties:
+            for chunk in _chunks(rows, _MAX_SQL_VARIABLES // 5):
+                stmt = insert(OntologyProperty).values(chunk)
                 session.execute(
-                    insert(OntologyProperty)
-                    .values(
-                        ontology_id=ontology_id,
-                        curie=prop.curie,
-                        label=prop.label,
-                        domain_curie=prop.domain_curie,
-                        range_curie=prop.range_curie,
-                    )
-                    .on_conflict_do_update(
+                    stmt.on_conflict_do_update(
                         index_elements=["ontology_id", "curie"],
                         set_={
-                            "label": prop.label,
-                            "domain_curie": prop.domain_curie,
-                            "range_curie": prop.range_curie,
+                            "label": stmt.excluded.label,
+                            "domain_curie": stmt.excluded.domain_curie,
+                            "range_curie": stmt.excluded.range_curie,
                         },
                     )
                 )

@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 
 import pytest
-from sqlalchemy import text
+from sqlalchemy import func, text
 from sqlmodel import Session, select
 
 from d3textdb import D3TextDB, OntologyInUseError
@@ -751,6 +751,149 @@ def test_load_ontology_entities_suppresses_then_restores_fts_triggers() -> None:
         r.preferred_name == "Escherichia coli K12"
         for r in db.search_entities("k12")
     )
+
+
+def _entity_names(db: D3TextDB, curie: str) -> dict[str, bool]:
+    """Return {label: is_preferred} for the entity identified by ``curie``."""
+    from d3textdb.schema import EntityName, Name
+
+    with Session(db.engine) as session:
+        entity_id = session.execute(
+            select(Entity.entity_id).where(Entity.curie == curie)
+        ).scalar_one()
+        rows = session.execute(
+            select(Name.label, EntityName.is_preferred)
+            .join(EntityName, EntityName.name_id == Name.id)
+            .where(EntityName.entity_id == entity_id)
+        ).all()
+    return {label: pref for label, pref in rows}
+
+
+def test_load_ontology_entities_flags_preferred_not_synonyms() -> None:
+    from d3textdb.schema import EntityAnnotation as EA
+
+    db = D3TextDB()
+    ontology_id = db.store_ontology("O", "O", "http://o/")
+    db.load_ontology_entities(
+        ontology_id,
+        [EA(entity_id="O:1", preferred_name="Pref", kind="d3o:Bacteria", synonyms=["a", "b"], is_class=True)],
+    )
+    assert _entity_names(db, "O:1") == {"Pref": True, "a": False, "b": False}
+
+
+def test_load_ontology_entities_reimport_resets_preferred_and_refreshes_is_class() -> None:
+    """Re-importing an entity with a new preferred name flags only the new name
+    and refreshes is_class, while keeping type and ontology_id."""
+    from d3textdb.schema import EntityAnnotation as EA
+
+    db = D3TextDB()
+    ontology_id = db.store_ontology("O", "O", "http://o/")
+    db.load_ontology_entities(
+        ontology_id,
+        [EA(entity_id="O:1", preferred_name="Pref", kind="d3o:Bacteria", synonyms=["a"], is_class=True)],
+    )
+    db.load_ontology_entities(
+        ontology_id,
+        [EA(entity_id="O:1", preferred_name="NewPref", kind="d3o:Bacteria", synonyms=["a"], is_class=False)],
+    )
+
+    names = _entity_names(db, "O:1")
+    assert names["NewPref"] is True
+    assert names["Pref"] is False
+    assert sum(1 for pref in names.values() if pref) == 1
+
+    with Session(db.engine) as session:
+        row = session.execute(
+            select(Entity.type, Entity.ontology_id, Entity.is_class).where(Entity.curie == "O:1")
+        ).one()
+    assert row == ("d3o:Bacteria", ontology_id, False)
+
+
+def test_load_ontology_entities_dedupes_repeated_and_preferred_synonyms() -> None:
+    """A synonym equal to the preferred name (or a repeated synonym) must not
+    crash the multi-row upsert or demote the preferred flag."""
+    from d3textdb.schema import EntityAnnotation as EA
+
+    db = D3TextDB()
+    ontology_id = db.store_ontology("O", "O", "http://o/")
+    db.load_ontology_entities(
+        ontology_id,
+        [EA(entity_id="O:2", preferred_name="Dup", kind="d3o:Bacteria", synonyms=["Dup", "x", "x"], is_class=True)],
+    )
+    assert _entity_names(db, "O:2") == {"Dup": True, "x": False}
+
+
+def test_load_ontology_entities_reuses_shared_synonym_across_batches() -> None:
+    """A synonym shared by every entity resolves to one Name row reused by all,
+    across more than one internal batch (batch_size defaults to 500)."""
+    from d3textdb.schema import EntityAnnotation as EA
+    from d3textdb.schema import EntityName, Name
+
+    db = D3TextDB()
+    ontology_id = db.store_ontology("O", "O", "http://o/")
+    entities = [
+        EA(entity_id=f"O:{i}", preferred_name=f"name {i}", kind="d3o:Bacteria", synonyms=["shared"], is_class=True)
+        for i in range(1100)
+    ]
+    assert db.load_ontology_entities(ontology_id, entities) == 1100
+
+    with Session(db.engine) as session:
+        shared_id = session.execute(
+            select(Name.id).where(Name.label == "shared")
+        ).scalar_one()
+        link_count = session.execute(
+            select(func.count()).select_from(EntityName).where(EntityName.name_id == shared_id)
+        ).scalar_one()
+    assert link_count == 1100
+
+
+def test_load_ontology_triples_skips_unresolved_and_dedupes() -> None:
+    from d3textdb.owl import ParsedTriple
+    from d3textdb.schema import EntityAnnotation as EA
+    from d3textdb.schema import Triple
+
+    db = D3TextDB()
+    ontology_id = db.store_ontology("O", "O", "http://o/")
+    db.load_ontology_entities(
+        ontology_id,
+        [
+            EA(entity_id="O:1", preferred_name="One", kind="d3o:Bacteria", synonyms=[], is_class=True),
+            EA(entity_id="O:2", preferred_name="Two", kind="d3o:Bacteria", synonyms=[], is_class=True),
+        ],
+    )
+
+    attempted = db.load_ontology_triples([
+        ParsedTriple("O:1", "rdfs:subClassOf", "O:2"),
+        ParsedTriple("O:1", "rdfs:subClassOf", "O:2"),          # dup
+        ParsedTriple("O:missing", "rdfs:subClassOf", "O:2"),    # unresolved subject
+        ParsedTriple("O:2", "skos:definition", None, "a def"),  # literal object
+    ])
+
+    # Counts triples with a resolved subject (the unresolved one is skipped),
+    # even when the insert is a no-op due to the unique constraint.
+    assert attempted == 3
+    with Session(db.engine) as session:
+        stored = session.execute(select(func.count()).select_from(Triple)).scalar_one()
+    assert stored == 2  # duplicate collapsed by ON CONFLICT DO NOTHING
+
+
+def test_load_ontology_properties_upserts_and_dedupes_by_curie() -> None:
+    from d3textdb.owl import ParsedProperty
+    from d3textdb.schema import OntologyProperty
+
+    db = D3TextDB()
+    ontology_id = db.store_ontology("O", "O", "http://o/")
+    db.load_ontology_properties(ontology_id, [ParsedProperty("o:p", "old")])
+    db.load_ontology_properties(
+        ontology_id,
+        [ParsedProperty("o:p", "new"), ParsedProperty("o:p", "newer")],
+    )
+
+    with Session(db.engine) as session:
+        rows = session.execute(
+            select(OntologyProperty.curie, OntologyProperty.label)
+        ).all()
+    assert rows == [("o:p", "newer")]  # single row, later-wins within a batch
 
 
 def test_get_entity_types_ranks_prefix_match_before_contains_match() -> None:
