@@ -19,6 +19,9 @@ interface Snapshot {
 
 const CONTEXT_SIZE = 32;
 
+/** Cap on retained undo snapshots; oldest are dropped past this. */
+const MAX_UNDO_HISTORY = 100;
+
 function buildTextQuoteSelector(
     plainText: string,
     offset: number,
@@ -174,7 +177,11 @@ export class AnnotationState {
     }
 
     #commit(snapshot: Snapshot): void {
-        this.#past = [...this.#past, snapshot];
+        const past = [...this.#past, snapshot];
+        if (past.length > MAX_UNDO_HISTORY) {
+            past.splice(0, past.length - MAX_UNDO_HISTORY);
+        }
+        this.#past = past;
         this.#future = [];
     }
 
@@ -206,16 +213,30 @@ export class AnnotationState {
         this.completed = false;
     }
 
-    #getPlainText(field: "abstract" | "body"): string {
+    #plainTextCache = new globalThis.Map<"abstract" | "body", string>();
+
+    /**
+     * Sanitized plain text of the given field, memoized. The reference body and
+     * abstract are immutable for an instance's lifetime, so each field is
+     * sanitized at most once rather than on every selection, highlight click,
+     * or edit.
+     */
+    plainText(field: "abstract" | "body"): string {
+        const cached = this.#plainTextCache.get(field);
+        if (cached !== undefined) return cached;
+
         const html =
             field === "abstract"
                 ? this.reference.abstract
                 : this.reference.body;
-        if (!html) return "";
-        const tempDiv = globalThis.document?.createElement("div");
-        if (!tempDiv) return "";
-        tempDiv.innerHTML = DOMPurify.sanitize(html);
-        return tempDiv.textContent || "";
+        let text = "";
+        const tempDiv = html ? globalThis.document?.createElement("div") : null;
+        if (tempDiv) {
+            tempDiv.innerHTML = DOMPurify.sanitize(html!);
+            text = tempDiv.textContent || "";
+        }
+        this.#plainTextCache.set(field, text);
+        return text;
     }
 
     /**
@@ -231,7 +252,7 @@ export class AnnotationState {
         field: "abstract" | "body",
     ): void {
         const before = this.#snapshot();
-        const plainText = this.#getPlainText(field);
+        const plainText = this.plainText(field);
         const synonyms = new globalThis.Set<string>();
 
         const trimmedName = preferredName.trim();
@@ -312,7 +333,7 @@ export class AnnotationState {
             });
         }
 
-        const plainText = this.#getPlainText(field);
+        const plainText = this.plainText(field);
 
         let updatedPointers = this.pointers;
         for (const { offset, length } of offsets) {
@@ -526,7 +547,7 @@ export class AnnotationState {
             });
         }
 
-        const plainText = this.#getPlainText(field);
+        const plainText = this.plainText(field);
 
         let updatedPointers = this.pointers;
         for (const { offset, length } of offsets) {
@@ -581,7 +602,7 @@ export class AnnotationState {
         const before = this.#snapshot();
         const pointer = this.pointers.get(pointerId);
         if (pointer) {
-            const plainText = this.#getPlainText(pointer.field);
+            const plainText = this.plainText(pointer.field);
             this.pointers = this.pointers.set(pointerId, {
                 ...pointer,
                 offset,
@@ -619,16 +640,27 @@ export function uncoveredOffsets(
     candidates: Array<{ offset: number; length: number }>,
     againstPointers: ImmutableMap<string, Pointer>,
 ): Array<{ offset: number; length: number }> {
-    return candidates.filter(
-        ({ offset, length }) =>
-            !againstPointers
-                .valueSeq()
-                .some(
-                    (p) =>
-                        p.offset < offset + length &&
-                        offset < p.offset + p.length,
-                ),
-    );
+    const spans = againstPointers
+        .valueSeq()
+        .map((p) => ({ start: p.offset, end: p.offset + p.length }))
+        .toArray()
+        .sort((a, b) => a.start - b.start);
+    const starts = spans.map((s) => s.start);
+    // maxEndUpTo[i] = greatest span end among spans[0..i], so a candidate can
+    // test for any overlap with two binary searches instead of scanning spans.
+    const maxEndUpTo = new Array<number>(spans.length);
+    let running = -Infinity;
+    for (let i = 0; i < spans.length; i++) {
+        running = Math.max(running, spans[i].end);
+        maxEndUpTo[i] = running;
+    }
+
+    return candidates.filter(({ offset, length }) => {
+        const end = offset + length;
+        // A span overlaps iff it starts before `end` and ends after `offset`.
+        const startingBefore = firstIndexWhere(starts, (s) => s >= end);
+        return startingBefore === 0 || maxEndUpTo[startingBefore - 1] <= offset;
+    });
 }
 
 /**
@@ -805,16 +837,19 @@ export function buildTextNodeIndex(element: HTMLElement): TextNodeIndex {
     return { nodes, starts, ends };
 }
 
-/** First index `i` where `test(ends[i])` holds, or `ends.length` if none. */
+/**
+ * First index `i` where `test(values[i])` holds, or `values.length` if none.
+ * `values` must be sorted so `test` flips from false to true exactly once.
+ */
 function firstIndexWhere(
-    ends: number[],
-    test: (end: number) => boolean,
+    values: number[],
+    test: (value: number) => boolean,
 ): number {
     let lo = 0;
-    let hi = ends.length;
+    let hi = values.length;
     while (lo < hi) {
         const mid = (lo + hi) >> 1;
-        if (test(ends[mid])) hi = mid;
+        if (test(values[mid])) hi = mid;
         else lo = mid + 1;
     }
     return lo;

@@ -23,6 +23,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Editing an entity's metadata (rename, class/type change, synonym, or URI) no longer rebuilds and re-highlights the whole article body — the annotation render now depends only on where the annotations are, so metadata edits stay instant even on long, heavily annotated articles.
 - The annotation sidebar's per-entity mention counts are computed once per edit and shared across the buttons instead of each button rescanning every annotation, keeping the sidebar responsive on documents with many entities and mentions.
 - Rendering the annotated article resolves each highlight's position with a single indexed pass over the text instead of re-scanning the whole article per annotation, so opening and re-rendering a heavily annotated article is markedly faster.
+- Clicking a highlight or selecting text no longer re-sanitizes the whole article body each time; the field's plain text is computed once and reused, keeping selection and highlight interactions responsive on large articles.
+- Annotation undo history is capped at the most recent 100 changes so a long editing session can no longer grow it without bound; older steps beyond that are no longer undoable.
 
 ### Fixed
 

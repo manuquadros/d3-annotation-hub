@@ -1,4 +1,5 @@
-import { describe, expect, test } from "vitest";
+import { describe, expect, test, vi } from "vitest";
+import DOMPurify from "dompurify";
 import { Map } from "immutable";
 import type { Map as ImmutableMap } from "immutable";
 import type { Pointer } from "$lib/types.ts";
@@ -91,6 +92,24 @@ describe("uncoveredOffsets", () => {
         const pointers = makePointers([{ offset: 5, length: 4 }]);
         expect(uncoveredOffsets([covered, uncovered], pointers)).toEqual([
             uncovered,
+        ]);
+    });
+
+    test("filters against many spans regardless of insertion order", () => {
+        // Spans [0,3), [10,13), [20,23), supplied out of order.
+        const pointers = makePointers([
+            { offset: 0, length: 3 },
+            { offset: 20, length: 3 },
+            { offset: 10, length: 3 },
+        ]);
+        const candidates = [
+            { offset: 5, length: 3 }, // [5,8) — gap, kept
+            { offset: 12, length: 4 }, // [12,16) — overlaps [10,13), dropped
+            { offset: 23, length: 2 }, // [23,25) — abuts [20,23) end, kept
+        ];
+        expect(uncoveredOffsets(candidates, pointers)).toEqual([
+            { offset: 5, length: 3 },
+            { offset: 23, length: 2 },
         ]);
     });
 });
@@ -197,5 +216,34 @@ describe("AnnotationState.pointerCountByEntity", () => {
         expect(state.pointerCountByEntity.get("a")).toBe(2);
         state.delete("ptr_0");
         expect(state.pointerCountByEntity.get("a")).toBe(1);
+    });
+});
+
+describe("AnnotationState.plainText", () => {
+    test("sanitizes each field at most once and reuses the result", () => {
+        const state = makeState(["a"], ["a"]);
+        const spy = vi.spyOn(DOMPurify, "sanitize");
+        try {
+            const first = state.plainText("body");
+            const second = state.plainText("body");
+            expect(second).toBe(first);
+            expect(spy).toHaveBeenCalledTimes(1);
+        } finally {
+            spy.mockRestore();
+        }
+    });
+});
+
+describe("AnnotationState undo history", () => {
+    test("is bounded so it cannot grow without limit", () => {
+        const state = makeState([], ["a"]);
+        for (let i = 0; i < 150; i++) state.addSynonym("a", `syn${i}`);
+
+        let undos = 0;
+        while (state.canUndo && undos <= 200) {
+            state.undo();
+            undos++;
+        }
+        expect(undos).toBe(100);
     });
 });

@@ -5,7 +5,6 @@
         AnnotationState,
         extractSentence,
     } from "$lib/annotation.svelte";
-    import DOMPurify from "dompurify";
     import type { EditorState } from "$lib/types.ts";
     import type { Attachment } from "svelte/attachments";
 
@@ -68,9 +67,7 @@
         const offset = rawOffset + leadingSpaces;
         const length = trimmedText.length;
 
-        const tempDiv = document.createElement("div");
-        tempDiv.innerHTML = DOMPurify.sanitize(html ?? "");
-        const plainText = tempDiv.textContent || "";
+        const plainText = annotationState.plainText(field);
 
         const { start: sentenceStart } = extractSentence(plainText, offset);
 

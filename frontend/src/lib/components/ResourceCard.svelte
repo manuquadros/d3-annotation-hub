@@ -7,7 +7,6 @@
     } from "$lib/annotation.svelte";
     import { getLabelColor } from "$lib/colors.ts";
     import type { EditorState } from "$lib/types.ts";
-    import DOMPurify from "dompurify";
 
     interface Props {
         fragment: DocumentFragment;
@@ -37,15 +36,8 @@
         const pointer = annState.pointer(pointer_id);
         if (!pointer) return;
 
-        const fieldHtml =
-            pointer.field === "abstract"
-                ? annState.reference.abstract
-                : annState.reference.body;
-        if (!fieldHtml) return;
-
-        const tempDiv = document.createElement("div");
-        tempDiv.innerHTML = DOMPurify.sanitize(fieldHtml);
-        const plainText = tempDiv.textContent || "";
+        const plainText = annState.plainText(pointer.field);
+        if (!plainText) return;
 
         const resolved = resolvePointerOffset(pointer, plainText);
         const offset = resolved?.offset ?? pointer.offset;
