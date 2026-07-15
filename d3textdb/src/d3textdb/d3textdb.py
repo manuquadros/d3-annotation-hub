@@ -2158,7 +2158,22 @@ class D3TextDB:
             if batch:
                 self._load_entity_batch(ontology_id, batch)
                 total += len(batch)
+        self._refresh_planner_stats()
         return total
+
+    def _refresh_planner_stats(self) -> None:
+        """Refresh SQLite's query-planner statistics after a bulk entity load.
+
+        Without stats the planner ignores ``ix_entityname_name_id`` and drives
+        ``search_entities`` off a full ``Entity.is_class`` scan — O(entities)
+        per search-as-you-type keystroke (~325 ms at 20k entities). ``PRAGMA
+        optimize`` makes it seek the FTS match set through ``name_id`` instead
+        (~2.5 ms, flat as the ontology grows). ``analysis_limit`` bounds the
+        sampling cost so this stays cheap on very large ontologies.
+        """
+        with self.engine.begin() as conn:
+            conn.exec_driver_sql("PRAGMA analysis_limit=1000")
+            conn.exec_driver_sql("PRAGMA optimize")
 
     def _load_entity_batch(  # noqa: C901
         self, ontology_id: int, entities: list[EntityAnnotation]

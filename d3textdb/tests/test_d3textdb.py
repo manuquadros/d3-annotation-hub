@@ -1610,3 +1610,119 @@ def test_create_user_dedups_on_email() -> None:
         )
     # The original credentials are untouched by the rejected second insert.
     assert db.get_user("dup@example.com").user_id == first_id
+
+
+def _index_names(db: D3TextDB, table: str) -> set[str]:
+    with db.engine.connect() as conn:
+        return set(
+            conn.exec_driver_sql(
+                "SELECT name FROM sqlite_master "
+                "WHERE type='index' AND tbl_name=?",
+                (table,),
+            ).scalars()
+        )
+
+
+def test_hot_lookup_indexes_exist() -> None:
+    """The indexes backing the three hot lookup paths are created."""
+    db = D3TextDB()
+    assert "ix_entityname_name_id" in _index_names(db, "entityname")
+    assert (
+        "ix_annotation_state_project_id_user_id_reference_id"
+        in _index_names(db, "annotation_state")
+    )
+    assert (
+        "ix_annotation_snapshot_project_id_user_id_reference_id"
+        in _index_names(db, "annotation_snapshot")
+    )
+
+
+@pytest.mark.parametrize(
+    ("table", "pk", "index"),
+    [
+        (
+            "annotation_state",
+            "state_id",
+            "ix_annotation_state_project_id_user_id_reference_id",
+        ),
+        (
+            "annotation_snapshot",
+            "snapshot_id",
+            "ix_annotation_snapshot_project_id_user_id_reference_id",
+        ),
+    ],
+)
+def test_latest_lookup_uses_composite_index(
+    table: str, pk: str, index: str
+) -> None:
+    """The latest-state / latest-snapshot lookup seeks the (project, user,
+    reference) triple through the composite index instead of scanning the
+    project_id index, and needs no separate sort for ORDER BY <pk> DESC."""
+    db = D3TextDB()
+    sql = (
+        f"SELECT * FROM {table} "
+        f"WHERE project_id=1 AND user_id=x'00' AND reference_id=1 "
+        f"ORDER BY {pk} DESC LIMIT 1"
+    )
+    with db.engine.connect() as conn:
+        plan = " | ".join(
+            r[-1]
+            for r in conn.exec_driver_sql(
+                "EXPLAIN QUERY PLAN " + sql
+            ).fetchall()
+        )
+    assert index in plan, plan
+    assert "TEMP B-TREE FOR ORDER BY" not in plan, plan
+
+
+def test_ontology_import_refreshes_planner_stats_for_search() -> None:
+    """After a bulk load, query-planner stats exist and search_entities drives
+    off ix_entityname_name_id (the FTS match set) rather than a full is_class
+    scan — the index is inert until the load's PRAGMA optimize runs."""
+    from sqlalchemy import event
+
+    from d3textdb.schema import EntityAnnotation as EA
+
+    db = D3TextDB()
+    ontology_id = db.store_ontology("Test", "TEST", "http://test.org/")
+    db.load_ontology_entities(
+        ontology_id,
+        [
+            EA(
+                entity_id=f"TEST:{i}",
+                preferred_name=f"Escherichia coli variant {i:05d}",
+                kind="d3o:Bacteria",
+                synonyms=[f"E. coli syn {i:05d}"],
+            )
+            for i in range(2000)
+        ],
+    )
+
+    with db.engine.connect() as conn:
+        assert (
+            conn.exec_driver_sql("SELECT count(*) FROM sqlite_stat1").scalar()
+            > 0
+        )
+
+    captured: list[tuple[str, object]] = []
+
+    @event.listens_for(db.engine, "before_cursor_execute")
+    def _cap(conn, cursor, statement, params, context, executemany):  # noqa: ANN001
+        if (
+            "entityname" in statement.lower()
+            and "name_fts" in statement.lower()
+        ):
+            captured.append((statement, params))
+
+    results = db.search_entities("0123", limit=20)
+    assert results  # the selective query still matches its ~10 entities
+
+    statement, params = captured[-1]
+    with db.engine.connect() as conn:
+        plan = " | ".join(
+            r[-1]
+            for r in conn.exec_driver_sql(
+                "EXPLAIN QUERY PLAN " + statement, params
+            ).fetchall()
+        )
+    assert "ix_entityname_name_id" in plan, plan

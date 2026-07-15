@@ -14,6 +14,7 @@ from sqlmodel import (
     Column,
     Field,
     ForeignKey,
+    Index,
     Relationship,
     SQLModel,
     UniqueConstraint,
@@ -193,7 +194,10 @@ class EntityName(SQLModel, table=True):
 
     id: int | None = Field(default=None, primary_key=True)
     entity_id: int = Field(foreign_key="entity.entity_id")
-    name_id: int = Field(foreign_key="name.id")
+    # Standalone index (the composite unique is led by entity_id, so it can't
+    # serve name_id lookups) — search_entities joins Name -> EntityName by
+    # name_id off the FTS match set on every search-as-you-type keystroke.
+    name_id: int = Field(foreign_key="name.id", index=True)
     is_preferred: bool = False
 
 
@@ -464,6 +468,17 @@ class AnnotationState(SQLModel, table=True):
     """
 
     __tablename__ = "annotation_state"
+    # Latest-state lookup (annotation-open, mark-complete) seeks this triple
+    # and takes the highest state_id; the implicit trailing rowid means the
+    # ORDER BY state_id DESC LIMIT 1 is a seek, not a sort.
+    __table_args__ = (
+        Index(
+            "ix_annotation_state_project_id_user_id_reference_id",
+            "project_id",
+            "user_id",
+            "reference_id",
+        ),
+    )
 
     state_id: int | None = Field(default=None, primary_key=True)
     project_id: int = Field(foreign_key="project.project_id", index=True)
@@ -526,6 +541,16 @@ class AnnotationSnapshot(SQLModel, table=True):
     """
 
     __tablename__ = "annotation_snapshot"
+    # Latest-snapshot lookup (completion check) seeks this triple and takes the
+    # highest snapshot_id; the trailing rowid keeps it a seek, not a sort.
+    __table_args__ = (
+        Index(
+            "ix_annotation_snapshot_project_id_user_id_reference_id",
+            "project_id",
+            "user_id",
+            "reference_id",
+        ),
+    )
 
     snapshot_id: int | None = Field(default=None, primary_key=True)
     project_id: int = Field(foreign_key="project.project_id", index=True)
