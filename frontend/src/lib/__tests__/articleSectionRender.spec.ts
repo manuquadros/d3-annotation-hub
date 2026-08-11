@@ -89,7 +89,7 @@ describe("ArticleSection render reactivity", () => {
         expect(container.querySelector("#ptr_1")).toBe(before1);
     });
 
-    test("pointer edits still re-render the article", () => {
+    test("deleting a pointer unmarks only that span", () => {
         const state = makeState();
         const { container } = renderSection(state);
         flushSync();
@@ -97,13 +97,93 @@ describe("ArticleSection render reactivity", () => {
         const before0 = container.querySelector("#ptr_0");
         expect(before0).not.toBeNull();
 
-        // Removing a pointer changes the pointers map → attachment re-runs.
         state.delete("ptr_1");
         flushSync();
 
-        const after0 = container.querySelector("#ptr_0");
-        expect(after0).not.toBeNull();
-        expect(after0).not.toBe(before0);
+        // The surviving mark and the ResourceCard mounted inside it are the
+        // same nodes: a rebuild would have replaced both.
+        expect(container.querySelector("#ptr_0")).toBe(before0);
         expect(container.querySelector("#ptr_1")).toBeNull();
+        expect(container.querySelector("#article-body")?.textContent).toBe(
+            BODY,
+        );
+    });
+
+    test("deleting a pointer keeps the surviving cards mounted", () => {
+        const state = makeState();
+        const { container } = renderSection(state);
+        flushSync();
+
+        const card0 = container.querySelector("#ptr_0 .annotation-highlight");
+        expect(card0).not.toBeNull();
+
+        state.delete("ptr_1");
+        flushSync();
+
+        // ResourceCard renders this span itself, so an unmount+remount would
+        // yield a different node even though the id and text match.
+        expect(container.querySelector("#ptr_0 .annotation-highlight")).toBe(
+            card0,
+        );
+    });
+
+    test("adding a pointer marks only the new span", () => {
+        const state = makeState();
+        const { container } = renderSection(state);
+        flushSync();
+
+        const before0 = container.querySelector("#ptr_0");
+        const before1 = container.querySelector("#ptr_1");
+        const card0 = container.querySelector("#ptr_0 .annotation-highlight");
+
+        // "found" occupies offsets 14-19 of BODY and overlaps neither pointer.
+        state.add("Enzyme", "found", [{ offset: 14, length: 5 }], "body");
+        flushSync();
+
+        expect(container.querySelector("#ptr_0")).toBe(before0);
+        expect(container.querySelector("#ptr_1")).toBe(before1);
+        expect(container.querySelector("#ptr_0 .annotation-highlight")).toBe(
+            card0,
+        );
+        expect(container.querySelector("#ptr_2")?.textContent).toBe("found");
+        expect(container.querySelector("#article-body")?.textContent).toBe(
+            BODY,
+        );
+    });
+
+    test("moving a pointer re-marks it without disturbing the others", () => {
+        const state = makeState();
+        const { container } = renderSection(state);
+        flushSync();
+
+        const before0 = container.querySelector("#ptr_0");
+        const before1 = container.querySelector("#ptr_1");
+
+        // "appeared" occupies offsets 33-41.
+        state.updatePointerOffsets("ptr_1", 33, 8);
+        flushSync();
+
+        expect(container.querySelector("#ptr_0")).toBe(before0);
+        expect(container.querySelector("#ptr_1")).not.toBe(before1);
+        expect(container.querySelector("#ptr_1")?.textContent).toBe("appeared");
+        expect(container.querySelector("#article-body")?.textContent).toBe(
+            BODY,
+        );
+    });
+
+    test("undoing back to the original pointer set restores the same DOM", () => {
+        const state = makeState();
+        const { container } = renderSection(state);
+        flushSync();
+        const body = container.querySelector("#article-body")!;
+        const rebuilt = body.innerHTML;
+
+        state.add("Enzyme", "found", [{ offset: 14, length: 5 }], "body");
+        flushSync();
+        state.undo();
+        flushSync();
+
+        expect(body.innerHTML).toBe(rebuilt);
+        expect(body.textContent).toBe(BODY);
     });
 });

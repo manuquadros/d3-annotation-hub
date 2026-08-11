@@ -1,7 +1,7 @@
 <script lang="ts">
-    import { getContext } from "svelte";
+    import { getContext, untrack } from "svelte";
     import {
-        annotateHTMLString,
+        ArticleRenderer,
         AnnotationState,
         extractSentence,
     } from "$lib/annotation.svelte";
@@ -21,10 +21,21 @@
     const pointers = $derived(annotationState.pointers);
 
     const renderAnnotated: Attachment<HTMLDivElement> = (element) => {
-        if (html) {
-            return annotateHTMLString(element, html, pointers, field);
+        if (!html) {
+            element.replaceChildren();
+            return;
         }
-        element.replaceChildren();
+        const renderer = new ArticleRenderer(element, html, field);
+        // The nested effect — not the attachment — owns the dependency on
+        // pointers. An attachment that tracked them would be torn down and
+        // re-run per edit, and its teardown unmounts every ResourceCard before
+        // the article is even reparsed; the renderer instead patches the marks
+        // that actually changed.
+        renderer.update(untrack(() => pointers));
+        $effect(() => {
+            renderer.update(pointers);
+        });
+        return () => renderer.destroy();
     };
 
     /**

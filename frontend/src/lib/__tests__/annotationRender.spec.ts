@@ -16,7 +16,7 @@ vi.mock("svelte", async (importOriginal) => {
     return { ...actual, mount: mountMock, unmount: unmountMock };
 });
 
-import { annotateHTMLString } from "$lib/annotation.svelte.ts";
+import { annotateHTMLString, ArticleRenderer } from "$lib/annotation.svelte.ts";
 
 function pointer(overrides: Partial<Pointer>): Pointer {
     return {
@@ -110,5 +110,152 @@ describe("annotateHTMLString mount lifecycle (TICKET-23)", () => {
         expect(mountMock).toHaveBeenCalledTimes(1);
         cleanup();
         expect(unmountMock).toHaveBeenCalledTimes(1);
+    });
+});
+
+describe("ArticleRenderer incremental updates (TICKET-23)", () => {
+    // A faithful stand-in for ResourceCard: it adopts the extracted fragment
+    // into a root of its own, so the container keeps its text between updates
+    // exactly as the real card does.
+    beforeEach(() => {
+        let n = 0;
+        mountMock.mockImplementation(
+            (
+                _component: unknown,
+                options: {
+                    target: HTMLElement;
+                    props: { fragment: DocumentFragment };
+                },
+            ) => {
+                const root = document.createElement("span");
+                root.className = "annotation-highlight";
+                root.append(options.props.fragment);
+                options.target.append(root);
+                return { id: ++n, root };
+            },
+        );
+        unmountMock.mockImplementation((instance: { root: HTMLElement }) => {
+            instance.root.remove();
+        });
+    });
+
+    const hello = pointer({ offset: 0, length: 5, exact_text: "Hello" });
+    const world = pointer({ offset: 6, length: 5, exact_text: "world" });
+    const foo = pointer({ offset: 12, length: 3, exact_text: "foo" });
+
+    test("re-updating with the same pointers touches no cards", () => {
+        const pointers = Map<string, Pointer>({ p1: hello, p2: world });
+        const renderer = new ArticleRenderer(elem, HTML, "body");
+        renderer.update(pointers);
+        expect(mountMock).toHaveBeenCalledTimes(2);
+
+        renderer.update(pointers);
+
+        expect(mountMock).toHaveBeenCalledTimes(2);
+        expect(unmountMock).not.toHaveBeenCalled();
+    });
+
+    test("deleting a pointer unmounts only that pointer's card", () => {
+        const renderer = new ArticleRenderer(elem, HTML, "body");
+        renderer.update(Map<string, Pointer>({ p1: hello, p2: world }));
+        const [firstCard, secondCard] = mountMock.mock.results.map(
+            (r) => r.value,
+        );
+
+        renderer.update(Map<string, Pointer>({ p1: hello }));
+
+        expect(unmountMock.mock.calls.map((c) => c[0])).toEqual([secondCard]);
+        expect(mountMock).toHaveBeenCalledTimes(2);
+        expect(elem.contains(firstCard.root)).toBe(true);
+        expect(elem.textContent).toBe("Hello world foo bar");
+        expect(elem.querySelector("#p2")).toBeNull();
+    });
+
+    test("adding a pointer mounts only the new card", () => {
+        const renderer = new ArticleRenderer(elem, HTML, "body");
+        renderer.update(Map<string, Pointer>({ p1: hello, p2: world }));
+        const before = mountMock.mock.results.map((r) => r.value);
+
+        renderer.update(
+            Map<string, Pointer>({ p1: hello, p2: world, p3: foo }),
+        );
+
+        expect(mountMock).toHaveBeenCalledTimes(3);
+        expect(unmountMock).not.toHaveBeenCalled();
+        for (const card of before) expect(elem.contains(card.root)).toBe(true);
+        expect(elem.querySelector("#p3")?.textContent).toBe("foo");
+        expect(elem.textContent).toBe("Hello world foo bar");
+    });
+
+    test("destroy unmounts the cards still live after incremental updates", () => {
+        const renderer = new ArticleRenderer(elem, HTML, "body");
+        renderer.update(Map<string, Pointer>({ p1: hello, p2: world }));
+        renderer.update(Map<string, Pointer>({ p1: hello, p3: foo }));
+        unmountMock.mockClear();
+
+        renderer.destroy();
+
+        expect(unmountMock).toHaveBeenCalledTimes(2);
+    });
+
+    test("overlapping spans fall back to a full rebuild", () => {
+        const renderer = new ArticleRenderer(elem, HTML, "body");
+        renderer.update(Map<string, Pointer>({ p1: hello, p2: world }));
+        mountMock.mockClear();
+        unmountMock.mockClear();
+
+        renderer.update(
+            Map<string, Pointer>({
+                p1: hello,
+                p2: world,
+                p3: pointer({ offset: 3, length: 5, exact_text: "lo wo" }),
+            }),
+        );
+
+        expect(unmountMock).toHaveBeenCalledTimes(2);
+        expect(mountMock).toHaveBeenCalledTimes(3);
+    });
+
+    // plain text: "Alpha beta gamma delta"
+    const RICH = "<p>Alpha <b>beta</b> gamma delta</p>";
+    const alpha = pointer({ offset: 0, length: 5, exact_text: "Alpha" });
+    const beta = pointer({ offset: 6, length: 4, exact_text: "beta" });
+    const delta = pointer({ offset: 17, length: 5, exact_text: "delta" });
+    // Starts inside <b> and ends outside it.
+    const betaGamma = pointer({
+        offset: 6,
+        length: 10,
+        exact_text: "beta gamma",
+    });
+
+    function rebuild(pointers: Map<string, Pointer>): string {
+        const fresh = document.createElement("div");
+        new ArticleRenderer(fresh, RICH, "body").update(pointers);
+        return fresh.innerHTML;
+    }
+
+    test("patching to a pointer set yields the DOM a rebuild would", () => {
+        const target = Map<string, Pointer>({ p1: alpha, p3: delta });
+        const renderer = new ArticleRenderer(elem, RICH, "body");
+        renderer.update(target.set("p2", beta));
+        renderer.update(target);
+
+        expect(elem.innerHTML).toBe(rebuild(target));
+    });
+
+    test("removing a mark that crossed an element boundary rebuilds", () => {
+        const target = Map<string, Pointer>({ p1: alpha });
+        const renderer = new ArticleRenderer(elem, RICH, "body");
+        renderer.update(target.set("p2", betaGamma));
+        mountMock.mockClear();
+        unmountMock.mockClear();
+
+        renderer.update(target);
+
+        // Putting the extracted content back cannot undo the <b> split, so the
+        // whole article is re-rendered instead.
+        expect(unmountMock).toHaveBeenCalledTimes(2);
+        expect(mountMock).toHaveBeenCalledTimes(1);
+        expect(elem.innerHTML).toBe(rebuild(target));
     });
 });

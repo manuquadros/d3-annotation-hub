@@ -709,18 +709,262 @@ const _sanitizeCache = new WeakMap<
     { html: string; sanitized: string }
 >();
 
+interface Span {
+    start: number;
+    end: number;
+}
+
+interface MarkedSpan extends Span {
+    mark: HTMLSpanElement;
+    instance: Record<string, unknown>;
+    /**
+     * The article nodes `markRange` lifted out of the document, in order.
+     * `ResourceCard` appends them into its own root, so removing a mark has to
+     * put them back before `unmount()` takes that subtree down with them.
+     */
+    content: Node[];
+    /**
+     * Whether the marked range lay inside a single text node. If it did not,
+     * `extractContents` cloned the partially covered ancestors and left the
+     * originals behind empty, which putting `content` back would not undo — so
+     * such a mark can only be removed by rebuilding.
+     */
+    simple: boolean;
+}
+
+function spanKey(span: Span): string {
+    return `${span.start}:${span.end}`;
+}
+
 /**
- * Renders annotated HTML into `elem`, highlighting only pointers that belong
- * to the given `field`. Uses TextQuoteSelector to resolve offsets robustly.
- * Reflects pointer positions only, not entity metadata — labels and colors are
- * rendered inside each `ResourceCard`, not here.
+ * Whether a set of resolved spans can be maintained by patching individual
+ * marks. Overlapping spans nest or interleave their marks and empty spans have
+ * no stable insertion point, so in either case adding or removing one span
+ * would disturb its neighbours' DOM — those states are rebuilt wholesale
+ * instead (see TICKET-35 for the overlap semantics themselves).
+ */
+function spansPatchable(spans: Span[]): boolean {
+    const sorted = [...spans].sort((a, b) => a.start - b.start);
+    for (let i = 0; i < sorted.length; i++) {
+        if (sorted[i].end <= sorted[i].start) return false;
+        if (i > 0 && sorted[i].start < sorted[i - 1].end) return false;
+    }
+    return true;
+}
+
+/**
+ * Renders an article field's HTML into `elem` and keeps its highlight marks in
+ * sync with a pointer map.
  *
- * Returns a cleanup that unmounts every `ResourceCard` this call mounted. The
- * caller (the `{@attach}` in `ArticleSection.svelte`) must invoke it before the
- * next render and on destroy: `mount()`ed cards own live `$derived` state that
- * keeps reacting to `AnnotationState` even after `innerHTML` detaches their DOM,
- * so without an explicit `unmount()` they accumulate one leaked instance per
- * card per edit.
+ * The first `update()` parses the sanitized HTML and marks every pointer.
+ * Later `update()` calls diff the resolved spans against the marks already in
+ * the DOM and touch only the ones that changed, so an edit that adds or deletes
+ * a single annotation leaves every other mark — and its mounted `ResourceCard`,
+ * with its live `$derived` state — exactly where it was. Rebuilding wholesale
+ * would instead reparse the article and unmount/remount every card per
+ * keystroke-sized edit.
+ *
+ * Marks reflect pointer positions only, not entity metadata: labels and colors
+ * are rendered inside each `ResourceCard`.
+ *
+ * The owner (the `{@attach}` in `ArticleSection.svelte`) must call `destroy()`
+ * on teardown. `mount()`ed cards keep reacting to `AnnotationState` even after
+ * their DOM is detached, so without an explicit `unmount()` they leak.
+ */
+export class ArticleRenderer {
+    readonly #elem: HTMLDivElement;
+    readonly #field: "abstract" | "body";
+    readonly #sanitized: string;
+
+    /** Text of the sanitized HTML, captured before any mark wrapped it. */
+    #plainText = "";
+    #marks = new globalThis.Map<string, MarkedSpan>();
+    /**
+     * Pointer key → `spanKey` of spans that resolved against the plain text but
+     * could not be turned into a Range. Remembering them keeps an update with
+     * no real change from re-attempting (and re-diffing) them every time.
+     */
+    #unrenderable = new globalThis.Map<string, string>();
+    #rendered = false;
+    #patchable = false;
+
+    constructor(
+        elem: HTMLDivElement,
+        html: string,
+        field: "abstract" | "body",
+    ) {
+        this.#elem = elem;
+        this.#field = field;
+        const cached = _sanitizeCache.get(elem);
+        if (cached?.html === html) {
+            this.#sanitized = cached.sanitized;
+        } else {
+            this.#sanitized = DOMPurify.sanitize(html, {
+                ADD_TAGS: ["figure", "figcaption", "img"],
+                ADD_ATTR: ["src", "alt"],
+            });
+            _sanitizeCache.set(elem, { html, sanitized: this.#sanitized });
+        }
+    }
+
+    update(pointers: ImmutableMap<string, Pointer>): void {
+        const fieldPointers = pointers.filter((p) => p.field === this.#field);
+        if (!this.#rendered || !this.#patchable) {
+            this.#fullRender(fieldPointers);
+            return;
+        }
+
+        // Resolution uses the plain text captured at parse time rather than the
+        // live textContent: the marked DOM carries the same characters, but
+        // reading it back would make every update O(nodes).
+        const desired = new globalThis.Map<string, Span>();
+        for (const [key, pointer] of fieldPointers) {
+            const resolved = resolvePointerOffset(pointer, this.#plainText);
+            if (!resolved) continue;
+            desired.set(key, {
+                start: resolved.offset,
+                end: resolved.offset + resolved.length,
+            });
+        }
+        if (!spansPatchable([...desired.values()])) {
+            this.#fullRender(fieldPointers);
+            return;
+        }
+
+        this.#patch(desired, fieldPointers);
+    }
+
+    destroy(): void {
+        for (const record of this.#marks.values()) unmount(record.instance);
+        this.#marks.clear();
+        this.#unrenderable.clear();
+        this.#rendered = false;
+    }
+
+    #patch(
+        desired: globalThis.Map<string, Span>,
+        fieldPointers: ImmutableMap<string, Pointer>,
+    ): void {
+        const stale: string[] = [];
+        for (const [key, record] of this.#marks) {
+            const span = desired.get(key);
+            if (!span || span.start !== record.start || span.end !== record.end)
+                stale.push(key);
+        }
+
+        const fresh: Array<[string, Span]> = [];
+        for (const [key, span] of desired) {
+            const record = this.#marks.get(key);
+            if (record) {
+                if (record.start === span.start && record.end === span.end)
+                    continue;
+            } else if (this.#unrenderable.get(key) === spanKey(span)) {
+                continue;
+            }
+            fresh.push([key, span]);
+        }
+
+        for (const key of [...this.#unrenderable.keys()]) {
+            const span = desired.get(key);
+            if (!span || this.#unrenderable.get(key) !== spanKey(span))
+                this.#unrenderable.delete(key);
+        }
+
+        if (stale.length === 0 && fresh.length === 0) return;
+
+        for (const key of stale) {
+            if (!this.#marks.get(key)?.simple) {
+                this.#fullRender(fieldPointers);
+                return;
+            }
+        }
+
+        // Safety net: if anything replaced the container's children behind the
+        // renderer's back, the recorded marks are detached and patching would
+        // build a tree a rebuild never would.
+        for (const record of this.#marks.values()) {
+            if (!this.#elem.contains(record.mark)) {
+                this.#fullRender(fieldPointers);
+                return;
+            }
+        }
+
+        for (const key of stale) {
+            const record = this.#marks.get(key);
+            if (!record) continue;
+            unmarkSpan(record);
+            this.#marks.delete(key);
+        }
+        // Restoring a mark's content leaves it split from its neighbours; a
+        // rebuild would have parsed one run, and every offset lookup below
+        // assumes the merged form.
+        if (stale.length > 0) this.#elem.normalize();
+
+        if (fresh.length > 0) this.#markSpans(fresh);
+    }
+
+    #fullRender(fieldPointers: ImmutableMap<string, Pointer>): void {
+        this.destroy();
+
+        this.#elem.replaceChildren();
+        this.#elem.innerHTML = this.#sanitized;
+        this.#plainText = this.#elem.textContent || "";
+
+        const resolved: Array<[string, Span]> = [];
+        for (const [key, pointer] of fieldPointers) {
+            const offsets = resolvePointerOffset(pointer, this.#plainText);
+            if (!offsets) continue;
+            resolved.push([
+                key,
+                {
+                    start: offsets.offset,
+                    end: offsets.offset + offsets.length,
+                },
+            ]);
+        }
+        this.#patchable = spansPatchable(resolved.map(([, span]) => span));
+
+        this.#markSpans(resolved);
+        this.#rendered = true;
+    }
+
+    /**
+     * Marks every span in `spans`, which must be disjoint from each other and
+     * from the marks already present. All ranges are resolved against a single
+     * text-node index before any of them mutates the DOM; the live Ranges track
+     * the splits that marking causes.
+     */
+    #markSpans(spans: Array<[string, Span]>): void {
+        const index = buildTextNodeIndex(this.#elem);
+        const pending: Array<[string, Span, Range]> = [];
+        for (const [key, span] of spans) {
+            const range = createRangeFromOffsets(
+                this.#elem,
+                span.start,
+                span.end,
+                index,
+            );
+            if (!range) {
+                this.#unrenderable.set(key, spanKey(span));
+                continue;
+            }
+            pending.push([key, span, range]);
+        }
+        for (const [key, span, range] of pending) {
+            this.#marks.set(key, {
+                ...markRange(this.#elem, { range, pointer_id: key }),
+                start: span.start,
+                end: span.end,
+            });
+        }
+    }
+}
+
+/**
+ * Renders `html` into `elem` with every `field` pointer marked, and returns a
+ * cleanup that unmounts the `ResourceCard`s it mounted. This is the one-shot
+ * form of {@link ArticleRenderer}; callers that re-render on pointer edits
+ * should hold an `ArticleRenderer` instead, so those edits can be patched in.
  */
 export function annotateHTMLString(
     elem: HTMLDivElement,
@@ -728,70 +972,34 @@ export function annotateHTMLString(
     pointers: ImmutableMap<string, Pointer>,
     field: "abstract" | "body",
 ): () => void {
-    const cached = _sanitizeCache.get(elem);
-    const sanitized =
-        cached?.html === html
-            ? cached.sanitized
-            : DOMPurify.sanitize(html, {
-                  ADD_TAGS: ["figure", "figcaption", "img"],
-                  ADD_ATTR: ["src", "alt"],
-              });
-    if (cached?.html !== html) {
-        _sanitizeCache.set(elem, { html, sanitized });
-    }
-
-    elem.replaceChildren();
-    elem.innerHTML = sanitized;
-
-    const plainText = elem.textContent || "";
-    const fieldPointers = pointers.filter((p) => p.field === field);
-
-    // All ranges are resolved against this single DOM snapshot before any
-    // markRange() mutates it, so one index serves every pointer.
-    const textNodeIndex = buildTextNodeIndex(elem);
-
-    const ranges: Array<AnnotatedRange & { range: Range }> = fieldPointers
-        .entrySeq()
-        .map(([key, pointer]) => {
-            const resolved = resolvePointerOffset(pointer, plainText);
-            if (!resolved) return { range: null, pointer_id: key };
-            return {
-                range: createRangeFromOffsets(
-                    elem,
-                    resolved.offset,
-                    resolved.offset + resolved.length,
-                    textNodeIndex,
-                ),
-                pointer_id: key,
-            };
-        })
-        .filter(
-            (ar): ar is AnnotatedRange & { range: Range } => ar.range !== null,
-        )
-        .toArray();
-    const mounted = ranges.map((range) => markRange(elem, range));
-
-    return () => {
-        for (const instance of mounted) unmount(instance);
-    };
+    const renderer = new ArticleRenderer(elem, html, field);
+    renderer.update(pointers);
+    return () => renderer.destroy();
 }
 
 function markRange(
     elem: HTMLElement,
     pointer: AnnotatedRange & { range: Range },
-): Record<string, unknown> {
+): Omit<MarkedSpan, "start" | "end"> {
     const doc = elem.ownerDocument;
     const mark = doc.createElement("span");
     mark.id = pointer.pointer_id;
 
+    const simple = pointer.range.startContainer === pointer.range.endContainer;
     const fragment = pointer.range.extractContents();
+    const content = Array.from(fragment.childNodes);
     const instance = mount(ResourceCard, {
         target: mark,
         props: { fragment, pointer_id: pointer.pointer_id },
     });
     pointer.range.insertNode(mark);
     pointer.range.detach?.();
-    return instance;
+    return { mark, instance, content, simple };
+}
+
+function unmarkSpan(record: MarkedSpan): void {
+    if (record.mark.parentNode) record.mark.replaceWith(...record.content);
+    unmount(record.instance);
 }
 
 function getTextNodes(element: HTMLElement): Text[] {
