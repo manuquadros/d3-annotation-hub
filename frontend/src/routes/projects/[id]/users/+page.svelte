@@ -1,5 +1,4 @@
 <script lang="ts">
-    import { untrack } from "svelte";
     import { invalidateAll } from "$app/navigation";
     import "$lib/styles/management.css";
     import { errorDetail } from "$lib/utils/http";
@@ -30,7 +29,9 @@
 
     let { data } = $props();
 
-    let members = $derived<Member[]>(untrack(() => data.members));
+    // Writable derived without untrack(): the list has to pick up the reload
+    // triggered by invalidateAll(), while local edits still apply optimistically.
+    let members = $derived<Member[]>(data.members);
 
     let searchEmail = $state("");
     let suggestions = $state<UserHit[]>([]);
@@ -153,10 +154,9 @@
             addedPassword =
                 member.generated_password ??
                 (lookup.status === "not_found" ? newPassword : null);
-            const listRes = await fetch(
-                `/api/projects/${data.projectId}/members`,
-            );
-            if (listRes.ok) members = await listRes.json();
+            // Reloads the member list *and* the layout: the added role may be
+            // the current user's own, and the sidebar reads it from there.
+            await invalidateAll();
             searchEmail = "";
             newPassword = "";
             lookup = { status: "idle" };
@@ -209,6 +209,9 @@
         }
         members = members.filter((m) => m.user_id !== userId);
         confirmRemoveUserId = null;
+        // Nothing stops a manager removing themselves, and the sidebar's role
+        // flags only come from the layout load.
+        await invalidateAll();
     }
 
     function roleLabel(role: string): string {

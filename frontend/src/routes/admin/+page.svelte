@@ -1,5 +1,6 @@
 <script lang="ts">
     import { untrack } from "svelte";
+    import { invalidateAll } from "$app/navigation";
     import OntologyImportForm from "$lib/components/OntologyImportForm.svelte";
     import type { ImportedResult } from "$lib/components/OntologyImportForm.svelte";
     import CurieEditor from "$lib/components/CurieEditor.svelte";
@@ -166,7 +167,9 @@
     let ontologies = $state<Ontology[]>(untrack(() => data.ontologies));
     let allUsers = $state<UserRecord[]>(untrack(() => data.allUsers ?? []));
 
-    let projects = $state<Project[]>(untrack(() => data.projects));
+    // Writable derived, not seeded-once $state: invalidateAll() after a project
+    // mutation has to reach this list, while local edits still apply optimistically.
+    let projects = $derived<Project[]>(data.projects);
 
     // Per-project expanded panel
     let expandedProjectId = $state<number | null>(null);
@@ -234,6 +237,9 @@
                     ];
                 }
                 addMemberEmail = "";
+                // The granted role may be the current user's own, and the
+                // sidebar's role flags come from the layout load.
+                await invalidateAll();
             }
         } finally {
             addMemberPending = false;
@@ -263,6 +269,7 @@
                             : m,
                     )
                     .filter((m) => m.roles.length > 0);
+                await invalidateAll();
             } else {
                 removeMemberError[projectId] = await errorDetail(res);
             }
@@ -464,6 +471,9 @@
             if (res.ok) {
                 projects = projects.filter((p) => p.project_id !== projectId);
                 if (expandedProjectId === projectId) expandedProjectId = null;
+                // The deleted project may be the sidebar's current project, so
+                // the layout has to recompute currentProjectId and role flags.
+                await invalidateAll();
             }
         } finally {
             deletingProjectId = null;
