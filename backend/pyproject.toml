@@ -7,7 +7,7 @@ readme = "README.md"
 requires-python = ">=3.13"
 license = "GPL-3.0-or-later"
 dependencies = [
-  "cryptography>=46.0.7",
+  "cryptography>=50",
   "fastapi[standard]>=0.136.1",
   "multimethod>=2.0",
   "pydantic>=2.11.4",
