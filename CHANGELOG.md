@@ -62,6 +62,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Login no longer leaks whether an email is registered: a failed sign-in now runs the same bcrypt verification whether or not the account exists, so response time can't be used to enumerate accounts.
 - Login and change-password are rate-limited per client IP (default 10/minute each, configurable), throttling password brute-force and enumeration attempts.
 - Changing a password now enforces a policy: the new password must be at least 8 characters, differ from the current one, and stay within bcrypt's 72-byte limit (so a long password can't be silently truncated).
+- Upgraded the backend dependency set; the `nltk` transitive dependency moved to 3.10.0+, which fixes a path traversal in `FramenetCorpusReader` (CVE-2026-12074), a DNS-rebinding SSRF bypass in `nltk.pathsec` (CVE-2026-12075), and a quadratic ReDoS in `ReviewsCorpusReader` (CVE-2026-12061). None of the affected readers are reachable from the API surface, so this is hardening rather than a fix for a live exposure.
 
 ## [0.1.4]
 

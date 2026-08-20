@@ -37,6 +37,7 @@ dev = [
   "beartype>=0.21.0",
   "debugpy>=1.8.14",
   "devtools>=0.12.2",
+  "httpx2>=2.11.0",
   "icecream>=2.1.4",
   "ipython-autotime>=0.3.2",
   "ipython>=9.4",
