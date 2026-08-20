@@ -86,7 +86,7 @@
 
         <!-- Navbar start -->
         <div class="navbar navbar-top">
-            <a href="index.php" class="navbar-brand ml-20">
+            <a href="/" class="navbar-brand ml-20">
                 <!-- here goes your database logo -->
                 <img src="/digidive/img/Logo D3_1.png" alt="Annotation Hub" />
             </a>
