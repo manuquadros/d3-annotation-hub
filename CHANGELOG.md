@@ -27,6 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Annotation undo history is capped at the most recent 100 changes so a long editing session can no longer grow it without bound; older steps beyond that are no longer undoable.
 - Adding, deleting, or moving a single annotation no longer re-renders the whole article body: only the affected highlight is updated, so the surrounding text and every other highlight stay untouched. Articles whose annotations overlap each other still re-render in full.
 - Entity search-as-you-type and opening/marking-complete an annotation stay fast as the data grows: the name→entity join and the latest-state/latest-snapshot lookups (by project + user + reference) are now indexed, and an ontology import refreshes the query planner's statistics so the search index is actually used. In local benchmarks a search keystroke against a 20k-entity ontology dropped from ~325 ms to ~2.5 ms, and the latest-state lookup from ~1.1 ms to ~0.3 ms.
+- The Settings and New Project pages now use the shared management stylesheet.
 
 ### Fixed
 

@@ -1,6 +1,7 @@
 <script lang="ts">
     import { goto } from "$app/navigation";
     import { setLastProject } from "$lib/api";
+    import "$lib/styles/management.css";
     import { errorDetail } from "$lib/utils/http";
 
     let name = $state("");
@@ -38,7 +39,7 @@
     }
 </script>
 
-<div class="new-project-page">
+<div class="page">
     <h1>New Project</h1>
 
     <div class="card">
@@ -48,6 +49,7 @@
                 <!-- svelte-ignore a11y_autofocus -->
                 <input
                     id="proj-name"
+                    class="form-control small"
                     type="text"
                     bind:value={name}
                     placeholder="My Annotation Project"
@@ -62,6 +64,7 @@
                 </label>
                 <input
                     id="proj-desc"
+                    class="form-control small"
                     type="text"
                     bind:value={description}
                     placeholder="Short description"
@@ -74,6 +77,7 @@
                 >
                 <input
                     id="proj-annotators"
+                    class="form-control small"
                     type="number"
                     min="1"
                     bind:value={requiredAnnotators}
@@ -99,69 +103,27 @@
 </div>
 
 <style>
-    .new-project-page {
+    /* Shared `.page` is 900px, which strands this short single-column form.
+       The narrow measure is a deliberate page-specific override, not a
+       leftover private copy of the design system. */
+    .page {
         max-width: 480px;
-        margin: 2rem auto;
-        padding: 0 1rem;
     }
 
-    h1 {
-        font-size: 1.4rem;
-        margin-bottom: 1.5rem;
-    }
-
-    .card {
-        background: #fff;
-        border: 1px solid #e0e0e0;
-        border-radius: 8px;
-        padding: 1.5rem;
-    }
-
-    .field {
-        margin-bottom: 1.2rem;
+    form {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
     }
 
     .field-narrow {
         max-width: 160px;
     }
 
-    label {
-        display: block;
-        font-size: 0.8rem;
-        font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 0.03em;
-        color: #444;
-        margin-bottom: 0.3rem;
-    }
-
-    .optional {
-        font-weight: 400;
-        text-transform: none;
-        letter-spacing: 0;
-        color: #888;
-    }
-
-    input[type="text"],
-    input[type="number"] {
-        width: 100%;
-        padding: 0.4rem 0.6rem;
-        border: 1px solid #ccc;
-        border-radius: 4px;
-        font-size: 0.875rem;
-        box-sizing: border-box;
-    }
-
-    .error {
-        color: #c00;
-        font-size: 0.875rem;
-        margin: 0 0 1rem;
-    }
-
     .actions {
         display: flex;
         gap: 0.75rem;
         align-items: center;
-        margin-top: 1.5rem;
+        margin-top: 0.75rem;
     }
 </style>

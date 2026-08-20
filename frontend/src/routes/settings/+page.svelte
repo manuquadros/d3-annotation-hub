@@ -1,4 +1,5 @@
 <script lang="ts">
+    import "$lib/styles/management.css";
     import { errorDetail } from "$lib/utils/http";
 
     let currentPassword = $state("");
@@ -40,7 +41,7 @@
     }
 </script>
 
-<div class="settings-page">
+<div class="page">
     <h1>Settings</h1>
 
     <section class="card">
@@ -50,6 +51,7 @@
                 <label for="cp-current">Current password</label>
                 <input
                     id="cp-current"
+                    class="form-control small"
                     type="password"
                     bind:value={currentPassword}
                     required
@@ -61,6 +63,7 @@
                 <label for="cp-new">New password</label>
                 <input
                     id="cp-new"
+                    class="form-control small"
                     type="password"
                     bind:value={newPassword}
                     required
@@ -73,6 +76,7 @@
                 <label for="cp-confirm">Confirm new password</label>
                 <input
                     id="cp-confirm"
+                    class="form-control small"
                     type="password"
                     bind:value={confirmPassword}
                     required
@@ -102,67 +106,20 @@
 </div>
 
 <style>
-    .settings-page {
+    /* Shared `.page` is 900px, which strands this short single-column form.
+       The narrow measure is a deliberate page-specific override, not a
+       leftover private copy of the design system. */
+    .page {
         max-width: 480px;
-        margin: 2rem auto;
-        padding: 0 1rem;
     }
 
-    h1 {
-        font-size: 1.4rem;
-        margin-bottom: 1.5rem;
-    }
-
-    .card {
-        background: #fff;
-        border: 1px solid #e0e0e0;
-        border-radius: 8px;
-        padding: 1.5rem;
-        margin-bottom: 1.5rem;
-    }
-
-    h2 {
-        font-size: 1rem;
-        font-weight: 600;
-        margin: 0 0 1.25rem;
-    }
-
-    .field {
-        margin-bottom: 1.2rem;
-    }
-
-    label {
-        display: block;
-        font-size: 0.8rem;
-        font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 0.03em;
-        color: #444;
-        margin-bottom: 0.3rem;
-    }
-
-    input[type="password"] {
-        width: 100%;
-        padding: 0.4rem 0.6rem;
-        border: 1px solid #ccc;
-        border-radius: 4px;
-        font-size: 0.875rem;
-        box-sizing: border-box;
-    }
-
-    .error {
-        color: #c00;
-        font-size: 0.875rem;
-        margin: 0 0 1rem;
-    }
-
-    .success {
-        color: #166534;
-        font-size: 0.875rem;
-        margin: 0 0 1rem;
+    form {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
     }
 
     .actions {
-        margin-top: 1.5rem;
+        margin-top: 0.75rem;
     }
 </style>
