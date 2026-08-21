@@ -1,6 +1,7 @@
 import { describe, test, expect, vi, beforeEach, afterEach } from "vitest";
 import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { render, fireEvent, waitFor } from "@testing-library/svelte";
 import SettingsPage from "../../routes/settings/+page.svelte";
 import NewProjectPage from "../../routes/projects/new/+page.svelte";
@@ -38,13 +39,14 @@ afterEach(() => {
  * so the width contract is pinned against the component source instead of
  * getComputedStyle, which would pass vacuously.
  */
+const srcDir = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
+
+function readSource(relPath: string): string {
+    return readFileSync(resolve(srcDir, relPath), "utf-8");
+}
+
 function pageSource(route: string): string {
-    // vitest runs with `frontend/` as cwd; import.meta.url is vite-rooted
-    // ("/src/...") and is not a usable filesystem path here.
-    return readFileSync(
-        resolve(process.cwd(), `src/routes/${route}/+page.svelte`),
-        "utf-8",
-    );
+    return readSource(`routes/${route}/+page.svelte`);
 }
 
 function scopedStyleBlock(source: string): string {
@@ -180,5 +182,56 @@ describe("new-project page uses the shared design system", () => {
         expect(styles).toMatch(/\.page\s*\{[^}]*max-width:\s*480px/);
         // Only the width is overridden; margin/padding/flex stay shared.
         expect(styles).not.toMatch(/\.page\s*\{[^}]*(margin|padding|display):/);
+    });
+});
+
+describe("the stacked-form layout is shared, not copied", () => {
+    const stackedFormUsers = [
+        ["settings page", "routes/settings/+page.svelte"],
+        ["new-project page", "routes/projects/new/+page.svelte"],
+        ["ontology import form", "lib/components/OntologyImportForm.svelte"],
+    ] as const;
+
+    test("management.css defines the .stacked-form rule", () => {
+        const css = readSource("lib/styles/management.css");
+
+        const rule = /\.stacked-form\s*\{([^}]*)\}/.exec(css);
+        expect(rule).not.toBeNull();
+        expect(rule![1]).toMatch(/display:\s*flex/);
+        expect(rule![1]).toMatch(/flex-direction:\s*column/);
+        expect(rule![1]).toMatch(/gap:\s*0\.75rem/);
+    });
+
+    test.each(stackedFormUsers)(
+        "%s declares no private copy of the form layout",
+        (_name, relPath) => {
+            const styles = scopedStyleBlock(readSource(relPath));
+
+            expect(styles).not.toMatch(/(^|[\s,>])form\s*\{/);
+        },
+    );
+
+    test.each(stackedFormUsers)(
+        "%s opts into .stacked-form and imports management.css",
+        (_name, relPath) => {
+            const source = readSource(relPath);
+
+            expect(source).toContain('import "$lib/styles/management.css"');
+            expect(source).toMatch(/<form[^>]*class="[^"]*\bstacked-form\b/);
+        },
+    );
+});
+
+describe("the stacked-form layout reaches the rendered markup", () => {
+    test("the settings form carries .stacked-form", () => {
+        const { container } = render(SettingsPage);
+
+        expect(container.querySelector("form.stacked-form")).not.toBeNull();
+    });
+
+    test("the new-project form carries .stacked-form", () => {
+        const { container } = render(NewProjectPage);
+
+        expect(container.querySelector("form.stacked-form")).not.toBeNull();
     });
 });

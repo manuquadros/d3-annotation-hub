@@ -59,6 +59,14 @@
 
 /* ── Form fields ───────────────────────────────────────────────────────────── */
 
+/* `.card` only gaps its *direct* children and a <form> is an extra wrapper
+   between the card and the fields, so the gap must be re-established here. */
+.stacked-form {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
 .field {
     display: flex;
     flex-direction: column;

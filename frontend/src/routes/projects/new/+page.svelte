@@ -43,7 +43,7 @@
     <h1>New Project</h1>
 
     <div class="card">
-        <form onsubmit={handleSubmit}>
+        <form class="stacked-form" onsubmit={handleSubmit}>
             <div class="field">
                 <label for="proj-name">Name</label>
                 <!-- svelte-ignore a11y_autofocus -->
@@ -108,12 +108,6 @@
        leftover private copy of the design system. */
     .page {
         max-width: 480px;
-    }
-
-    form {
-        display: flex;
-        flex-direction: column;
-        gap: 0.75rem;
     }
 
     .field-narrow {

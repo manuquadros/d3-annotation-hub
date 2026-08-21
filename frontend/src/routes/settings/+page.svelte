@@ -46,7 +46,7 @@
 
     <section class="card">
         <h2>Change Password</h2>
-        <form onsubmit={handleChangePassword}>
+        <form class="stacked-form" onsubmit={handleChangePassword}>
             <div class="field">
                 <label for="cp-current">Current password</label>
                 <input
@@ -111,12 +111,6 @@
        leftover private copy of the design system. */
     .page {
         max-width: 480px;
-    }
-
-    form {
-        display: flex;
-        flex-direction: column;
-        gap: 0.75rem;
     }
 
     .actions {

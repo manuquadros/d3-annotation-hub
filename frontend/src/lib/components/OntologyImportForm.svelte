@@ -259,7 +259,7 @@
     }
 </script>
 
-<form onsubmit={handleSubmit}>
+<form class="stacked-form" onsubmit={handleSubmit}>
     <div class="field">
         <!-- svelte-ignore a11y_label_has_associated_control -->
         <label>OWL file</label>
@@ -416,12 +416,6 @@
 </form>
 
 <style>
-    form {
-        display: flex;
-        flex-direction: column;
-        gap: 0.75rem;
-    }
-
     .import-progress {
         display: flex;
         align-items: center;
