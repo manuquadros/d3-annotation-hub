@@ -757,7 +757,7 @@
         "properties": {
           "entities": {
             "items": {
-              "$ref": "#/components/schemas/EntityAnnotation"
+              "$ref": "#/components/schemas/EntityAnnotationOut"
             },
             "title": "Entities",
             "type": "array"
@@ -3827,7 +3827,7 @@
               "application/json": {
                 "schema": {
                   "items": {
-                    "$ref": "#/components/schemas/EntityAnnotation"
+                    "$ref": "#/components/schemas/EntityAnnotationOut"
                   },
                   "title": "Response Entity Search",
                   "type": "array"
@@ -3904,7 +3904,7 @@
               "application/json": {
                 "schema": {
                   "items": {
-                    "$ref": "#/components/schemas/EntityAnnotation"
+                    "$ref": "#/components/schemas/EntityAnnotationOut"
                   },
                   "title": "Response List Entity Types",
                   "type": "array"

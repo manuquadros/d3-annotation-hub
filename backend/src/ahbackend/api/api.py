@@ -17,7 +17,6 @@ from d3textdb.owl import (
     peek_ontology_metadata,
 )
 from d3textdb.schema import (
-    EntityAnnotation,
     Ontology,
     Pointer,
     Reference,
@@ -606,7 +605,7 @@ async def import_ontology(  # noqa: C901
 
 
 class OntologyEntityPage(BaseModel):
-    entities: list[EntityAnnotation]
+    entities: list[EntityAnnotationOut]
     total: int
 
 
@@ -909,9 +908,9 @@ def passphrase_suggestion(
 def list_entity_types(
     current_user: Annotated[User, Depends(users.get_current_active_user)],
     q: str = "",
-) -> list[EntityAnnotation]:
+) -> list[EntityAnnotationOut]:
     """Return entity classes available as annotation types."""
-    return get_entity_types(q)
+    return [EntityAnnotationOut.model_validate(e) for e in get_entity_types(q)]
 
 
 @app.get("/entity/search")
@@ -922,13 +921,16 @@ def entity_search(
     limit: LimitParam = 20,
     project_id: int | None = None,
     is_class: bool = False,
-) -> list[EntityAnnotation]:
+) -> list[EntityAnnotationOut]:
     """Search entities by name or synonym prefix."""
     # A project scope surfaces that project's unconfirmed (proposed) entities,
     # so it may only be used by a member; the unscoped search stays open.
     if project_id is not None:
         _require_project_member(project_id, current_user, user_auth)
-    return search_entities(q, limit, project_id, is_class)
+    return [
+        EntityAnnotationOut.model_validate(e)
+        for e in search_entities(q, limit, project_id, is_class)
+    ]
 
 
 @app.post("/save/")
