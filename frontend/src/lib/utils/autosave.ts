@@ -1,5 +1,6 @@
 import type { AnnotationState } from "../annotation.svelte.ts";
 import { saveAnnotation } from "../api";
+import type { AnnotationPayload } from "../types.ts";
 
 export interface SaveResult {
     success: boolean;
@@ -42,7 +43,7 @@ export async function saveAnnotationState(
     state: AnnotationState,
     signal?: AbortSignal,
 ): Promise<SaveResult> {
-    const payload = {
+    const payload: AnnotationPayload = {
         user: state.user,
         reference: state.reference,
         project_id: state.project_id,
@@ -51,12 +52,11 @@ export async function saveAnnotationState(
         relations: state.relations.toArray().map((r) => r.toObject()),
         completed: state.completed,
     };
-    const jsonString = JSON.stringify(payload);
 
     for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
         if (signal?.aborted) return { success: false, cancelled: true };
         try {
-            await saveAnnotation(jsonString, signal);
+            await saveAnnotation(payload, signal);
             return { success: true };
         } catch (error) {
             if (signal?.aborted) return { success: false, cancelled: true };

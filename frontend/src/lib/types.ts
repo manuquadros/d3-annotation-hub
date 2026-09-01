@@ -114,6 +114,29 @@ export const RelationSchema = z
     })
     .transform((obj) => createRelation(obj));
 
+/** Plain-object form of a relation, as stored in the Immutable Record. */
+export type RelationFields = {
+    relation_id: number | null;
+    predicate: string;
+    subject: string;
+    object: string;
+};
+
+/**
+ * An annotation in the shape the backend accepts on `POST /save/`, mirroring
+ * the `ReferenceAnnotation` Pydantic model. Immutable collections are flattened
+ * to arrays; `Entity.synonyms` serialises via Immutable's own `toJSON`.
+ */
+export type AnnotationPayload = {
+    user: User;
+    reference: Reference;
+    project_id: number;
+    entities: Entity[];
+    pointers: Pointer[];
+    relations: RelationFields[];
+    completed: boolean;
+};
+
 export type EntitySearchResult = {
     entity_id: string;
     preferred_name: string;

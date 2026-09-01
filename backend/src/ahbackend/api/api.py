@@ -26,7 +26,6 @@ from d3textdb.schema import (
     Verdict,
 )
 from fastapi import (
-    Body,
     Depends,
     FastAPI,
     Form,
@@ -189,7 +188,7 @@ def fetch_annotation(
     project_id: int,
     current_user: Annotated[User, Depends(users.get_current_active_user)],
     user_auth: Annotated[UserAuth | None, Depends(users.get_current_user_auth)],
-) -> str:
+) -> ReferenceAnnotation:
     _require_project_member(project_id, current_user, user_auth)
     try:
         reference_annotation = get_reference_annotation(
@@ -216,7 +215,7 @@ def fetch_annotation(
                 update={"abstract": abstract, "body": body}
             )
         }
-    ).model_dump_json()
+    )
 
 
 class UserInfo(BaseModel):
@@ -793,12 +792,11 @@ def entity_search(
 
 @app.post("/save/")
 def store_annotation(
+    annotation: ReferenceAnnotation,
     current_user: Annotated[User, Depends(users.get_current_active_user)],
     user_auth: Annotated[UserAuth | None, Depends(users.get_current_user_auth)],
-    json_data: str = Body(..., embed=True),
 ) -> None:
     """Update annotation in the database"""
-    annotation = ReferenceAnnotation.model_validate_json(json_data)
     roles = get_user_project_roles(current_user.user_id, annotation.project_id)
     if not can_access_project(user_auth, roles):
         raise HTTPException(status_code=403, detail="Access denied")

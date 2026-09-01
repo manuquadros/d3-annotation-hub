@@ -1,6 +1,6 @@
 import { goto } from "$app/navigation";
 import { AnnotationState } from "$lib/annotation.svelte";
-import type { EntitySearchResult } from "$lib/types.ts";
+import type { AnnotationPayload, EntitySearchResult } from "$lib/types.ts";
 
 export async function fetchReference(
     refIdentifier: string,
@@ -151,13 +151,13 @@ export async function fetchProjectProperties(
 }
 
 export async function saveAnnotation(
-    jsonData: string,
+    annotation: AnnotationPayload,
     signal?: AbortSignal,
 ): Promise<void> {
     const response = await fetch("/api/save", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ json_data: jsonData }),
+        body: JSON.stringify(annotation),
         signal,
     });
 

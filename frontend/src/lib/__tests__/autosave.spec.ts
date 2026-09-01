@@ -50,7 +50,7 @@ describe("saveAnnotationState", () => {
         await saveAnnotationState(fakeState(), controller.signal);
 
         expect(saveAnnotation).toHaveBeenCalledWith(
-            expect.any(String),
+            expect.any(Object),
             controller.signal,
         );
     });

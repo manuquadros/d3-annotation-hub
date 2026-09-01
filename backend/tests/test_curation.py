@@ -9,8 +9,6 @@ saved state, which is what the curation views read. Shared ``db``/``client``/
 ``login`` fixtures live in ``conftest.py``.
 """
 
-import json
-
 import pytest
 from d3textdb.schema import Entity, Reference
 from d3textdb.schema import User as DbUser
@@ -66,7 +64,7 @@ def _seed_completed_annotation(
         headers=auth,
     )
     assert r.status_code == 200, r.text
-    ann = json.loads(r.json())
+    ann = r.json()
     ref_id = ann["reference"]["reference_id"]
 
     ann["entities"] = [
@@ -112,9 +110,7 @@ def _seed_completed_annotation(
             k: v for k, v in ann["reference"].items() if k != "reference_id"
         },
     }
-    r = client.post(
-        "/save/", json={"json_data": json.dumps(payload)}, headers=auth
-    )
+    r = client.post("/save/", json=payload, headers=auth)
     assert r.status_code == 200, r.text
 
     r = client.post(

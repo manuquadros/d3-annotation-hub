@@ -4,8 +4,6 @@ Exercises the full request path against a real in-memory SQLite database.
 Shared fixtures (``db``, ``client``, ``login``) live in ``conftest.py``.
 """
 
-import json
-
 import pytest
 from d3textdb.schema import Reference
 from d3textdb.schema import User as DbUser
@@ -46,7 +44,7 @@ def _fetch_annotation(client: TestClient, auth: dict, project_id: int) -> dict:
     )
     assert r.status_code == 200, r.text
     # FastAPI serialises the str return value as a JSON string; unwrap it.
-    return json.loads(r.json())
+    return r.json()
 
 
 def _save_annotation(client: TestClient, auth: dict, annotation: dict) -> None:
@@ -60,9 +58,7 @@ def _save_annotation(client: TestClient, auth: dict, annotation: dict) -> None:
             if k != "reference_id"
         },
     }
-    r = client.post(
-        "/save/", json={"json_data": json.dumps(payload)}, headers=auth
-    )
+    r = client.post("/save/", json=payload, headers=auth)
     assert r.status_code == 200, r.text
 
 

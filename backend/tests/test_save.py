@@ -8,8 +8,6 @@ a project the caller doesn't belong to. Shared ``db``/``client``/``login``
 fixtures live in ``conftest.py``.
 """
 
-import json
-
 import pytest
 from d3textdb.schema import Reference
 from d3textdb.schema import User as DbUser
@@ -76,7 +74,7 @@ def _completed_payload(
         headers=auth,
     )
     assert r.status_code == 200, r.text
-    ann = json.loads(r.json())
+    ann = r.json()
 
     ann["entities"] = [
         {
@@ -129,7 +127,7 @@ class TestSaveIdentity:
 
         r = client.post(
             "/save/",
-            json={"json_data": json.dumps(payload)},
+            json=payload,
             headers=alice_auth,
         )
         assert r.status_code == 200, r.text
@@ -154,7 +152,7 @@ class TestSaveIdentity:
         )
         r = client.post(
             "/save/",
-            json={"json_data": json.dumps(payload)},
+            json=payload,
             headers=alice_auth,
         )
         assert r.status_code == 200, r.text
@@ -173,12 +171,34 @@ class TestSaveProjectScope:
 
         r = client.post(
             "/save/",
-            json={"json_data": json.dumps(payload)},
+            json=payload,
             headers=alice_auth,
         )
         assert r.status_code == 403, r.text
 
     def test_unauthenticated_save_is_rejected(self, anon_client):
         # Auth is enforced before body validation, so an empty body still 401s.
-        r = anon_client.post("/save/", json={"json_data": json.dumps({})})
+        r = anon_client.post("/save/", json={})
         assert r.status_code == 401, r.text
+
+
+class TestSaveBodyValidation:
+    def test_a_malformed_annotation_is_rejected_at_the_boundary(
+        self, setup, client, login
+    ):
+        """The body is validated by FastAPI, so a bad field is a 422.
+
+        Deserialising it inside the handler instead surfaced the same input as
+        an unhandled ValidationError.
+        """
+        alice_auth = login(_ALICE_EMAIL, _ALICE_PASSWORD)
+        payload = _completed_payload(
+            client, alice_auth, setup["project_a"], setup["ref_id"]
+        )
+        # A field of ReferenceAnnotation itself: the nested Pointer/Relation
+        # models are SQLModel tables, which skip validation entirely, so a
+        # corrupt pointer would sail through this boundary.
+        payload["project_id"] = "not-a-project"
+
+        r = client.post("/save/", json=payload, headers=alice_auth)
+        assert r.status_code == 422, r.text
