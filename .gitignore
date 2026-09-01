@@ -147,7 +147,7 @@ node_modules
 dist
 test-results/
 coverage/
-e2e/.auth.json
+**/e2e/.auth.json
 yarn.lock
 vite.config.js.timestamp-*
 /packages/create-svelte/template/CHANGELOG.md
@@ -165,3 +165,7 @@ vite.config.js.timestamp-*
 symlink-from
 .idea/
 .aider*
+
+# Editor tag files
+TAGS
+tags
