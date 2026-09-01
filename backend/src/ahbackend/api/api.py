@@ -7,7 +7,7 @@ import string
 import tempfile
 import uuid
 from collections.abc import AsyncIterator
-from typing import Annotated, Literal
+from typing import Annotated, Literal, Protocol, runtime_checkable
 
 from d3textdb import DuplicateCurieError, OntologyInUseError
 from d3textdb.owl import (
@@ -121,7 +121,31 @@ from ahbackend.db.queries import (
 )
 from ahbackend.fetch import fetch_reference_from_ncbi
 
-app = FastAPI()
+
+@runtime_checkable
+class _NamedRoute(Protocol):
+    """What ``generate_unique_id_function`` is actually handed.
+
+    FastAPI documents the parameter as ``APIRoute`` but passes a private
+    wrapper around one, and beartype checks the annotation at run time — so
+    match on the single attribute this needs rather than the concrete class.
+    """
+
+    name: str
+
+
+def _operation_id(route: _NamedRoute) -> str:
+    """Use the endpoint's own name as the OpenAPI operationId.
+
+    Client generators derive function names from operationId; FastAPI's default
+    appends the path and method ("fetch_annotation_reference__get"), which makes
+    every generated call site unreadable. Endpoint names are unique across the
+    app, so the bare name is enough to disambiguate.
+    """
+    return route.name
+
+
+app = FastAPI(generate_unique_id_function=_operation_id)
 
 # slowapi rate limiting: the limiter lives in the users module (it decorates
 # /token and /change-password); the app just needs the instance on its state
@@ -179,7 +203,7 @@ app.add_middleware(
     allow_headers=["*"],
     allow_credentials=True,
 )
-app.include_router(users.router)
+app.include_router(users.router, generate_unique_id_function=_operation_id)
 
 
 @app.get("/reference/")

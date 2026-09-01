@@ -77,6 +77,8 @@ test-cov = "pytest --cov=ahbackend --cov-report=term-missing"
 docs-build.shell = "sphinx-apidoc -o docs/api src/ahbackend --force && sphinx-build docs docs/_build/html"
 docs-serve = "sphinx-autobuild docs docs/_build/html --open-browser"
 audit = "pip-audit"
+openapi = "python -m ahbackend.openapi"
+openapi-check = "python -m ahbackend.openapi --check"
 
 [[tool.pdm.source]]
 name = "private"
