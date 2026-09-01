@@ -7,6 +7,7 @@ import string
 import tempfile
 import uuid
 from collections.abc import AsyncIterator
+from datetime import datetime
 from typing import Annotated, Literal, Protocol, runtime_checkable
 
 from d3textdb import DuplicateCurieError, OntologyInUseError
@@ -206,13 +207,90 @@ app.add_middleware(
 app.include_router(users.router, generate_unique_id_function=_operation_id)
 
 
+class ReferenceOut(BaseModel):
+    """A stored reference. Unlike the table model, the key is assigned."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    reference_id: int
+    pubmed_id: int | None
+    pmc_id: int | None
+    pmc_open: bool | None
+    doi: str | None
+    authors: str
+    title: str
+    journal: str
+    volume: str
+    number: str | None
+    pages: str
+    year: int
+    abstract: str | None
+    body: str | None
+
+
+class EntityAnnotationOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    entity_id: str
+    preferred_name: str
+    uri: str | None
+    kind: str
+    synonyms: list[str]
+    confirmed: bool
+    is_class: bool
+
+
+class PointerOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    reference_id: int
+    entity_id: str
+    offset: int
+    length: int
+    field: Literal["abstract", "body"]
+    exact_text: str
+    prefix_text: str
+    suffix_text: str
+
+
+class RelationOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    # Null only for a relation the client has coined but not yet saved.
+    relation_id: int | None
+    predicate: str
+    subject: str
+    object: str
+
+
+class ReferenceAnnotationOut(BaseModel):
+    """An annotation as read back from the database.
+
+    The request model (``ReferenceAnnotation``) leaves anything with a default
+    optional, which is right for a client that omits it but wrong for a
+    response, where every field has been filled in. Declaring the read shape
+    separately is what lets the generated frontend types be exact.
+    """
+
+    model_config = ConfigDict(from_attributes=True)
+
+    user: User
+    reference: ReferenceOut
+    entities: list[EntityAnnotationOut]
+    pointers: list[PointerOut]
+    relations: list[RelationOut]
+    completed: bool
+    last_updated: datetime | None
+    project_id: int
+
+
 @app.get("/reference/")
 def fetch_annotation(
     ref_identifier: str,
     project_id: int,
     current_user: Annotated[User, Depends(users.get_current_active_user)],
     user_auth: Annotated[UserAuth | None, Depends(users.get_current_user_auth)],
-) -> ReferenceAnnotation:
+) -> ReferenceAnnotationOut:
     _require_project_member(project_id, current_user, user_auth)
     try:
         reference_annotation = get_reference_annotation(
@@ -233,12 +311,14 @@ def fetch_annotation(
     except XMLSyntaxError:
         body = None
 
-    return reference_annotation.model_copy(
-        update={
-            "reference": ref.model_copy(
-                update={"abstract": abstract, "body": body}
-            )
-        }
+    return ReferenceAnnotationOut.model_validate(
+        reference_annotation.model_copy(
+            update={
+                "reference": ref.model_copy(
+                    update={"abstract": abstract, "body": body}
+                )
+            }
+        )
     )
 
 
@@ -1616,24 +1696,6 @@ def set_claim_verdict(
     )
 
 
-class PointerOut(BaseModel):
-    reference_id: int
-    entity_id: str
-    offset: int
-    length: int
-    field: str = "body"
-    exact_text: str = ""
-    prefix_text: str = ""
-    suffix_text: str = ""
-
-
-class RelationOut(BaseModel):
-    relation_id: int | None
-    predicate: str
-    subject: str
-    object: str
-
-
 class AnnotatorSnapshotResponse(BaseModel):
     user_id: str
     email: str
@@ -1808,9 +1870,33 @@ def annotator_snapshots(
     )
 
 
+class PointerIn(BaseModel):
+    """A pointer as submitted by a curator.
+
+    The response models are strict because a stored pointer has every field;
+    a client may leave the defaulted ones out.
+    """
+
+    reference_id: int
+    entity_id: str
+    offset: int
+    length: int
+    field: Literal["abstract", "body"] = "body"
+    exact_text: str = ""
+    prefix_text: str = ""
+    suffix_text: str = ""
+
+
+class RelationIn(BaseModel):
+    relation_id: int | None = None
+    predicate: str
+    subject: str
+    object: str
+
+
 class SaveCuratedRequest(BaseModel):
-    pointers: list[PointerOut]
-    relations: list[RelationOut]
+    pointers: list[PointerIn]
+    relations: list[RelationIn]
 
 
 @app.post(

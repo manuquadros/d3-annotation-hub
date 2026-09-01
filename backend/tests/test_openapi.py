@@ -29,16 +29,17 @@ class TestAnnotationContract:
         components = schema["components"]["schemas"]
         for name in (
             "ReferenceAnnotation",
-            "EntityAnnotation",
-            "Pointer",
-            "Relation",
-            "Reference",
+            "ReferenceAnnotationOut",
+            "EntityAnnotationOut",
+            "PointerOut",
+            "RelationOut",
+            "ReferenceOut",
         ):
             assert name in components
 
     def test_reference_returns_the_annotation_model(self, schema):
         body = _json_response_schema(schema["paths"]["/reference/"]["get"])
-        assert body == {"$ref": "#/components/schemas/ReferenceAnnotation"}
+        assert body == {"$ref": "#/components/schemas/ReferenceAnnotationOut"}
 
     def test_save_accepts_the_annotation_model(self, schema):
         request = schema["paths"]["/save/"]["post"]["requestBody"]
@@ -58,6 +59,24 @@ class TestSchemaShape:
             and found.get("additionalProperties") is True
         ]
         assert untyped == []
+
+    def test_the_read_models_leave_nothing_optional(self, schema):
+        """A default makes a field optional in the schema even on a response,
+        so the generated type would be weaker than what the API sends."""
+        components = schema["components"]["schemas"]
+        for name in (
+            "ReferenceAnnotationOut",
+            "ReferenceOut",
+            "EntityAnnotationOut",
+            "PointerOut",
+            "RelationOut",
+        ):
+            model = components[name]
+            assert set(model["required"]) == set(model["properties"]), name
+
+    def test_pointer_field_is_an_enum(self, schema):
+        prop = schema["components"]["schemas"]["PointerOut"]["properties"]
+        assert prop["field"]["enum"] == ["abstract", "body"]
 
     def test_operation_ids_are_unique(self, schema):
         ids = [

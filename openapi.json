@@ -469,6 +469,59 @@
         "title": "EntityAnnotation",
         "type": "object"
       },
+      "EntityAnnotationOut": {
+        "properties": {
+          "confirmed": {
+            "title": "Confirmed",
+            "type": "boolean"
+          },
+          "entity_id": {
+            "title": "Entity Id",
+            "type": "string"
+          },
+          "is_class": {
+            "title": "Is Class",
+            "type": "boolean"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "preferred_name": {
+            "title": "Preferred Name",
+            "type": "string"
+          },
+          "synonyms": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Synonyms",
+            "type": "array"
+          },
+          "uri": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Uri"
+          }
+        },
+        "required": [
+          "entity_id",
+          "preferred_name",
+          "uri",
+          "kind",
+          "synonyms",
+          "confirmed",
+          "is_class"
+        ],
+        "title": "EntityAnnotationOut",
+        "type": "object"
+      },
       "EntityOut": {
         "properties": {
           "confirmed": {
@@ -865,6 +918,10 @@
           },
           "field": {
             "default": "body",
+            "enum": [
+              "abstract",
+              "body"
+            ],
             "title": "Field",
             "type": "string"
           },
@@ -900,7 +957,8 @@
         "title": "Pointer",
         "type": "object"
       },
-      "PointerOut": {
+      "PointerIn": {
+        "description": "A pointer as submitted by a curator.\n\nThe response models are strict because a stored pointer has every field;\na client may leave the defaulted ones out.",
         "properties": {
           "entity_id": {
             "title": "Entity Id",
@@ -913,6 +971,10 @@
           },
           "field": {
             "default": "body",
+            "enum": [
+              "abstract",
+              "body"
+            ],
             "title": "Field",
             "type": "string"
           },
@@ -944,6 +1006,58 @@
           "entity_id",
           "offset",
           "length"
+        ],
+        "title": "PointerIn",
+        "type": "object"
+      },
+      "PointerOut": {
+        "properties": {
+          "entity_id": {
+            "title": "Entity Id",
+            "type": "string"
+          },
+          "exact_text": {
+            "title": "Exact Text",
+            "type": "string"
+          },
+          "field": {
+            "enum": [
+              "abstract",
+              "body"
+            ],
+            "title": "Field",
+            "type": "string"
+          },
+          "length": {
+            "title": "Length",
+            "type": "integer"
+          },
+          "offset": {
+            "title": "Offset",
+            "type": "integer"
+          },
+          "prefix_text": {
+            "title": "Prefix Text",
+            "type": "string"
+          },
+          "reference_id": {
+            "title": "Reference Id",
+            "type": "integer"
+          },
+          "suffix_text": {
+            "title": "Suffix Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reference_id",
+          "entity_id",
+          "offset",
+          "length",
+          "field",
+          "exact_text",
+          "prefix_text",
+          "suffix_text"
         ],
         "title": "PointerOut",
         "type": "object"
@@ -1518,6 +1632,70 @@
         "title": "ReferenceAnnotation",
         "type": "object"
       },
+      "ReferenceAnnotationOut": {
+        "description": "An annotation as read back from the database.\n\nThe request model (``ReferenceAnnotation``) leaves anything with a default\noptional, which is right for a client that omits it but wrong for a\nresponse, where every field has been filled in. Declaring the read shape\nseparately is what lets the generated frontend types be exact.",
+        "properties": {
+          "completed": {
+            "title": "Completed",
+            "type": "boolean"
+          },
+          "entities": {
+            "items": {
+              "$ref": "#/components/schemas/EntityAnnotationOut"
+            },
+            "title": "Entities",
+            "type": "array"
+          },
+          "last_updated": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Updated"
+          },
+          "pointers": {
+            "items": {
+              "$ref": "#/components/schemas/PointerOut"
+            },
+            "title": "Pointers",
+            "type": "array"
+          },
+          "project_id": {
+            "title": "Project Id",
+            "type": "integer"
+          },
+          "reference": {
+            "$ref": "#/components/schemas/ReferenceOut"
+          },
+          "relations": {
+            "items": {
+              "$ref": "#/components/schemas/RelationOut"
+            },
+            "title": "Relations",
+            "type": "array"
+          },
+          "user": {
+            "$ref": "#/components/schemas/User"
+          }
+        },
+        "required": [
+          "user",
+          "reference",
+          "entities",
+          "pointers",
+          "relations",
+          "completed",
+          "last_updated",
+          "project_id"
+        ],
+        "title": "ReferenceAnnotationOut",
+        "type": "object"
+      },
       "ReferenceInfo": {
         "properties": {
           "abstract": {
@@ -1592,6 +1770,134 @@
         "title": "ReferenceInfo",
         "type": "object"
       },
+      "ReferenceOut": {
+        "description": "A stored reference. Unlike the table model, the key is assigned.",
+        "properties": {
+          "abstract": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Abstract"
+          },
+          "authors": {
+            "title": "Authors",
+            "type": "string"
+          },
+          "body": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Body"
+          },
+          "doi": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Doi"
+          },
+          "journal": {
+            "title": "Journal",
+            "type": "string"
+          },
+          "number": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Number"
+          },
+          "pages": {
+            "title": "Pages",
+            "type": "string"
+          },
+          "pmc_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pmc Id"
+          },
+          "pmc_open": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pmc Open"
+          },
+          "pubmed_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pubmed Id"
+          },
+          "reference_id": {
+            "title": "Reference Id",
+            "type": "integer"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "volume": {
+            "title": "Volume",
+            "type": "string"
+          },
+          "year": {
+            "title": "Year",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "reference_id",
+          "pubmed_id",
+          "pmc_id",
+          "pmc_open",
+          "doi",
+          "authors",
+          "title",
+          "journal",
+          "volume",
+          "number",
+          "pages",
+          "year",
+          "abstract",
+          "body"
+        ],
+        "title": "ReferenceOut",
+        "type": "object"
+      },
       "Relation": {
         "description": "Represents a user-annotated relation between two entities.",
         "properties": {
@@ -1625,6 +1931,40 @@
           "object"
         ],
         "title": "Relation",
+        "type": "object"
+      },
+      "RelationIn": {
+        "properties": {
+          "object": {
+            "title": "Object",
+            "type": "string"
+          },
+          "predicate": {
+            "title": "Predicate",
+            "type": "string"
+          },
+          "relation_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Relation Id"
+          },
+          "subject": {
+            "title": "Subject",
+            "type": "string"
+          }
+        },
+        "required": [
+          "predicate",
+          "subject",
+          "object"
+        ],
+        "title": "RelationIn",
         "type": "object"
       },
       "RelationOut": {
@@ -1683,14 +2023,14 @@
         "properties": {
           "pointers": {
             "items": {
-              "$ref": "#/components/schemas/PointerOut"
+              "$ref": "#/components/schemas/PointerIn"
             },
             "title": "Pointers",
             "type": "array"
           },
           "relations": {
             "items": {
-              "$ref": "#/components/schemas/RelationOut"
+              "$ref": "#/components/schemas/RelationIn"
             },
             "title": "Relations",
             "type": "array"
@@ -6270,7 +6610,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ReferenceAnnotation"
+                  "$ref": "#/components/schemas/ReferenceAnnotationOut"
                 }
               }
             },

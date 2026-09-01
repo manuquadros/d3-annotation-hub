@@ -2,7 +2,7 @@
 
 import enum
 from datetime import UTC, datetime
-from typing import TypedDict
+from typing import Literal, TypedDict
 from uuid import UUID, uuid4
 
 import pendulum
@@ -354,7 +354,12 @@ class Pointer(SQLModel, table=True):
     )
     offset: int = Field(primary_key=True)
     length: int = Field(primary_key=True)
-    field: str = Field(default="body", primary_key=True)
+    # Literal needs an explicit column: SQLModel cannot infer a SQL type from
+    # a typing.Literal, and the annotation is what carries the enum into the
+    # OpenAPI schema the frontend types are generated from.
+    field: Literal["abstract", "body"] = Field(
+        default="body", sa_column=Column(String, primary_key=True)
+    )
     exact_text: str = ""
     prefix_text: str = ""
     suffix_text: str = ""
@@ -517,7 +522,9 @@ class StatePointer(SQLModel, table=True):
     entity_id: str = Field(primary_key=True)
     offset: int = Field(primary_key=True)
     length: int = Field(primary_key=True)
-    field: str = Field(default="body", primary_key=True)
+    field: Literal["abstract", "body"] = Field(
+        default="body", sa_column=Column(String, primary_key=True)
+    )
 
 
 class StateRelation(SQLModel, table=True):
@@ -589,7 +596,9 @@ class SnapshotPointer(SQLModel, table=True):
     entity_id: str = Field(primary_key=True)
     offset: int = Field(primary_key=True)
     length: int = Field(primary_key=True)
-    field: str = Field(default="body", primary_key=True)
+    field: Literal["abstract", "body"] = Field(
+        default="body", sa_column=Column(String, primary_key=True)
+    )
 
 
 class SnapshotRelation(SQLModel, table=True):
@@ -653,7 +662,9 @@ class CuratedAnnotationPointer(SQLModel, table=True):
     entity_id: str = Field(primary_key=True)
     offset: int = Field(primary_key=True)
     length: int = Field(primary_key=True)
-    field: str = Field(default="body", primary_key=True)
+    field: Literal["abstract", "body"] = Field(
+        default="body", sa_column=Column(String, primary_key=True)
+    )
 
 
 class CuratedAnnotationRelation(SQLModel, table=True):
