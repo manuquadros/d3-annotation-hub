@@ -501,6 +501,11 @@ async def import_ontology(  # noqa: C901
     )
 
 
+class OntologyEntityPage(BaseModel):
+    entities: list[EntityAnnotation]
+    total: int
+
+
 @app.get("/admin/ontologies/{ontology_id}/entities")
 def list_ontology_entities(
     ontology_id: int,
@@ -510,12 +515,12 @@ def list_ontology_entities(
     curie_filter: str = "",
     name_filter: str = "",
     type_filter: str = "",
-) -> dict:
+) -> OntologyEntityPage:
     """Return a page of entities for an ontology plus the total count."""
     entities, total = get_ontology_entities(
         ontology_id, limit, offset, curie_filter, name_filter, type_filter
     )
-    return {"entities": entities, "total": total}
+    return OntologyEntityPage(entities=entities, total=total)
 
 
 class OntologyTripleOut(BaseModel):
@@ -527,6 +532,11 @@ class OntologyTripleOut(BaseModel):
     object_literal: str | None
 
 
+class OntologyTriplePage(BaseModel):
+    triples: list[OntologyTripleOut]
+    total: int
+
+
 @app.get("/admin/ontologies/{ontology_id}/triples")
 def list_ontology_triples(
     ontology_id: int,
@@ -536,7 +546,7 @@ def list_ontology_triples(
     subject_filter: str = "",
     predicate_filter: str = "",
     object_filter: str = "",
-) -> dict:
+) -> OntologyTriplePage:
     """Return a page of triples for an ontology plus the total count."""
     rows, total = get_ontology_triples(
         ontology_id,
@@ -546,17 +556,23 @@ def list_ontology_triples(
         predicate_filter,
         object_filter,
     )
-    return {"triples": [OntologyTripleOut(**r) for r in rows], "total": total}
+    return OntologyTriplePage(
+        triples=[OntologyTripleOut(**r) for r in rows], total=total
+    )
+
+
+class StatusResponse(BaseModel):
+    status: str
 
 
 @app.post("/admin/fts/rebuild")
 def rebuild_fts_index(
     current_user: Annotated[User, Depends(users.get_current_admin)],
-) -> dict:
+) -> StatusResponse:
     """Rebuild the FTS5 name search index from the current Name table
     contents."""
     rebuild_fts()
-    return {"status": "ok"}
+    return StatusResponse(status="ok")
 
 
 class PropertyResponse(BaseModel):
@@ -580,16 +596,33 @@ def list_ontology_properties(
     ]
 
 
+class ProposedEntityOut(BaseModel):
+    proposal_id: int
+    curie: str | None
+    label: str | None
+    kind: str
+    proposed_by: str | None
+    status: str | None
+    created_at: str | None
+
+
+class ProposedEntityPage(BaseModel):
+    entities: list[ProposedEntityOut]
+    total: int
+
+
 @app.get("/admin/entities/proposed")
 def get_proposed_entities_admin(
     project_id: int,
     current_user: Annotated[User, Depends(users.get_current_admin)],
     limit: LimitParam = 50,
     offset: OffsetParam = 0,
-) -> dict:
+) -> ProposedEntityPage:
     """Return proposed entities for a project (admin/curator view)."""
     entities, total = list_proposed_entities(project_id, limit, offset)
-    return {"entities": entities, "total": total}
+    return ProposedEntityPage.model_validate(
+        {"entities": entities, "total": total}
+    )
 
 
 class UpdateCurieRequest(BaseModel):
@@ -606,24 +639,28 @@ class UpdateCurieRequest(BaseModel):
         return stripped
 
 
+class OkResponse(BaseModel):
+    ok: bool = True
+
+
 @app.post("/admin/entities/{curie:path}/confirm")
 def confirm_proposed_entity(
     curie: str,
     current_user: Annotated[User, Depends(users.get_current_admin)],
-) -> dict:
+) -> OkResponse:
     """Confirm (accept) a proposed entity."""
     confirm_entity(curie)
-    return {"ok": True}
+    return OkResponse()
 
 
 @app.delete("/admin/entities/{curie:path}")
 def remove_proposed_entity(
     curie: str,
     current_user: Annotated[User, Depends(users.get_current_admin)],
-) -> dict:
+) -> OkResponse:
     """Delete a proposed entity and all its annotations."""
     delete_entity(curie)
-    return {"ok": True}
+    return OkResponse()
 
 
 @app.patch("/admin/entities/{curie:path}/curie")
@@ -631,23 +668,23 @@ def rename_entity_curie(
     curie: str,
     body: UpdateCurieRequest,
     current_user: Annotated[User, Depends(users.get_current_admin)],
-) -> dict:
+) -> OkResponse:
     """Rename an entity's CURIE across all tables."""
     update_entity_curie(curie, body.new_curie)
-    return {"ok": True}
+    return OkResponse()
 
 
 @app.delete("/admin/ontologies/{ontology_id}")
 def remove_ontology(
     ontology_id: int,
     current_user: Annotated[User, Depends(users.get_current_admin)],
-) -> dict:
+) -> OkResponse:
     """Delete an ontology and all its entities, names, and triples."""
     try:
         delete_ontology(ontology_id)
     except OntologyInUseError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
-    return {"ok": True}
+    return OkResponse()
 
 
 class SetPermissionsRequest(BaseModel):
@@ -1120,10 +1157,12 @@ def get_project_proposed_entities(
     current_user: Annotated[User, Depends(users.get_current_admin)],
     limit: LimitParam = 50,
     offset: OffsetParam = 0,
-) -> dict:
+) -> ProposedEntityPage:
     """Return proposed entities for a project (curator/manager view)."""
     entities, total = list_proposed_entities(project_id, limit, offset)
-    return {"entities": entities, "total": total}
+    return ProposedEntityPage.model_validate(
+        {"entities": entities, "total": total}
+    )
 
 
 @app.post("/projects/{project_id}/proposed-entities", status_code=201)
@@ -1132,16 +1171,34 @@ def create_project_proposed_entity(
     body: ProposedEntityRequest,
     current_user: Annotated[User, Depends(users.get_current_active_user)],
     user_auth: Annotated[UserAuth | None, Depends(users.get_current_user_auth)],
-) -> dict:
+) -> ProposedEntityOut:
     """Record an annotator-proposed entity for the project."""
     _require_project_member(project_id, current_user, user_auth)
-    return store_proposed_entity(
-        project_id,
-        label=body.label,
-        curie=body.curie,
-        kind=body.kind,
-        proposed_by=current_user.email,
+    return ProposedEntityOut.model_validate(
+        store_proposed_entity(
+            project_id,
+            label=body.label,
+            curie=body.curie,
+            kind=body.kind,
+            proposed_by=current_user.email,
+        )
     )
+
+
+class ProposedPropertyOut(BaseModel):
+    proposal_id: int
+    curie: str | None
+    label: str
+    domain_curie: str | None
+    range_curie: str | None
+    proposed_by: str | None
+    status: str
+    created_at: str
+
+
+class ProposedPropertyPage(BaseModel):
+    properties: list[ProposedPropertyOut]
+    total: int
 
 
 @app.get("/projects/{project_id}/proposed-properties")
@@ -1150,10 +1207,12 @@ def get_project_proposed_properties(
     current_user: Annotated[User, Depends(users.get_current_admin)],
     limit: LimitParam = 50,
     offset: OffsetParam = 0,
-) -> dict:
+) -> ProposedPropertyPage:
     """Return proposed properties for a project (curator/manager view)."""
     properties, total = list_proposed_properties(project_id, limit, offset)
-    return {"properties": properties, "total": total}
+    return ProposedPropertyPage.model_validate(
+        {"properties": properties, "total": total}
+    )
 
 
 @app.post("/projects/{project_id}/proposed-properties", status_code=201)
@@ -1162,16 +1221,18 @@ def create_project_proposed_property(
     body: ProposedPropertyRequest,
     current_user: Annotated[User, Depends(users.get_current_active_user)],
     user_auth: Annotated[UserAuth | None, Depends(users.get_current_user_auth)],
-) -> dict:
+) -> ProposedPropertyOut:
     """Record an annotator-proposed property for the project."""
     _require_project_member(project_id, current_user, user_auth)
-    return store_proposed_property(
-        project_id,
-        label=body.label,
-        curie=body.curie,
-        domain_curie=body.domain_curie,
-        range_curie=body.range_curie,
-        proposed_by=current_user.email,
+    return ProposedPropertyOut.model_validate(
+        store_proposed_property(
+            project_id,
+            label=body.label,
+            curie=body.curie,
+            domain_curie=body.domain_curie,
+            range_curie=body.range_curie,
+            proposed_by=current_user.email,
+        )
     )
 
 
