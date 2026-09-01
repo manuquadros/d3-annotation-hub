@@ -27,6 +27,7 @@ function makeState(): AnnotationState {
             number: null,
             pages: "1-10",
             year: 2020,
+            abstract: null,
             body: BODY,
         },
         entities: [

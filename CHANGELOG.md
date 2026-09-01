@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- The frontend's wire types are now generated from the backend's OpenAPI schema (`pnpm gen:api`) rather than hand-mirrored, and the endpoints that feed them declare a read shape in which nothing is optional. A reference with no PubMed ID no longer fails to load — the frontend had required `pubmed_id` while the backend has always allowed it to be absent for a DOI-identified article.
 - The backend's `/reference/` and `/save/` endpoints now send and accept the annotation as a JSON object instead of a JSON string wrapped in one, and every endpoint that previously answered with an undescribed object now declares its response shape. The generated OpenAPI schema therefore describes the whole API, which is what a typed frontend client can be generated from; `pdm run openapi` writes it to `openapi.json`.
 - Entity search now matches per-word prefixes through the FTS index instead of scanning for arbitrary substrings, so it stays fast on large ontologies; searching a mid-word fragment (e.g. "bacterium" to find "Mycobacterium") no longer matches, but any leading or non-leading whole-word prefix still does.
 - Large ontology imports are faster: the search index's per-row sync triggers are suppressed during a bulk load and the index is rebuilt once at the end.

@@ -1,17 +1,16 @@
 import { z } from "zod";
 import { Map, Set, Record } from "immutable";
 import type { Map as ImmutableMap } from "immutable";
+import type { components } from "$lib/api.generated";
 
-export type Pointer = {
-    entity_id: string;
-    reference_id: number;
-    offset: number;
-    length: number;
-    field: "abstract" | "body";
-    exact_text: string;
-    prefix_text: string;
-    suffix_text: string;
-};
+/**
+ * Wire shapes generated from the backend's OpenAPI schema by `pnpm gen:api`.
+ * The `*Out` models are the read shapes — every field the API actually sends,
+ * so a type derived from one needs no hand-maintained narrowing.
+ */
+type Schemas = components["schemas"];
+
+export type Pointer = Schemas["PointerOut"];
 
 export const PointerSchema = z.object({
     entity_id: z.string(),
@@ -24,52 +23,31 @@ export const PointerSchema = z.object({
     suffix_text: z.string().default(""),
 }) satisfies z.ZodType<Pointer>;
 
-export type Entity = {
-    entity_id: string;
-    uri?: string | null;
-    preferred_name: string;
-    kind: string;
+/** The wire entity, with synonyms held as an Immutable Set. */
+export type Entity = Omit<Schemas["EntityAnnotationOut"], "synonyms"> & {
     synonyms: Set<string>;
-    confirmed: boolean;
 };
 
 export const EntitySchema = z.object({
     entity_id: z.string(),
-    uri: z.string().nullish(),
+    uri: z.string().nullable(),
     preferred_name: z.string(),
     kind: z.string(),
     synonyms: z.array(z.string()).transform((arr) => Set(arr)),
     confirmed: z.boolean().default(true),
+    is_class: z.boolean().default(false),
 }) satisfies z.ZodType<Entity>;
 
-export type User = {
-    user_id: string;
-    email: string;
-};
+export type User = Schemas["User"];
 export const UserSchema = z.object({
     user_id: z.uuid(),
     email: z.email(),
 }) satisfies z.ZodType<User>;
 
-export type Reference = {
-    reference_id: number;
-    pubmed_id: number;
-    pmc_id: number | null;
-    pmc_open: boolean | null;
-    doi: string | null;
-    authors: string;
-    title: string;
-    journal: string;
-    volume: string;
-    number: string | null;
-    pages: string;
-    year: number;
-    abstract?: string | null;
-    body?: string | null;
-};
+export type Reference = Schemas["ReferenceOut"];
 export const ReferenceSchema = z.object({
     reference_id: z.int(),
-    pubmed_id: z.int(),
+    pubmed_id: z.int().nullable(),
     pmc_id: z.int().nullable(),
     pmc_open: z.boolean().nullable(),
     doi: z.string().nullable(),
@@ -80,8 +58,8 @@ export const ReferenceSchema = z.object({
     number: z.nullable(z.string()),
     pages: z.string(),
     year: z.int(),
-    abstract: z.string().nullish(),
-    body: z.string().nullish(),
+    abstract: z.string().nullable(),
+    body: z.string().nullable(),
 }) satisfies z.ZodType<Reference>;
 
 // Create an Immutable Record for Relation to ensure value-based equality
@@ -137,13 +115,7 @@ export type AnnotationPayload = {
     completed: boolean;
 };
 
-export type EntitySearchResult = {
-    entity_id: string;
-    preferred_name: string;
-    kind: string;
-    uri?: string;
-    confirmed: boolean;
-};
+export type EntitySearchResult = Schemas["EntityAnnotationOut"];
 
 export type EditorState =
     | { mode: "closed" }

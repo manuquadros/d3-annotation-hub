@@ -5,6 +5,7 @@ pnpm-workspace.yaml
 yarn.lock
 
 # Generated / build output
+src/lib/api.generated.d.ts
 .svelte-kit
 build
 coverage

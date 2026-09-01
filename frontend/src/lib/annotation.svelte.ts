@@ -383,6 +383,8 @@ export class AnnotationState {
         const newEntityId = `entity_${crypto.randomUUID()}`;
         this.entities = this.entities.set(newEntityId, {
             entity_id: newEntityId,
+            uri: null,
+            is_class: false,
             kind,
             preferred_name: preferredName,
             synonyms: synonyms ? Set(synonyms) : Set(),
@@ -540,6 +542,8 @@ export class AnnotationState {
             const trimmedName = preferredName.trim();
             this.entities = this.entities.set(entityId, {
                 entity_id: entityId,
+                uri: null,
+                is_class: false,
                 kind,
                 preferred_name: preferredName,
                 synonyms: trimmedName ? Set([trimmedName]) : Set(),

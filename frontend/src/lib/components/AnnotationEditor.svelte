@@ -232,13 +232,7 @@
     let searchResults = $state<EntitySearchResult[]>(
         annotationState.entities
             .valueSeq()
-            .map((e) => ({
-                entity_id: e.entity_id,
-                preferred_name: e.preferred_name,
-                kind: e.kind,
-                uri: e.uri ?? undefined,
-                confirmed: e.confirmed,
-            }))
+            .map((e) => ({ ...e, synonyms: e.synonyms.toArray() }))
             .toArray(),
     );
     let searchLoading = $state(false);
@@ -248,13 +242,7 @@
         if (q.length < 2) {
             searchResults = annotationState.entities
                 .valueSeq()
-                .map((e) => ({
-                    entity_id: e.entity_id,
-                    preferred_name: e.preferred_name,
-                    kind: e.kind,
-                    uri: e.uri ?? undefined,
-                    confirmed: e.confirmed,
-                }))
+                .map((e) => ({ ...e, synonyms: e.synonyms.toArray() }))
                 .toArray();
             searchLoading = false;
             return;

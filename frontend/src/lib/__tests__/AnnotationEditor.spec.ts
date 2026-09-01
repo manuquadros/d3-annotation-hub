@@ -33,6 +33,7 @@ function makeState(): AnnotationState {
             number: null,
             pages: "1-10",
             year: 2020,
+            abstract: null,
             body: "Bacteria were found and bacteria appeared again.",
         },
         entities: [

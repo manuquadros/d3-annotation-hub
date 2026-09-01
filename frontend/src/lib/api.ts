@@ -1,6 +1,7 @@
 import { goto } from "$app/navigation";
 import { AnnotationState } from "$lib/annotation.svelte";
 import type { AnnotationPayload, EntitySearchResult } from "$lib/types.ts";
+import type { components } from "$lib/api.generated";
 
 export async function fetchReference(
     refIdentifier: string,
@@ -26,11 +27,7 @@ export async function fetchReference(
     return new AnnotationState(data);
 }
 
-export interface QueueItem {
-    ref: string;
-    citation: string;
-    completed: boolean;
-}
+export type QueueItem = components["schemas"]["QueueItem"];
 
 export async function fetchQueue(
     projectId: number,

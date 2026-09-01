@@ -137,6 +137,7 @@ function makeState(
             number: null,
             pages: "1",
             year: 2020,
+            abstract: null,
             body: "x".repeat(200),
         },
         entities: entityIds.map((id) => ({
