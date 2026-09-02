@@ -17,6 +17,7 @@ from d3textdb.owl import (
     peek_ontology_metadata,
 )
 from d3textdb.schema import (
+    EntityAnnotation,
     Ontology,
     Pointer,
     Reference,
@@ -265,9 +266,9 @@ class RelationOut(BaseModel):
 class ReferenceAnnotationOut(BaseModel):
     """An annotation as read back from the database.
 
-    The request model (``ReferenceAnnotation``) leaves anything with a default
-    optional, which is right for a client that omits it but wrong for a
-    response, where every field has been filled in. Declaring the read shape
+    The request model (``ReferenceAnnotationIn``) leaves anything with a
+    default optional, which is right for a client that omits it but wrong for
+    a response, where every field has been filled in. Declaring the read shape
     separately is what lets the generated frontend types be exact.
     """
 
@@ -281,6 +282,98 @@ class ReferenceAnnotationOut(BaseModel):
     completed: bool
     last_updated: datetime | None
     project_id: int
+
+
+class UserIn(BaseModel):
+    """The annotator a client names on a write.
+
+    The handler always overwrites it with the authenticated user; it is
+    declared so the identity a client does send has to be well formed.
+    """
+
+    user_id: uuid.UUID
+    email: EmailStr
+
+
+class ReferenceIn(BaseModel):
+    """A reference as submitted with an annotation.
+
+    ``reference_id`` is accepted because a client posts back what
+    ``/reference/`` handed it, but the store matches on the natural
+    identifier and assigns the key itself.
+    """
+
+    reference_id: int | None = None
+    pubmed_id: int | None = None
+    pmc_id: int | None = None
+    pmc_open: bool | None = None
+    doi: str | None = None
+    authors: str
+    title: str
+    journal: str
+    volume: str
+    number: str | None = None
+    pages: str
+    year: int
+    abstract: str | None = None
+    body: str | None = None
+
+
+class PointerIn(BaseModel):
+    """A pointer as submitted by a client.
+
+    The response models are strict because a stored pointer has every field;
+    a client may leave the defaulted ones out.
+    """
+
+    reference_id: int
+    entity_id: str
+    offset: int
+    length: int
+    field: Literal["abstract", "body"] = "body"
+    exact_text: str = ""
+    prefix_text: str = ""
+    suffix_text: str = ""
+
+
+class RelationIn(BaseModel):
+    relation_id: int | None = None
+    predicate: str
+    subject: str
+    object: str
+
+
+class ReferenceAnnotationIn(BaseModel):
+    """An annotation as submitted on ``POST /save/``.
+
+    SQLModel turns Pydantic validation off on ``table=True`` models, so a body
+    typed with the storage model (``ReferenceAnnotation``, which embeds
+    ``Reference``, ``Pointer`` and ``Relation``) reached the database with its
+    nested objects unchecked. Restating the write shape in plain Pydantic is
+    what puts them back under validation.
+    """
+
+    user: UserIn
+    reference: ReferenceIn
+    entities: list[EntityAnnotation] = []
+    pointers: list[PointerIn] = []
+    relations: list[RelationIn] = []
+    completed: bool = False
+    last_updated: datetime | None = None
+    project_id: int
+
+    def to_annotation(self, user: User) -> ReferenceAnnotation:
+        """Build the storage model, attributed to ``user``."""
+        return ReferenceAnnotation(
+            user=user,
+            reference=Reference(**self.reference.model_dump()),
+            entities=self.entities,
+            pointers=[Pointer(**p.model_dump()) for p in self.pointers],
+            relations=[Relation(**r.model_dump()) for r in self.relations],
+            completed=self.completed,
+            last_updated=self.last_updated,
+            project_id=self.project_id,
+        )
 
 
 @app.get("/reference/")
@@ -935,7 +1028,7 @@ def entity_search(
 
 @app.post("/save/")
 def store_annotation(
-    annotation: ReferenceAnnotation,
+    annotation: ReferenceAnnotationIn,
     current_user: Annotated[User, Depends(users.get_current_active_user)],
     user_auth: Annotated[UserAuth | None, Depends(users.get_current_user_auth)],
 ) -> None:
@@ -946,8 +1039,7 @@ def store_annotation(
     # Persist under the authenticated identity; a client-supplied user/project
     # must never let the caller impersonate another annotator or write into a
     # project they don't belong to.
-    annotation.user = current_user
-    upsert_annotation(annotation)
+    upsert_annotation(annotation.to_annotation(current_user))
 
 
 def _generate_password(length: int = 16) -> str:
@@ -1870,30 +1962,6 @@ def annotator_snapshots(
         curated_pointers=curated_pointers,
         curated_relations=curated_relations,
     )
-
-
-class PointerIn(BaseModel):
-    """A pointer as submitted by a curator.
-
-    The response models are strict because a stored pointer has every field;
-    a client may leave the defaulted ones out.
-    """
-
-    reference_id: int
-    entity_id: str
-    offset: int
-    length: int
-    field: Literal["abstract", "body"] = "body"
-    exact_text: str = ""
-    prefix_text: str = ""
-    suffix_text: str = ""
-
-
-class RelationIn(BaseModel):
-    relation_id: int | None = None
-    predicate: str
-    subject: str
-    object: str
 
 
 class SaveCuratedRequest(BaseModel):

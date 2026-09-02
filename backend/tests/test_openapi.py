@@ -28,7 +28,7 @@ class TestAnnotationContract:
     def test_annotation_models_are_described(self, schema):
         components = schema["components"]["schemas"]
         for name in (
-            "ReferenceAnnotation",
+            "ReferenceAnnotationIn",
             "ReferenceAnnotationOut",
             "EntityAnnotationOut",
             "PointerOut",
@@ -44,7 +44,7 @@ class TestAnnotationContract:
     def test_save_accepts_the_annotation_model(self, schema):
         request = schema["paths"]["/save/"]["post"]["requestBody"]
         assert request["content"]["application/json"]["schema"] == {
-            "$ref": "#/components/schemas/ReferenceAnnotation"
+            "$ref": "#/components/schemas/ReferenceAnnotationIn"
         }
 
 

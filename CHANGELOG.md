@@ -52,6 +52,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Editing an already-selected class in the annotation editor's class picker no longer blanks the field and swallows the first keystroke; the typed text is kept and the selection clears only once it stops matching.
 - Admin and project-management actions that fail on the server (making/removing a project manager, removing a project member, assigning an ontology, removing a project's ontology) now show the reason instead of silently doing nothing, and their buttons are disabled while the request is in flight to prevent double-submits.
 - Adding or removing a project member (admin panel and a project's Users page) and deleting a project now refresh the sidebar immediately: the Annotate/Curate links, the project switcher, and the project list no longer show your old roles or a deleted project until the next navigation or reload.
+- Saving an annotation now validates the whole body: a malformed pointer, relation, reference, or user (a non-numeric offset or year, a pointer field outside `abstract`/`body`, a missing required field) is rejected with a 422 instead of being accepted and written to the database. Only the annotation's own top-level fields were checked before.
 
 ### Security
 

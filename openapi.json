@@ -904,61 +904,8 @@
         "title": "OntologyTriplePage",
         "type": "object"
       },
-      "Pointer": {
-        "description": "Text span identifying an entity within a reference.\n\nThe composite primary key ensures the same (reference, entity, span)\ntriple is stored only once regardless of how many users annotate it.\nUser attribution lives at the AnnotationState / AnnotationSnapshot level.\n\n``entity_id`` stores the entity's CURIE (FK \u2192 entity.curie).\n``field`` is either ``\"abstract\"`` or ``\"body\"``, scoping the offset to the\ncorresponding HTML field of the reference.\n``exact_text``, ``prefix_text``, and ``suffix_text`` implement the W3C\nTextQuoteSelector, allowing re-anchoring if the HTML is regenerated\ndifferently.",
-        "properties": {
-          "entity_id": {
-            "title": "Entity Id",
-            "type": "string"
-          },
-          "exact_text": {
-            "default": "",
-            "title": "Exact Text",
-            "type": "string"
-          },
-          "field": {
-            "default": "body",
-            "enum": [
-              "abstract",
-              "body"
-            ],
-            "title": "Field",
-            "type": "string"
-          },
-          "length": {
-            "title": "Length",
-            "type": "integer"
-          },
-          "offset": {
-            "title": "Offset",
-            "type": "integer"
-          },
-          "prefix_text": {
-            "default": "",
-            "title": "Prefix Text",
-            "type": "string"
-          },
-          "reference_id": {
-            "title": "Reference Id",
-            "type": "integer"
-          },
-          "suffix_text": {
-            "default": "",
-            "title": "Suffix Text",
-            "type": "string"
-          }
-        },
-        "required": [
-          "reference_id",
-          "entity_id",
-          "offset",
-          "length"
-        ],
-        "title": "Pointer",
-        "type": "object"
-      },
       "PointerIn": {
-        "description": "A pointer as submitted by a curator.\n\nThe response models are strict because a stored pointer has every field;\na client may leave the defaulted ones out.",
+        "description": "A pointer as submitted by a client.\n\nThe response models are strict because a stored pointer has every field;\na client may leave the defaulted ones out.",
         "properties": {
           "entity_id": {
             "title": "Entity Id",
@@ -1443,7 +1390,135 @@
         "title": "QueueItem",
         "type": "object"
       },
-      "Reference": {
+      "ReferenceAnnotationIn": {
+        "description": "An annotation as submitted on ``POST /save/``.\n\nSQLModel turns Pydantic validation off on ``table=True`` models, so a body\ntyped with the storage model (``ReferenceAnnotation``, which embeds\n``Reference``, ``Pointer`` and ``Relation``) reached the database with its\nnested objects unchecked. Restating the write shape in plain Pydantic is\nwhat puts them back under validation.",
+        "properties": {
+          "completed": {
+            "default": false,
+            "title": "Completed",
+            "type": "boolean"
+          },
+          "entities": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/EntityAnnotation"
+            },
+            "title": "Entities",
+            "type": "array"
+          },
+          "last_updated": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Updated"
+          },
+          "pointers": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/PointerIn"
+            },
+            "title": "Pointers",
+            "type": "array"
+          },
+          "project_id": {
+            "title": "Project Id",
+            "type": "integer"
+          },
+          "reference": {
+            "$ref": "#/components/schemas/ReferenceIn"
+          },
+          "relations": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/RelationIn"
+            },
+            "title": "Relations",
+            "type": "array"
+          },
+          "user": {
+            "$ref": "#/components/schemas/UserIn"
+          }
+        },
+        "required": [
+          "user",
+          "reference",
+          "project_id"
+        ],
+        "title": "ReferenceAnnotationIn",
+        "type": "object"
+      },
+      "ReferenceAnnotationOut": {
+        "description": "An annotation as read back from the database.\n\nThe request model (``ReferenceAnnotationIn``) leaves anything with a\ndefault optional, which is right for a client that omits it but wrong for\na response, where every field has been filled in. Declaring the read shape\nseparately is what lets the generated frontend types be exact.",
+        "properties": {
+          "completed": {
+            "title": "Completed",
+            "type": "boolean"
+          },
+          "entities": {
+            "items": {
+              "$ref": "#/components/schemas/EntityAnnotationOut"
+            },
+            "title": "Entities",
+            "type": "array"
+          },
+          "last_updated": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Updated"
+          },
+          "pointers": {
+            "items": {
+              "$ref": "#/components/schemas/PointerOut"
+            },
+            "title": "Pointers",
+            "type": "array"
+          },
+          "project_id": {
+            "title": "Project Id",
+            "type": "integer"
+          },
+          "reference": {
+            "$ref": "#/components/schemas/ReferenceOut"
+          },
+          "relations": {
+            "items": {
+              "$ref": "#/components/schemas/RelationOut"
+            },
+            "title": "Relations",
+            "type": "array"
+          },
+          "user": {
+            "$ref": "#/components/schemas/User"
+          }
+        },
+        "required": [
+          "user",
+          "reference",
+          "entities",
+          "pointers",
+          "relations",
+          "completed",
+          "last_updated",
+          "project_id"
+        ],
+        "title": "ReferenceAnnotationOut",
+        "type": "object"
+      },
+      "ReferenceIn": {
+        "description": "A reference as submitted with an annotation.\n\n``reference_id`` is accepted because a client posts back what\n``/reference/`` handed it, but the store matches on the natural\nidentifier and assigns the key itself.",
         "properties": {
           "abstract": {
             "anyOf": [
@@ -1566,134 +1641,7 @@
           "pages",
           "year"
         ],
-        "title": "Reference",
-        "type": "object"
-      },
-      "ReferenceAnnotation": {
-        "description": "Represents the annotations made to a literature reference.",
-        "properties": {
-          "completed": {
-            "default": false,
-            "title": "Completed",
-            "type": "boolean"
-          },
-          "entities": {
-            "default": [],
-            "items": {
-              "$ref": "#/components/schemas/EntityAnnotation"
-            },
-            "title": "Entities",
-            "type": "array"
-          },
-          "last_updated": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Last Updated"
-          },
-          "pointers": {
-            "default": [],
-            "items": {
-              "$ref": "#/components/schemas/Pointer"
-            },
-            "title": "Pointers",
-            "type": "array"
-          },
-          "project_id": {
-            "title": "Project Id",
-            "type": "integer"
-          },
-          "reference": {
-            "$ref": "#/components/schemas/Reference"
-          },
-          "relations": {
-            "default": [],
-            "items": {
-              "$ref": "#/components/schemas/Relation"
-            },
-            "title": "Relations",
-            "type": "array"
-          },
-          "user": {
-            "$ref": "#/components/schemas/User"
-          }
-        },
-        "required": [
-          "user",
-          "reference",
-          "project_id"
-        ],
-        "title": "ReferenceAnnotation",
-        "type": "object"
-      },
-      "ReferenceAnnotationOut": {
-        "description": "An annotation as read back from the database.\n\nThe request model (``ReferenceAnnotation``) leaves anything with a default\noptional, which is right for a client that omits it but wrong for a\nresponse, where every field has been filled in. Declaring the read shape\nseparately is what lets the generated frontend types be exact.",
-        "properties": {
-          "completed": {
-            "title": "Completed",
-            "type": "boolean"
-          },
-          "entities": {
-            "items": {
-              "$ref": "#/components/schemas/EntityAnnotationOut"
-            },
-            "title": "Entities",
-            "type": "array"
-          },
-          "last_updated": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Last Updated"
-          },
-          "pointers": {
-            "items": {
-              "$ref": "#/components/schemas/PointerOut"
-            },
-            "title": "Pointers",
-            "type": "array"
-          },
-          "project_id": {
-            "title": "Project Id",
-            "type": "integer"
-          },
-          "reference": {
-            "$ref": "#/components/schemas/ReferenceOut"
-          },
-          "relations": {
-            "items": {
-              "$ref": "#/components/schemas/RelationOut"
-            },
-            "title": "Relations",
-            "type": "array"
-          },
-          "user": {
-            "$ref": "#/components/schemas/User"
-          }
-        },
-        "required": [
-          "user",
-          "reference",
-          "entities",
-          "pointers",
-          "relations",
-          "completed",
-          "last_updated",
-          "project_id"
-        ],
-        "title": "ReferenceAnnotationOut",
+        "title": "ReferenceIn",
         "type": "object"
       },
       "ReferenceInfo": {
@@ -1896,41 +1844,6 @@
           "body"
         ],
         "title": "ReferenceOut",
-        "type": "object"
-      },
-      "Relation": {
-        "description": "Represents a user-annotated relation between two entities.",
-        "properties": {
-          "object": {
-            "title": "Object",
-            "type": "string"
-          },
-          "predicate": {
-            "title": "Predicate",
-            "type": "string"
-          },
-          "relation_id": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Relation Id"
-          },
-          "subject": {
-            "title": "Subject",
-            "type": "string"
-          }
-        },
-        "required": [
-          "predicate",
-          "subject",
-          "object"
-        ],
-        "title": "Relation",
         "type": "object"
       },
       "RelationIn": {
@@ -2168,6 +2081,27 @@
           "email"
         ],
         "title": "User",
+        "type": "object"
+      },
+      "UserIn": {
+        "description": "The annotator a client names on a write.\n\nThe handler always overwrites it with the authenticated user; it is\ndeclared so the identity a client does send has to be well formed.",
+        "properties": {
+          "email": {
+            "format": "email",
+            "title": "Email",
+            "type": "string"
+          },
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id",
+          "email"
+        ],
+        "title": "UserIn",
         "type": "object"
       },
       "UserInfo": {
@@ -6672,7 +6606,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/ReferenceAnnotation"
+                "$ref": "#/components/schemas/ReferenceAnnotationIn"
               }
             }
           },

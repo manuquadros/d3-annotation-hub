@@ -183,6 +183,17 @@ class TestSaveProjectScope:
 
 
 class TestSaveBodyValidation:
+    """Every part of the body is validated, nested objects included.
+
+    The nested pointers, relations and reference used to be typed with the
+    SQLModel tables, which skip Pydantic validation, so a corrupt one reached
+    the database instead of being refused here.
+    """
+
+    def _bad(self, client, auth, payload) -> None:
+        r = client.post("/save/", json=payload, headers=auth)
+        assert r.status_code == 422, r.text
+
     def test_a_malformed_annotation_is_rejected_at_the_boundary(
         self, setup, client, login
     ):
@@ -195,10 +206,139 @@ class TestSaveBodyValidation:
         payload = _completed_payload(
             client, alice_auth, setup["project_a"], setup["ref_id"]
         )
-        # A field of ReferenceAnnotation itself: the nested Pointer/Relation
-        # models are SQLModel tables, which skip validation entirely, so a
-        # corrupt pointer would sail through this boundary.
         payload["project_id"] = "not-a-project"
 
-        r = client.post("/save/", json=payload, headers=alice_auth)
-        assert r.status_code == 422, r.text
+        self._bad(client, alice_auth, payload)
+
+    def test_a_non_numeric_pointer_offset_is_rejected(
+        self, setup, client, login
+    ):
+        alice_auth = login(_ALICE_EMAIL, _ALICE_PASSWORD)
+        payload = _completed_payload(
+            client, alice_auth, setup["project_a"], setup["ref_id"]
+        )
+        payload["pointers"][0]["offset"] = "halfway"
+
+        self._bad(client, alice_auth, payload)
+
+    def test_a_pointer_field_outside_the_enum_is_rejected(
+        self, setup, client, login
+    ):
+        alice_auth = login(_ALICE_EMAIL, _ALICE_PASSWORD)
+        payload = _completed_payload(
+            client, alice_auth, setup["project_a"], setup["ref_id"]
+        )
+        payload["pointers"][0]["field"] = "footnote"
+
+        self._bad(client, alice_auth, payload)
+
+    def test_a_pointer_missing_its_entity_is_rejected(
+        self, setup, client, login
+    ):
+        alice_auth = login(_ALICE_EMAIL, _ALICE_PASSWORD)
+        payload = _completed_payload(
+            client, alice_auth, setup["project_a"], setup["ref_id"]
+        )
+        del payload["pointers"][0]["entity_id"]
+
+        self._bad(client, alice_auth, payload)
+
+    def test_a_relation_without_a_predicate_is_rejected(
+        self, setup, client, login
+    ):
+        alice_auth = login(_ALICE_EMAIL, _ALICE_PASSWORD)
+        payload = _completed_payload(
+            client, alice_auth, setup["project_a"], setup["ref_id"]
+        )
+        payload["relations"] = [{"subject": _SUBJECT, "object": _OBJECT}]
+
+        self._bad(client, alice_auth, payload)
+
+    def test_a_non_numeric_reference_year_is_rejected(
+        self, setup, client, login
+    ):
+        alice_auth = login(_ALICE_EMAIL, _ALICE_PASSWORD)
+        payload = _completed_payload(
+            client, alice_auth, setup["project_a"], setup["ref_id"]
+        )
+        payload["reference"]["year"] = "last spring"
+
+        self._bad(client, alice_auth, payload)
+
+    def test_a_reference_missing_a_required_field_is_rejected(
+        self, setup, client, login
+    ):
+        alice_auth = login(_ALICE_EMAIL, _ALICE_PASSWORD)
+        payload = _completed_payload(
+            client, alice_auth, setup["project_a"], setup["ref_id"]
+        )
+        del payload["reference"]["title"]
+
+        self._bad(client, alice_auth, payload)
+
+    def test_a_user_without_an_email_is_rejected(self, setup, client, login):
+        """The handler discards the client's user, but it still has a shape."""
+        alice_auth = login(_ALICE_EMAIL, _ALICE_PASSWORD)
+        payload = _completed_payload(
+            client, alice_auth, setup["project_a"], setup["ref_id"]
+        )
+        payload["user"] = {}
+
+        self._bad(client, alice_auth, payload)
+
+    def test_a_corrupt_pointer_never_reaches_the_database(
+        self, setup, client, login
+    ):
+        """A refused save leaves no trace of the offending pointer."""
+        alice_auth = login(_ALICE_EMAIL, _ALICE_PASSWORD)
+        payload = _completed_payload(
+            client, alice_auth, setup["project_a"], setup["ref_id"]
+        )
+        payload["pointers"][0]["offset"] = "halfway"
+
+        self._bad(client, alice_auth, payload)
+
+        r = client.get(
+            f"/reference/?ref_identifier={_PMID}"
+            f"&project_id={setup['project_a']}",
+            headers=alice_auth,
+        )
+        assert r.status_code == 200, r.text
+        assert r.json()["pointers"] == []
+
+
+class TestSaveRoundTrip:
+    def test_the_reference_response_posts_back_unchanged(
+        self, setup, client, login
+    ):
+        """The frontend saves what ``/reference/`` gave it, verbatim.
+
+        Including ``reference.reference_id`` and ``last_updated``, which the
+        read model always fills in and the write model has to tolerate.
+        """
+        alice_auth = login(_ALICE_EMAIL, _ALICE_PASSWORD)
+        payload = _completed_payload(
+            client, alice_auth, setup["project_a"], setup["ref_id"]
+        )
+        payload["relations"] = [
+            {"predicate": "produces", "subject": _SUBJECT, "object": _OBJECT}
+        ]
+        assert (
+            client.post("/save/", json=payload, headers=alice_auth).status_code
+            == 200
+        )
+
+        r = client.get(
+            f"/reference/?ref_identifier={_PMID}"
+            f"&project_id={setup['project_a']}",
+            headers=alice_auth,
+        )
+        assert r.status_code == 200, r.text
+        fetched = r.json()
+        assert fetched["reference"]["reference_id"] == setup["ref_id"]
+        assert len(fetched["pointers"]) == 2
+        assert fetched["relations"][0]["relation_id"] is not None
+        assert fetched["last_updated"] is not None
+
+        r = client.post("/save/", json=fetched, headers=alice_auth)
+        assert r.status_code == 200, r.text

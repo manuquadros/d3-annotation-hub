@@ -1345,54 +1345,8 @@ export interface components {
             triples: components["schemas"]["OntologyTripleOut"][];
         };
         /**
-         * Pointer
-         * @description Text span identifying an entity within a reference.
-         *
-         *     The composite primary key ensures the same (reference, entity, span)
-         *     triple is stored only once regardless of how many users annotate it.
-         *     User attribution lives at the AnnotationState / AnnotationSnapshot level.
-         *
-         *     ``entity_id`` stores the entity's CURIE (FK → entity.curie).
-         *     ``field`` is either ``"abstract"`` or ``"body"``, scoping the offset to the
-         *     corresponding HTML field of the reference.
-         *     ``exact_text``, ``prefix_text``, and ``suffix_text`` implement the W3C
-         *     TextQuoteSelector, allowing re-anchoring if the HTML is regenerated
-         *     differently.
-         */
-        Pointer: {
-            /** Entity Id */
-            entity_id: string;
-            /**
-             * Exact Text
-             * @default
-             */
-            exact_text: string;
-            /**
-             * Field
-             * @default body
-             * @enum {string}
-             */
-            field: "abstract" | "body";
-            /** Length */
-            length: number;
-            /** Offset */
-            offset: number;
-            /**
-             * Prefix Text
-             * @default
-             */
-            prefix_text: string;
-            /** Reference Id */
-            reference_id: number;
-            /**
-             * Suffix Text
-             * @default
-             */
-            suffix_text: string;
-        };
-        /**
          * PointerIn
-         * @description A pointer as submitted by a curator.
+         * @description A pointer as submitted by a client.
          *
          *     The response models are strict because a stored pointer has every field;
          *     a client may leave the defaulted ones out.
@@ -1556,8 +1510,78 @@ export interface components {
             /** Ref */
             ref: string;
         };
-        /** Reference */
-        Reference: {
+        /**
+         * ReferenceAnnotationIn
+         * @description An annotation as submitted on ``POST /save/``.
+         *
+         *     SQLModel turns Pydantic validation off on ``table=True`` models, so a body
+         *     typed with the storage model (``ReferenceAnnotation``, which embeds
+         *     ``Reference``, ``Pointer`` and ``Relation``) reached the database with its
+         *     nested objects unchecked. Restating the write shape in plain Pydantic is
+         *     what puts them back under validation.
+         */
+        ReferenceAnnotationIn: {
+            /**
+             * Completed
+             * @default false
+             */
+            completed: boolean;
+            /**
+             * Entities
+             * @default []
+             */
+            entities: components["schemas"]["EntityAnnotation"][];
+            /** Last Updated */
+            last_updated?: string | null;
+            /**
+             * Pointers
+             * @default []
+             */
+            pointers: components["schemas"]["PointerIn"][];
+            /** Project Id */
+            project_id: number;
+            reference: components["schemas"]["ReferenceIn"];
+            /**
+             * Relations
+             * @default []
+             */
+            relations: components["schemas"]["RelationIn"][];
+            user: components["schemas"]["UserIn"];
+        };
+        /**
+         * ReferenceAnnotationOut
+         * @description An annotation as read back from the database.
+         *
+         *     The request model (``ReferenceAnnotationIn``) leaves anything with a
+         *     default optional, which is right for a client that omits it but wrong for
+         *     a response, where every field has been filled in. Declaring the read shape
+         *     separately is what lets the generated frontend types be exact.
+         */
+        ReferenceAnnotationOut: {
+            /** Completed */
+            completed: boolean;
+            /** Entities */
+            entities: components["schemas"]["EntityAnnotationOut"][];
+            /** Last Updated */
+            last_updated: string | null;
+            /** Pointers */
+            pointers: components["schemas"]["PointerOut"][];
+            /** Project Id */
+            project_id: number;
+            reference: components["schemas"]["ReferenceOut"];
+            /** Relations */
+            relations: components["schemas"]["RelationOut"][];
+            user: components["schemas"]["User"];
+        };
+        /**
+         * ReferenceIn
+         * @description A reference as submitted with an annotation.
+         *
+         *     ``reference_id`` is accepted because a client posts back what
+         *     ``/reference/`` handed it, but the store matches on the natural
+         *     identifier and assigns the key itself.
+         */
+        ReferenceIn: {
             /** Abstract */
             abstract?: string | null;
             /** Authors */
@@ -1586,63 +1610,6 @@ export interface components {
             volume: string;
             /** Year */
             year: number;
-        };
-        /**
-         * ReferenceAnnotation
-         * @description Represents the annotations made to a literature reference.
-         */
-        ReferenceAnnotation: {
-            /**
-             * Completed
-             * @default false
-             */
-            completed: boolean;
-            /**
-             * Entities
-             * @default []
-             */
-            entities: components["schemas"]["EntityAnnotation"][];
-            /** Last Updated */
-            last_updated?: string | null;
-            /**
-             * Pointers
-             * @default []
-             */
-            pointers: components["schemas"]["Pointer"][];
-            /** Project Id */
-            project_id: number;
-            reference: components["schemas"]["Reference"];
-            /**
-             * Relations
-             * @default []
-             */
-            relations: components["schemas"]["Relation"][];
-            user: components["schemas"]["User"];
-        };
-        /**
-         * ReferenceAnnotationOut
-         * @description An annotation as read back from the database.
-         *
-         *     The request model (``ReferenceAnnotation``) leaves anything with a default
-         *     optional, which is right for a client that omits it but wrong for a
-         *     response, where every field has been filled in. Declaring the read shape
-         *     separately is what lets the generated frontend types be exact.
-         */
-        ReferenceAnnotationOut: {
-            /** Completed */
-            completed: boolean;
-            /** Entities */
-            entities: components["schemas"]["EntityAnnotationOut"][];
-            /** Last Updated */
-            last_updated: string | null;
-            /** Pointers */
-            pointers: components["schemas"]["PointerOut"][];
-            /** Project Id */
-            project_id: number;
-            reference: components["schemas"]["ReferenceOut"];
-            /** Relations */
-            relations: components["schemas"]["RelationOut"][];
-            user: components["schemas"]["User"];
         };
         /** ReferenceInfo */
         ReferenceInfo: {
@@ -1696,20 +1663,6 @@ export interface components {
             volume: string;
             /** Year */
             year: number;
-        };
-        /**
-         * Relation
-         * @description Represents a user-annotated relation between two entities.
-         */
-        Relation: {
-            /** Object */
-            object: string;
-            /** Predicate */
-            predicate: string;
-            /** Relation Id */
-            relation_id?: number | null;
-            /** Subject */
-            subject: string;
         };
         /** RelationIn */
         RelationIn: {
@@ -1816,6 +1769,25 @@ export interface components {
              * Format: uuid
              */
             user_id?: string;
+        };
+        /**
+         * UserIn
+         * @description The annotator a client names on a write.
+         *
+         *     The handler always overwrites it with the authenticated user; it is
+         *     declared so the identity a client does send has to be well formed.
+         */
+        UserIn: {
+            /**
+             * Email
+             * Format: email
+             */
+            email: string;
+            /**
+             * User Id
+             * Format: uuid
+             */
+            user_id: string;
         };
         /** UserInfo */
         UserInfo: {
@@ -3888,7 +3860,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["ReferenceAnnotation"];
+                "application/json": components["schemas"]["ReferenceAnnotationIn"];
             };
         };
         responses: {
