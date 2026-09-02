@@ -18,7 +18,6 @@ from d3textdb.schema import (
     UserAuth,
     Verdict,
 )
-from multimethod import multimethod
 from sqlmodel import Session, col, select
 
 from ..utils import cse_citation
@@ -387,18 +386,3 @@ def get_curated_annotation(
     if result is None:
         return [], []
     return result.pointers, result.relations
-
-
-@multimethod
-def query(pmid: int) -> Reference:
-    return annodb.get_article_by_pubmed_id(pmid)
-
-
-@multimethod
-def query(predicate: str, subject: str, object: str) -> str:  # noqa: F811
-    relation = annodb.get_relation(
-        predicate=predicate, subject=subject, object=object
-    )
-    if relation is None:
-        return ""
-    return relation.model_dump_json()
