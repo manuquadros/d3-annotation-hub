@@ -1,4 +1,5 @@
 <script lang="ts">
+    import "$lib/styles/management.css";
     import { untrack } from "svelte";
     import { invalidateAll } from "$app/navigation";
     import OntologyImportForm from "$lib/components/OntologyImportForm.svelte";
@@ -512,7 +513,7 @@
     }
 </script>
 
-<div class="admin-page">
+<div class="page">
     <h1>Administration</h1>
 
     <section class="card">
@@ -1268,29 +1269,6 @@
 </div>
 
 <style>
-    .admin-page {
-        max-width: 860px;
-        margin: 2rem auto;
-        padding: 0 1rem;
-    }
-
-    h1 {
-        font-size: 1.4rem;
-        margin-bottom: 1.5rem;
-    }
-
-    h2 {
-        font-size: 1rem;
-        font-weight: 600;
-        margin: 0;
-    }
-
-    .hint {
-        font-size: 0.85rem;
-        color: #666;
-        margin: 0.4rem 0 0.8rem;
-    }
-
     .fts-row {
         display: flex;
         align-items: center;
@@ -1314,14 +1292,6 @@
         margin-bottom: 1.2rem;
     }
 
-    .card {
-        background: #fff;
-        border: 1px solid #e0e0e0;
-        border-radius: 8px;
-        padding: 1.5rem;
-        margin-bottom: 1.5rem;
-    }
-
     .add-user-form {
         display: flex;
         flex-direction: column;
@@ -1343,20 +1313,6 @@
         font-family: monospace;
     }
 
-    .field {
-        margin-bottom: 1rem;
-    }
-
-    label {
-        display: block;
-        font-size: 0.8rem;
-        font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 0.03em;
-        color: #444;
-        margin-bottom: 0.3rem;
-    }
-
     input[type="text"],
     input[type="email"],
     select {
@@ -1368,49 +1324,9 @@
         box-sizing: border-box;
     }
 
-    .error {
-        color: #c00;
-        font-size: 0.875rem;
-        margin: 0.5rem 0 0;
-    }
-
-    .success {
-        color: #080;
-        font-size: 0.875rem;
-        margin: 0.5rem 0 0;
-    }
-
     .muted {
         color: #888;
         font-size: 0.875rem;
-    }
-
-    .empty {
-        color: #888;
-        font-size: 0.875rem;
-    }
-
-    table {
-        width: 100%;
-        border-collapse: collapse;
-        font-size: 0.875rem;
-    }
-
-    th {
-        text-align: left;
-        font-size: 0.75rem;
-        font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 0.03em;
-        color: #666;
-        padding: 0.4rem 0.6rem;
-        border-bottom: 2px solid #eee;
-    }
-
-    td {
-        padding: 0.5rem 0.6rem;
-        border-bottom: 1px solid #f0f0f0;
-        vertical-align: middle;
     }
 
     tr.expanded > td {
@@ -1499,7 +1415,6 @@
     .inner-table th {
         font-size: 0.7rem;
         padding: 0.3rem 0.5rem;
-        border-bottom-width: 1px;
     }
 
     .inner-table td {

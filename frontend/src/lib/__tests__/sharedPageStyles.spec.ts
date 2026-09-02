@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import { render, fireEvent, waitFor } from "@testing-library/svelte";
 import SettingsPage from "../../routes/settings/+page.svelte";
 import NewProjectPage from "../../routes/projects/new/+page.svelte";
+import AdminPage from "../../routes/admin/+page.svelte";
 
 vi.mock("$app/navigation", () => ({
     goto: vi.fn(() => Promise.resolve()),
@@ -233,5 +234,140 @@ describe("the stacked-form layout reaches the rendered markup", () => {
         const { container } = render(NewProjectPage);
 
         expect(container.querySelector("form.stacked-form")).not.toBeNull();
+    });
+});
+
+describe("admin page uses the shared design system", () => {
+    const adminData = {
+        authenticated: true,
+        isAdmin: true,
+        isAnnotator: false,
+        isCurator: false,
+        isProjectManager: false,
+        currentProjectId: null,
+        isSuperuser: true as const,
+        isProjectCreator: true,
+        projects: [],
+        allUsers: [],
+        ontologies: [],
+        proposedEntities: [],
+        proposedTotal: 0,
+    };
+
+    /*
+     * Every one of these was a private copy in the admin <style> block, several
+     * with values that had drifted from the shared sheet.
+     */
+    const sharedSelectors = [
+        ".card",
+        ".field",
+        ".error",
+        ".success",
+        ".empty",
+        ".hint",
+        "table",
+        "th",
+        "td",
+        "label",
+        "h1",
+        "h2",
+    ];
+
+    test("imports management.css and roots on .page", () => {
+        const source = pageSource("admin");
+
+        expect(source).toContain('import "$lib/styles/management.css"');
+        expect(source).toContain('<div class="page">');
+        expect(source).not.toContain("admin-page");
+    });
+
+    test.each(sharedSelectors)(
+        "declares no private copy of `%s`",
+        (selector) => {
+            const styles = scopedStyleBlock(pageSource("admin"));
+            const rule = new RegExp(
+                `^\\s*${selector.replace(".", "\\.")}\\s*[,{]`,
+                "m",
+            );
+
+            expect(styles).not.toMatch(rule);
+        },
+    );
+
+    test("management.css supplies the table rules admin now relies on", () => {
+        const css = readSource("lib/styles/management.css");
+
+        expect(css).toMatch(/\.page table\s*\{[^}]*width:\s*100%/);
+        expect(css).toMatch(/\.page th\s*\{/);
+        expect(css).toMatch(/\.page td\s*\{/);
+    });
+
+    test("keeps the nested-table overrides that layer on .page th/td", () => {
+        const styles = scopedStyleBlock(pageSource("admin"));
+
+        expect(styles).toMatch(/\.inner-table th\s*\{/);
+        expect(styles).toMatch(/\.entity-table th\s*\{/);
+        // The 2px header rule they used to undo is gone with the local copy.
+        expect(styles).not.toContain("border-bottom-width");
+    });
+
+    test("root is .page and every section is a shared .card", () => {
+        const { container } = render(AdminPage, { props: { data: adminData } });
+
+        const root = container.firstElementChild as HTMLElement;
+        expect(root.classList.contains("page")).toBe(true);
+        expect(container.querySelector(".admin-page")).toBeNull();
+        expect(
+            container.querySelectorAll(".page > section.card").length,
+        ).toBeGreaterThan(1);
+    });
+
+    test("empty sections use the shared .empty region", () => {
+        const { container } = render(AdminPage, { props: { data: adminData } });
+
+        const empties = container.querySelectorAll("p.empty");
+        expect(empties.length).toBeGreaterThan(0);
+    });
+
+    test("the add-user fields are shared .field wrappers", async () => {
+        fetchMock.mockResolvedValue(json("correct-horse-battery-staple"));
+        const { container } = render(AdminPage, { props: { data: adminData } });
+
+        const toggle = [...container.querySelectorAll("button")].find((b) =>
+            b.textContent?.includes("Add user"),
+        );
+        await fireEvent.click(toggle!);
+
+        const form = container.querySelector("form.add-user-form");
+        expect(form).not.toBeNull();
+        const fields = form!.querySelectorAll(".field");
+        expect(fields).toHaveLength(2);
+        for (const field of fields) {
+            expect(field.querySelector("label")).not.toBeNull();
+        }
+    });
+
+    test("tables sit inside .page so the shared table rules reach them", () => {
+        const { container } = render(AdminPage, {
+            props: {
+                data: {
+                    ...adminData,
+                    allUsers: [
+                        {
+                            user_id: "u1",
+                            email: "a@example.com",
+                            is_super_user: false,
+                            can_manage: false,
+                            disabled: false,
+                        },
+                    ],
+                },
+            },
+        });
+
+        const table = container.querySelector("table");
+        expect(table).not.toBeNull();
+        expect(table?.closest(".page")).not.toBeNull();
+        expect(table?.querySelector("th")).not.toBeNull();
     });
 });
