@@ -7,8 +7,11 @@ against a real in-memory SQLite database. ``get_current_admin`` requires the
 ``conftest.py``.
 """
 
+import warnings
+
 import pytest
 from d3textdb.schema import User as DbUser
+from pydantic import PydanticDeprecatedSince20
 
 _MANAGER_EMAIL = "manager@projects-test.example"
 _MANAGER_PASSWORD = "manager-secret"
@@ -167,6 +170,46 @@ class TestGetProject:
         client, auth = manager
         r = client.get("/projects/99999", headers=auth)
         assert r.status_code == 404
+
+
+def _call_recording_pydantic_deprecations(call):
+    """Run ``call``, returning its result and any Pydantic deprecations.
+
+    ``simplefilter`` bumps the global filter version, which invalidates every
+    module's ``__warningregistry__``. Without it a warning already emitted by
+    an earlier test in the session would be deduplicated away here and the
+    assertions below would pass vacuously.
+    """
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        result = call()
+    return result, [
+        str(w.message)
+        for w in caught
+        if issubclass(w.category, PydanticDeprecatedSince20)
+    ]
+
+
+class TestProjectReadsAvoidDeprecatedPydanticAPIs:
+    def test_listing_projects_emits_no_deprecation(self, manager):
+        client, auth = manager
+        _create_project(client, auth, name="Project A")
+        r, deprecations = _call_recording_pydantic_deprecations(
+            lambda: client.get("/projects", headers=auth)
+        )
+        assert r.status_code == 200, r.text
+        assert [p["name"] for p in r.json()] == ["Project A"]
+        assert deprecations == []
+
+    def test_getting_a_project_emits_no_deprecation(self, manager):
+        client, auth = manager
+        pid = _create_project(client, auth, name="Readable")
+        r, deprecations = _call_recording_pydantic_deprecations(
+            lambda: client.get(f"/projects/{pid}", headers=auth)
+        )
+        assert r.status_code == 200, r.text
+        assert r.json()["name"] == "Readable"
+        assert deprecations == []
 
 
 class TestListMembers:

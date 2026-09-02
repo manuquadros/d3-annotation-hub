@@ -1109,7 +1109,7 @@ def list_all_projects(
         projects = list_projects()
     else:
         projects = list_user_projects(current_user.user_id)
-    return [ProjectResponse.from_orm(p) for p in projects]
+    return [ProjectResponse.model_validate(p) for p in projects]
 
 
 @app.get("/projects/{project_id}")
@@ -1126,7 +1126,7 @@ def get_one_project(
         roles = get_user_project_roles(current_user.user_id, project_id)
         if not roles:
             raise HTTPException(status_code=403, detail="Access denied")
-    return ProjectResponse.from_orm(project)
+    return ProjectResponse.model_validate(project)
 
 
 class AddMemberRequest(BaseModel):
