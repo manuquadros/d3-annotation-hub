@@ -2,7 +2,7 @@ from datetime import UTC, datetime
 
 import pytest
 from sqlalchemy import func, text
-from sqlmodel import Session, select
+from sqlmodel import Session, SQLModel, select
 
 from d3textdb import D3TextDB, OntologyInUseError
 from d3textdb.schema import (
@@ -1726,3 +1726,57 @@ def test_ontology_import_refreshes_planner_stats_for_search() -> None:
             ).fetchall()
         )
     assert "ix_entityname_name_id" in plan, plan
+
+
+class _NotATable(SQLModel):
+    """A SQLModel with no table, to prove store_items refuses to skip it."""
+
+    value: int
+
+
+def test_store_items_persists_a_model_outside_the_legacy_tuple() -> None:
+    """store_items writes every model class it is given, not a fixed few."""
+    db = D3TextDB()
+    subject = Entity(curie="TEST:1", type="d3o:Bacteria")
+    obj = Entity(curie="TEST:2", type="d3o:Enzyme")
+    relation = Relation(
+        predicate="d3o:hasEnzyme", subject="TEST:1", object="TEST:2"
+    )
+
+    db.store_items([subject, obj, relation])
+
+    with Session(db.engine) as session:
+        stored = session.exec(select(Relation)).all()
+
+    assert [(r.predicate, r.subject, r.object) for r in stored] == [
+        ("d3o:hasEnzyme", "TEST:1", "TEST:2")
+    ]
+
+
+def test_store_items_inserts_parents_before_children() -> None:
+    """Insertion follows foreign-key order, not the caller's batch order: a
+    relation listed before the entities it points at still commits."""
+    db = D3TextDB()
+    relation = Relation(
+        predicate="d3o:hasEnzyme", subject="TEST:1", object="TEST:2"
+    )
+
+    db.store_items(
+        [
+            relation,
+            Entity(curie="TEST:1", type="d3o:Bacteria"),
+            Entity(curie="TEST:2", type="d3o:Enzyme"),
+        ]
+    )
+
+    with Session(db.engine) as session:
+        assert session.exec(select(Relation)).one()
+        assert len(session.exec(select(Entity)).all()) == 2
+
+
+def test_store_items_rejects_a_model_it_cannot_insert() -> None:
+    """An unstorable model raises instead of being silently dropped."""
+    db = D3TextDB()
+
+    with pytest.raises(TypeError, match="_NotATable"):
+        db.store_items([_NotATable(value=1)])

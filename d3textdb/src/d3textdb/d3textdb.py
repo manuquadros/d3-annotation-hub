@@ -1,7 +1,6 @@
 """D3TextDB class and methods to interact with the database."""
 
 import hashlib
-import itertools
 import json
 import os
 import re
@@ -129,6 +128,33 @@ def _chunks(seq: list, size: int):
     size = max(1, size)
     for start in range(0, len(seq), size):
         yield seq[start : start + size]
+
+
+def _fk_insertion_order(
+    models: Iterable[type[SQLModel]],
+) -> list[type[SQLModel]]:
+    """Sort ``models`` so foreign-key parents come before their children.
+
+    ``metadata.sorted_tables`` is topologically sorted on the foreign keys
+    declared in :mod:`~d3textdb.schema`, so following it guarantees a
+    referenced row is written before whatever points at it. A model with no
+    table in that metadata raises here instead of being skipped.
+    """
+    rank = {
+        table: position
+        for position, table in enumerate(SQLModel.metadata.sorted_tables)
+    }
+
+    def rank_of(model: type[SQLModel]) -> int:
+        table = getattr(model, "__table__", None)
+        if table not in rank:
+            raise TypeError(
+                f"{model.__name__} has no table in the schema metadata "
+                "and cannot be stored."
+            )
+        return rank[table]
+
+    return sorted(models, key=rank_of)
 
 
 class D3TextDB:
@@ -1175,17 +1201,13 @@ class D3TextDB:
             models.setdefault(item.__class__, []).append(item)
 
         with Session(self.engine) as session:
-            for item in itertools.chain(
-                *(
-                    models.get(key, [])
-                    for key in (User, Entity, Reference, Pointer)
-                )
-            ):
-                session.execute(
-                    insert(item.__class__)
-                    .values(item.model_dump(exclude_none=True))
-                    .on_conflict_do_nothing()
-                )
+            for model in _fk_insertion_order(models):
+                for item in models[model]:
+                    session.execute(
+                        insert(model)
+                        .values(item.model_dump(exclude_none=True))
+                        .on_conflict_do_nothing()
+                    )
             session.commit()
 
     def get_article_by_pubmed_id(self, pubmed_id: int) -> Reference | None:
