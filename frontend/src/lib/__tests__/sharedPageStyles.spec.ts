@@ -388,6 +388,94 @@ describe("admin page uses the shared design system", () => {
 });
 
 /*
+ * A Svelte-scoped `.muted { … }` compiles to `.muted.svelte-<hash>`, which ties
+ * Digidive's `.btn.muted` on specificity and wins on stylesheet order, so a
+ * private rule named after a button modifier silently repaints every button
+ * carrying it. The guard is generic: no bare class selector in the page's own
+ * <style> may name a class Digidive uses as a `.btn` modifier.
+ */
+describe("Digidive owns every .btn on the admin page", () => {
+    const sampleProject = {
+        project_id: 1,
+        name: "Sample project",
+        description: "A described project",
+        required_annotators: 2,
+    };
+
+    const adminPageData = {
+        authenticated: true,
+        isAdmin: true,
+        isAnnotator: false,
+        isCurator: false,
+        isProjectManager: false,
+        currentProjectId: null,
+        isSuperuser: true as const,
+        isProjectCreator: true,
+        projects: [sampleProject],
+        allUsers: [],
+        ontologies: [],
+        proposedEntities: [],
+        proposedTotal: 0,
+    };
+
+    function digidiveButtonModifiers(): Set<string> {
+        const css = readSource("../static/digidive/css/digidive.css");
+        const modifiers = new Set<string>();
+        for (const [, name] of css.matchAll(/\.btn\.([a-z][\w-]*)/g)) {
+            modifiers.add(name);
+        }
+        return modifiers;
+    }
+
+    function bareClassSelectors(styles: string): string[] {
+        const names: string[] = [];
+        for (const [, list] of styles.matchAll(/(?:^|\})\s*([^{}]+)\{/g)) {
+            for (const selector of list.split(",")) {
+                const bare = /^\.([\w-]+)$/.exec(selector.trim());
+                if (bare) names.push(bare[1]);
+            }
+        }
+        return names;
+    }
+
+    test("Digidive really does modify .btn with `muted` and `small`", () => {
+        const modifiers = digidiveButtonModifiers();
+
+        expect(modifiers.has("muted")).toBe(true);
+        expect(modifiers.has("small")).toBe(true);
+    });
+
+    test("no scoped rule is named after a Digidive button modifier", () => {
+        const modifiers = digidiveButtonModifiers();
+        const scoped = bareClassSelectors(
+            scopedStyleBlock(pageSource("admin")),
+        );
+
+        expect(scoped.length).toBeGreaterThan(0);
+        expect(scoped.filter((name) => modifiers.has(name))).toEqual([]);
+    });
+
+    test("the buttons keep the Digidive classes that now reach them", () => {
+        const { container } = render(AdminPage, {
+            props: { data: adminPageData },
+        });
+
+        const muted = container.querySelectorAll("button.btn.small.muted");
+        expect(muted.length).toBeGreaterThan(0);
+    });
+
+    test("the description cell is muted by Digidive's span.muted", () => {
+        const { container } = render(AdminPage, {
+            props: { data: adminPageData },
+        });
+
+        expect(container.querySelector("td.muted")).toBeNull();
+        const muted = container.querySelector("tbody td span.muted");
+        expect(muted?.textContent).toBe(sampleProject.description);
+    });
+});
+
+/*
  * Both hub pages used to carry a byte-identical 87-line <style> block plus a
  * copy of the card markup. The shared sheet is not an option here: the root
  * route also renders the annotation UI, whose AnnotationEditor uses `.field`,

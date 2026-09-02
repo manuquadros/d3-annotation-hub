@@ -541,7 +541,11 @@
                                 project.project_id}
                         >
                             <td><strong>{project.name}</strong></td>
-                            <td class="muted">{project.description ?? "—"}</td>
+                            <td
+                                ><span class="muted"
+                                    >{project.description ?? "—"}</span
+                                ></td
+                            >
                             <td>{project.required_annotators}</td>
                             <td class="actions-cell">
                                 <button
@@ -596,7 +600,7 @@
                                         <div class="panel-section">
                                             <p class="panel-title">Members</p>
                                             {#if membersLoading}
-                                                <p class="muted">Loading…</p>
+                                                <p class="empty">Loading…</p>
                                             {:else if (projectMembers[project.project_id] ?? []).length === 0}
                                                 <p class="empty">
                                                     No members yet.
@@ -1322,11 +1326,6 @@
         border-radius: 4px;
         font-size: 0.875rem;
         box-sizing: border-box;
-    }
-
-    .muted {
-        color: #888;
-        font-size: 0.875rem;
     }
 
     tr.expanded > td {
