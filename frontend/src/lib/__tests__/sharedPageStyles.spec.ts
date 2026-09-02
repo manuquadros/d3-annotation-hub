@@ -11,6 +11,7 @@ import ProjectHubPage from "../../routes/projects/[id]/+page.svelte";
 import ClassPicker from "../components/ClassPicker.svelte";
 import SaveIndicator from "../components/SaveIndicator.svelte";
 import ProjectSwitcher from "../components/ProjectSwitcher.svelte";
+import { findHardcodedColors, declaredRootTokens } from "../utils/cssAudit";
 
 vi.mock("$app/stores", async () => {
     const { readable } = await import("svelte/store");
@@ -653,10 +654,9 @@ describe("component status colors come from Digidive tokens", () => {
     ] as const;
 
     function digidiveTokens(): Set<string> {
-        const css = readSource("../static/digidive/css/digidive.css");
-        const declarations = css.matchAll(/^\s*(--[a-zA-Z0-9-]+)\s*:/gm);
-
-        return new Set([...declarations].map((match) => match[1]));
+        return declaredRootTokens(
+            readSource("../static/digidive/css/digidive.css"),
+        );
     }
 
     test("the Digidive stylesheet is where the token names come from", () => {
@@ -672,11 +672,11 @@ describe("component status colors come from Digidive tokens", () => {
     });
 
     test.each(tokenisedComponents)(
-        "%s declares no hex color literal",
+        "%s declares no hardcoded color",
         (_name, relPath) => {
             const styles = scopedStyleBlock(readSource(relPath));
 
-            expect(styles.match(/#[0-9a-fA-F]{3,8}\b/g)).toBeNull();
+            expect(findHardcodedColors(styles)).toEqual([]);
         },
     );
 
