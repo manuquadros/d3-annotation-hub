@@ -8,6 +8,9 @@ import NewProjectPage from "../../routes/projects/new/+page.svelte";
 import AdminPage from "../../routes/admin/+page.svelte";
 import HubPage from "../../routes/+page.svelte";
 import ProjectHubPage from "../../routes/projects/[id]/+page.svelte";
+import ClassPicker from "../components/ClassPicker.svelte";
+import SaveIndicator from "../components/SaveIndicator.svelte";
+import ProjectSwitcher from "../components/ProjectSwitcher.svelte";
 
 vi.mock("$app/stores", async () => {
     const { readable } = await import("svelte/store");
@@ -542,6 +545,134 @@ describe("the hub pages share one nav-card component", () => {
 
         expect(container.querySelector(".hub h1")?.textContent).toBe(
             "Project Management",
+        );
+    });
+});
+
+/*
+ * These three components painted their own status palette in raw hex, so a
+ * change to the Digidive palette could not reach them. ProjectSwitcher was the
+ * worse case: it read `var(--bg-card, #fff)`-style tokens that are declared
+ * nowhere in the repo, so every one of them silently rendered its literal
+ * fallback. The contract is therefore both halves — no literal, and no token
+ * the design system does not actually define.
+ */
+describe("component status colors come from Digidive tokens", () => {
+    const tokenisedComponents = [
+        ["class picker", "lib/components/ClassPicker.svelte"],
+        ["save indicator", "lib/components/SaveIndicator.svelte"],
+        ["project switcher", "lib/components/ProjectSwitcher.svelte"],
+    ] as const;
+
+    function digidiveTokens(): Set<string> {
+        const css = readSource("../static/digidive/css/digidive.css");
+        const declarations = css.matchAll(/^\s*(--[a-zA-Z0-9-]+)\s*:/gm);
+
+        return new Set([...declarations].map((match) => match[1]));
+    }
+
+    test("the Digidive stylesheet is where the token names come from", () => {
+        const tokens = digidiveTokens();
+
+        expect(tokens.size).toBeGreaterThan(50);
+        expect(tokens.has("--primary-color")).toBe(true);
+        expect(tokens.has("--success-color")).toBe(true);
+        expect(tokens.has("--danger-color")).toBe(true);
+        // The names ProjectSwitcher used to read. They never existed.
+        expect(tokens.has("--bg-card")).toBe(false);
+        expect(tokens.has("--color-primary")).toBe(false);
+    });
+
+    test.each(tokenisedComponents)(
+        "%s declares no hex color literal",
+        (_name, relPath) => {
+            const styles = scopedStyleBlock(readSource(relPath));
+
+            expect(styles.match(/#[0-9a-fA-F]{3,8}\b/g)).toBeNull();
+        },
+    );
+
+    test.each(tokenisedComponents)(
+        "%s names only tokens Digidive declares",
+        (_name, relPath) => {
+            const tokens = digidiveTokens();
+            const styles = scopedStyleBlock(readSource(relPath));
+            const used = [...styles.matchAll(/var\(\s*(--[a-zA-Z0-9-]+)/g)].map(
+                (match) => match[1],
+            );
+
+            expect(used.length).toBeGreaterThan(0);
+            expect(used.filter((token) => !tokens.has(token))).toEqual([]);
+        },
+    );
+
+    test.each(tokenisedComponents)(
+        "%s uses no var() fallback, which would re-hide a literal",
+        (_name, relPath) => {
+            const styles = scopedStyleBlock(readSource(relPath));
+
+            expect(styles).not.toMatch(/var\(\s*--[a-zA-Z0-9-]+\s*,/);
+        },
+    );
+
+    test("the save indicator keeps the classes its status colors hang on", () => {
+        const saving = render(SaveIndicator, {
+            props: { status: { type: "saving" as const } },
+        });
+        expect(saving.container.querySelector(".status.saving")).not.toBeNull();
+
+        const saved = render(SaveIndicator, {
+            props: {
+                status: { type: "saved" as const, timestamp: new Date() },
+            },
+        });
+        expect(saved.container.querySelector(".status.saved")).not.toBeNull();
+
+        const failed = render(SaveIndicator, {
+            props: { status: { type: "error" as const, message: "nope" } },
+        });
+        expect(
+            failed.container.querySelector("button.status.error"),
+        ).not.toBeNull();
+    });
+
+    test("the project switcher keeps the classes its colors hang on", async () => {
+        const { container } = render(ProjectSwitcher, {
+            props: {
+                projects: [
+                    { project_id: 1, name: "One" },
+                    { project_id: 2, name: "Two" },
+                ],
+                currentProjectId: 2,
+                isAdmin: true,
+            },
+        });
+
+        expect(container.querySelector(".trigger .chevron")).not.toBeNull();
+
+        await fireEvent.click(container.querySelector(".trigger")!);
+
+        expect(container.querySelector(".dropdown")).not.toBeNull();
+        expect(
+            container.querySelector(".item.active")?.textContent?.trim(),
+        ).toBe("Two");
+        expect(container.querySelector(".divider")).not.toBeNull();
+        expect(container.querySelector(".item.new-project")).not.toBeNull();
+    });
+
+    test("the class picker keeps the classes its colors hang on", async () => {
+        const { container } = render(ClassPicker, {
+            props: {
+                value: "",
+                options: [{ curie: "d3o:Enzyme", label: "Enzyme" }],
+            },
+        });
+
+        await fireEvent.focus(container.querySelector("input")!);
+
+        expect(container.querySelector(".dropdown")).not.toBeNull();
+        expect(container.querySelector(".opt-curie")?.textContent).toBe(
+            "d3o:Enzyme",
         );
     });
 });

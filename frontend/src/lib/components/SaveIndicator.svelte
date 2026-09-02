@@ -46,30 +46,30 @@
         border-radius: 0.25rem;
         font-size: 0.875rem;
         font-weight: 500;
-        background-color: white;
+        background-color: var(--tile-color);
         box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-        border: 1px solid #e5e7eb;
+        border: 1px solid var(--color-gray-20);
     }
 
     .saving {
-        color: #3b82f6;
-        border-color: #3b82f6;
+        color: var(--primary-color);
+        border-color: var(--primary-color);
     }
 
     .saved {
-        color: #10b981;
-        border-color: #10b981;
+        color: var(--success-color);
+        border-color: var(--success-color);
     }
 
     .error {
-        color: #ef4444;
-        border-color: #ef4444;
+        color: var(--danger-color);
+        border-color: var(--danger-color);
         cursor: pointer;
-        background-color: white;
+        background-color: var(--tile-color);
         transition: background-color 0.2s;
     }
 
     .error:hover {
-        background-color: #fef2f2;
+        background-color: var(--danger-color-very-light);
     }
 </style>

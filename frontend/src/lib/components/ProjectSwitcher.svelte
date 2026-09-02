@@ -89,8 +89,8 @@
         justify-content: space-between;
         width: 100%;
         padding: 0.45rem 0.6rem;
-        background: var(--bg-card, #fff);
-        border: 1px solid var(--border, #ddd);
+        background: var(--button-bg-color);
+        border: 1px solid var(--button-border-color);
         border-radius: 6px;
         cursor: pointer;
         font-size: 0.875rem;
@@ -101,7 +101,7 @@
     }
 
     .trigger:hover {
-        border-color: var(--border-hover, #aaa);
+        border-color: var(--border-color);
     }
 
     .project-label {
@@ -114,7 +114,7 @@
     .chevron {
         flex-shrink: 0;
         font-size: 0.85rem;
-        color: #888;
+        color: var(--muted-color);
     }
 
     .backdrop {
@@ -128,8 +128,8 @@
         top: calc(100% + 4px);
         left: 0;
         right: 0;
-        background: #fff;
-        border: 1px solid var(--border, #ddd);
+        background: var(--tile-color);
+        border: 1px solid var(--border-color);
         border-radius: 6px;
         box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
         z-index: 11;
@@ -153,22 +153,22 @@
     }
 
     .item:hover {
-        background: var(--bg-hover, #f5f5f5);
+        background: var(--gray-color-very-light);
     }
 
     .item.active {
         font-weight: 600;
-        color: var(--color-primary, #333);
+        color: var(--primary-color);
     }
 
     .divider {
         height: 1px;
-        background: var(--border, #eee);
+        background: var(--divider-color);
         margin: 0.25rem 0;
     }
 
     .new-project {
-        color: var(--color-primary, #444);
+        color: var(--primary-color);
     }
 
     .new-project i {

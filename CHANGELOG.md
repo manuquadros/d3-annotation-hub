@@ -31,6 +31,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Entity search-as-you-type and opening/marking-complete an annotation stay fast as the data grows: the name→entity join and the latest-state/latest-snapshot lookups (by project + user + reference) are now indexed, and an ontology import refreshes the query planner's statistics so the search index is actually used. In local benchmarks a search keystroke against a 20k-entity ontology dropped from ~325 ms to ~2.5 ms, and the latest-state lookup from ~1.1 ms to ~0.3 ms.
 - The Settings and New Project pages now use the shared management stylesheet.
 - The Admin panel now uses the shared management stylesheet, so it matches the other management pages: slightly wider content, even 2rem spacing between sections, marginally larger feedback and table text, bold table headers with hairline rules, and tighter add-user field spacing. The Accept button on a proposed entity is no longer shrunk and nudged out of line with its Reject neighbour.
+- The save indicator, project switcher, and class picker now draw their colors from the Digidive palette instead of their own hex values, so they match the rest of the app: the "Saving…"/"Saved"/error pill is brand blue, green, and dark red rather than the brighter shades it used, the selected project and "Create new project" in the project switcher are brand blue rather than near-black, and the switcher and class-picker dropdowns get the same border as every other Digidive popup.
 
 ### Fixed
 

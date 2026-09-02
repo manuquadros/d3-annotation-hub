@@ -109,7 +109,7 @@
     .class-picker input {
         width: 100%;
         padding: 0.4rem 0.6rem;
-        border: 1px solid #ccc;
+        border: 1px solid var(--border-color);
         border-radius: 4px;
         font-size: 0.875rem;
         box-sizing: border-box;
@@ -124,8 +124,8 @@
         list-style: none;
         margin: 0;
         padding: 0;
-        background: #fff;
-        border: 1px solid #ccc;
+        background: var(--tile-color);
+        border: 1px solid var(--border-color);
         border-radius: 4px;
         box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
         max-height: 200px;
@@ -147,7 +147,7 @@
 
     .dropdown li button:hover,
     .dropdown li[aria-selected="true"] button {
-        background: #f0f0f0;
+        background: var(--gray-color-light);
     }
 
     .opt-label {
@@ -157,7 +157,7 @@
 
     .opt-curie {
         font-size: 0.75rem;
-        color: #888;
+        color: var(--muted-color);
         font-family: monospace;
     }
 </style>
