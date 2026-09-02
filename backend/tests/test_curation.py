@@ -10,10 +10,12 @@ saved state, which is what the curation views read. Shared ``db``/``client``/
 """
 
 import pytest
-from d3textdb.schema import Entity, Reference
+from d3textdb.schema import Entity, Pointer, Reference, Relation
 from d3textdb.schema import User as DbUser
 from fastapi.testclient import TestClient
 from sqlmodel import Session, select
+
+from ahbackend.api.api import PointerOut, RelationOut
 
 _PMID = 30000001
 _ANNOTATOR_EMAIL = "annotator@curation-test.example"
@@ -24,6 +26,34 @@ _CURATOR_PASSWORD = "curate-secret"
 _SUBJECT = "TEST:bacterium"
 _OBJECT = "TEST:enzyme"
 _PREDICATE = "produces"
+
+_DEFAULT_POINTERS = [
+    {"entity_id": _SUBJECT, "offset": 5, "length": 7},
+    {"entity_id": _OBJECT, "offset": 20, "length": 8},
+]
+
+# Every field distinct from every other, so a response built by copying the
+# wrong attribute across cannot still match.
+_RICH_POINTERS = [
+    {
+        "entity_id": _SUBJECT,
+        "offset": 11,
+        "length": 7,
+        "field": "abstract",
+        "exact_text": "E. coli",
+        "prefix_text": "grown by ",
+        "suffix_text": " in broth",
+    },
+    {
+        "entity_id": _OBJECT,
+        "offset": 40,
+        "length": 8,
+        "field": "body",
+        "exact_text": "xylanase",
+        "prefix_text": "secretes ",
+        "suffix_text": " into the",
+    },
+]
 
 
 @pytest.fixture()
@@ -53,11 +83,16 @@ def project(db, make_project):
 
 
 def _seed_completed_annotation(
-    client: TestClient, auth: dict, project_id: int
+    client: TestClient,
+    auth: dict,
+    project_id: int,
+    pointers: list[dict] | None = None,
 ) -> int:
     """Annotator saves an annotation with one relation and marks it complete.
 
-    Returns the reference_id. After this, the reference is curation-ready.
+    ``pointers`` are merged with the reference id and default to
+    ``_DEFAULT_POINTERS``. Returns the reference_id. After this, the reference
+    is curation-ready.
     """
     r = client.get(
         f"/reference/?ref_identifier={_PMID}&project_id={project_id}",
@@ -82,18 +117,8 @@ def _seed_completed_annotation(
         },
     ]
     ann["pointers"] = [
-        {
-            "reference_id": ref_id,
-            "entity_id": _SUBJECT,
-            "offset": 5,
-            "length": 7,
-        },
-        {
-            "reference_id": ref_id,
-            "entity_id": _OBJECT,
-            "offset": 20,
-            "length": 8,
-        },
+        {"reference_id": ref_id, **p}
+        for p in (pointers if pointers is not None else _DEFAULT_POINTERS)
     ]
     ann["relations"] = [
         {
@@ -131,6 +156,45 @@ def seeded(project, client, login):
     _seed_completed_annotation(client, annotator_auth, project_id)
     curator_auth = login(_CURATOR_EMAIL, _CURATOR_PASSWORD)
     return client, curator_auth, project_id, ref_id
+
+
+@pytest.fixture()
+def seeded_rich(project, client, login):
+    """Like ``seeded``, but with every pointer field filled in distinctly.
+
+    The default seed leaves ``field`` and the three TextQuoteSelector strings
+    at their defaults, so a response that dropped or transposed one of them
+    would still compare equal.
+    """
+    project_id, ref_id = project
+    annotator_auth = login(_ANNOTATOR_EMAIL, _ANNOTATOR_PASSWORD)
+    _seed_completed_annotation(
+        client, annotator_auth, project_id, pointers=_RICH_POINTERS
+    )
+    curator_auth = login(_CURATOR_EMAIL, _CURATOR_PASSWORD)
+    return client, curator_auth, project_id, ref_id
+
+
+def _stored_pointers(db) -> dict[str, dict]:
+    """Stored pointers by CURIE, projected onto the ``PointerOut`` fields."""
+    with Session(db.engine) as session:
+        return {
+            row.entity_id: {
+                name: getattr(row, name) for name in PointerOut.model_fields
+            }
+            for row in session.exec(select(Pointer)).all()
+        }
+
+
+def _stored_relations(db) -> dict[str, dict]:
+    """Stored relations by predicate, projected onto ``RelationOut``."""
+    with Session(db.engine) as session:
+        return {
+            row.predicate: {
+                name: getattr(row, name) for name in RelationOut.model_fields
+            }
+            for row in session.exec(select(Relation)).all()
+        }
 
 
 class TestCurationQueue:
@@ -431,6 +495,72 @@ class TestSaveCuratedAnnotation:
             headers=annotator_auth,
         )
         assert r.status_code == 403
+
+
+class TestSnapshotResponseFieldMapping:
+    """Pointers and relations reach the client with every stored field.
+
+    The assertions are driven off ``model_fields``, so a field added to
+    ``PointerOut`` or ``RelationOut`` is covered here without editing them.
+    """
+
+    def _snapshots(self, seeded_rich) -> dict:
+        client, curator_auth, project_id, ref_id = seeded_rich
+        r = client.get(
+            f"/projects/{project_id}/curation/{ref_id}/snapshots",
+            headers=curator_auth,
+        )
+        assert r.status_code == 200, r.text
+        return r.json()
+
+    def _save_curated(self, seeded_rich) -> None:
+        client, curator_auth, project_id, ref_id = seeded_rich
+        r = client.post(
+            f"/projects/{project_id}/curation/{ref_id}",
+            json={
+                "pointers": [
+                    {"reference_id": ref_id, **p} for p in _RICH_POINTERS
+                ],
+                "relations": [
+                    {
+                        "relation_id": None,
+                        "predicate": _PREDICATE,
+                        "subject": _SUBJECT,
+                        "object": _OBJECT,
+                    }
+                ],
+            },
+            headers=curator_auth,
+        )
+        assert r.status_code == 204, r.text
+
+    def test_snapshot_pointers_match_the_stored_rows(self, db, seeded_rich):
+        stored = _stored_pointers(db)
+        returned = self._snapshots(seeded_rich)["snapshots"][0]["pointers"]
+        assert len(returned) == len(_RICH_POINTERS)
+        for pointer in returned:
+            assert pointer == stored[pointer["entity_id"]]
+
+    def test_snapshot_relations_match_the_stored_rows(self, db, seeded_rich):
+        stored = _stored_relations(db)
+        returned = self._snapshots(seeded_rich)["snapshots"][0]["relations"]
+        assert len(returned) == 1
+        assert returned[0] == stored[_PREDICATE]
+
+    def test_curated_pointers_match_the_stored_rows(self, db, seeded_rich):
+        self._save_curated(seeded_rich)
+        stored = _stored_pointers(db)
+        returned = self._snapshots(seeded_rich)["curated_pointers"]
+        assert len(returned) == len(_RICH_POINTERS)
+        for pointer in returned:
+            assert pointer == stored[pointer["entity_id"]]
+
+    def test_curated_relations_match_the_stored_rows(self, db, seeded_rich):
+        self._save_curated(seeded_rich)
+        stored = _stored_relations(db)
+        returned = self._snapshots(seeded_rich)["curated_relations"]
+        assert len(returned) == 1
+        assert returned[0] == stored[_PREDICATE]
 
 
 _OLD_CURIE = "PROP:0001"

@@ -1880,28 +1880,8 @@ def annotator_snapshots(
             user_id=str(s.user.user_id),
             email=str(s.user.email),
             reference_id=s.reference_id,
-            pointers=[
-                PointerOut(
-                    reference_id=p.reference_id,
-                    entity_id=p.entity_id,
-                    offset=p.offset,
-                    length=p.length,
-                    field=p.field,
-                    exact_text=p.exact_text,
-                    prefix_text=p.prefix_text,
-                    suffix_text=p.suffix_text,
-                )
-                for p in s.pointers
-            ],
-            relations=[
-                RelationOut(
-                    relation_id=r.relation_id,
-                    predicate=r.predicate,
-                    subject=r.subject,
-                    object=r.object,
-                )
-                for r in s.relations
-            ],
+            pointers=[PointerOut.model_validate(p) for p in s.pointers],
+            relations=[RelationOut.model_validate(r) for r in s.relations],
             created_at=s.created_at.isoformat(),
         )
         for s in snapshots
@@ -1923,27 +1903,9 @@ def annotator_snapshots(
     curated_ptr_rows, curated_rel_rows = get_curated_annotation(
         project_id, reference_id, current_user.user_id
     )
-    curated_pointers = [
-        PointerOut(
-            reference_id=p.reference_id,
-            entity_id=p.entity_id,
-            offset=p.offset,
-            length=p.length,
-            field=p.field,
-            exact_text=p.exact_text,
-            prefix_text=p.prefix_text,
-            suffix_text=p.suffix_text,
-        )
-        for p in curated_ptr_rows
-    ]
+    curated_pointers = [PointerOut.model_validate(p) for p in curated_ptr_rows]
     curated_relations = [
-        RelationOut(
-            relation_id=r.relation_id,
-            predicate=r.predicate,
-            subject=r.subject,
-            object=r.object,
-        )
-        for r in curated_rel_rows
+        RelationOut.model_validate(r) for r in curated_rel_rows
     ]
 
     return SnapshotsResponse(
