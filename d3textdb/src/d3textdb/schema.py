@@ -21,12 +21,12 @@ from sqlmodel import (
 )
 
 
-class Verdict(str, enum.Enum):
+class Verdict(enum.StrEnum):
     accepted = "accepted"
     rejected = "rejected"
 
 
-class PdfIngestStatus(str, enum.Enum):
+class PdfIngestStatus(enum.StrEnum):
     pending = "pending"
     leased = "leased"
     done = "done"
