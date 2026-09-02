@@ -1,11 +1,23 @@
 import { describe, test, expect, vi, beforeEach, afterEach } from "vitest";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { render, fireEvent, waitFor } from "@testing-library/svelte";
 import SettingsPage from "../../routes/settings/+page.svelte";
 import NewProjectPage from "../../routes/projects/new/+page.svelte";
 import AdminPage from "../../routes/admin/+page.svelte";
+import HubPage from "../../routes/+page.svelte";
+import ProjectHubPage from "../../routes/projects/[id]/+page.svelte";
+
+vi.mock("$app/stores", async () => {
+    const { readable } = await import("svelte/store");
+    return {
+        page: readable({
+            params: { id: "p1" },
+            url: new URL("http://localhost/projects/p1"),
+        }),
+    };
+});
 
 vi.mock("$app/navigation", () => ({
     goto: vi.fn(() => Promise.resolve()),
@@ -369,5 +381,167 @@ describe("admin page uses the shared design system", () => {
         expect(table).not.toBeNull();
         expect(table?.closest(".page")).not.toBeNull();
         expect(table?.querySelector("th")).not.toBeNull();
+    });
+});
+
+/*
+ * Both hub pages used to carry a byte-identical 87-line <style> block plus a
+ * copy of the card markup. The shared sheet is not an option here: the root
+ * route also renders the annotation UI, whose AnnotationEditor uses `.field`,
+ * `.empty` and `.hint` for unrelated things, so importing management.css there
+ * would restyle it. The card therefore lives in a component of its own.
+ */
+describe("the hub pages share one nav-card component", () => {
+    const hubPages = [
+        ["root hub", "routes/+page.svelte"],
+        ["project hub", "routes/projects/[id]/+page.svelte"],
+    ] as const;
+
+    const navCardSelectors = [
+        ".hub",
+        ".cards",
+        ".card",
+        ".card-icon",
+        ".card-body",
+        ".card-arrow",
+    ];
+
+    function sourceFiles(): string[] {
+        return readdirSync(srcDir, { recursive: true, encoding: "utf-8" })
+            .filter((rel) => rel.endsWith(".svelte") || rel.endsWith(".css"))
+            .map((rel) => rel.replaceAll("\\", "/"));
+    }
+
+    test("NavCards declares the whole hub layout", () => {
+        const styles = scopedStyleBlock(
+            readSource("lib/components/NavCards.svelte"),
+        );
+
+        for (const selector of navCardSelectors) {
+            expect(styles).toMatch(
+                new RegExp(`^\\s*\\${selector}\\s*[,:{ ]`, "m"),
+            );
+        }
+    });
+
+    /*
+     * `.card` is left out: management.css owns that name for the static
+     * management panel, which is a different object that happens to share the
+     * word. The rest are the hub's alone.
+     */
+    const soleOwnerSelectors = navCardSelectors.filter(
+        (selector) => selector !== ".card",
+    );
+
+    test.each(soleOwnerSelectors)(
+        "`%s` is declared in exactly one file",
+        (selector) => {
+            const rule = new RegExp(`^\\s*\\${selector}\\s*[,:{ ]`, "m");
+            const owners = sourceFiles().filter((rel) =>
+                rule.test(readSource(rel)),
+            );
+
+            expect(owners).toEqual(["lib/components/NavCards.svelte"]);
+        },
+    );
+
+    test.each(hubPages)(
+        "%s delegates its cards to NavCards and keeps no styles of its own",
+        (_name, relPath) => {
+            const source = readSource(relPath);
+
+            expect(source).toContain(
+                'import NavCards from "$lib/components/NavCards.svelte"',
+            );
+            expect(source).toContain("<NavCards");
+            expect(source).not.toContain("<style>");
+        },
+    );
+
+    test("the root hub renders one card per destination", () => {
+        const { container } = render(HubPage, {
+            props: {
+                data: {
+                    ...layoutData,
+                    mode: "hub" as const,
+                    destinations: ["annotate", "curate", "manage", "admin"],
+                    documentData: null,
+                },
+            },
+        });
+
+        expect(container.querySelector(".hub h1")?.textContent).toBe(
+            "Where would you like to go?",
+        );
+
+        const cards = container.querySelectorAll(".cards > a.card");
+        expect(cards).toHaveLength(4);
+        expect([...cards].map((card) => card.getAttribute("href"))).toEqual([
+            "/?go=annotate&project=1",
+            "/curate?project=1",
+            "/projects/1",
+            "/admin",
+        ]);
+
+        for (const card of cards) {
+            expect(card.querySelector(".card-icon i.ph")).not.toBeNull();
+            expect(
+                card.querySelector(".card-body h2")?.textContent,
+            ).toBeTruthy();
+            expect(
+                card.querySelector(".card-body p")?.textContent,
+            ).toBeTruthy();
+            expect(card.querySelector("i.card-arrow")).not.toBeNull();
+        }
+    });
+
+    const layoutData = {
+        authenticated: true,
+        isSuperuser: false,
+        isAdmin: false,
+        isCurator: false,
+        isAnnotator: true,
+        isProjectManager: true,
+        projects: [],
+        currentProjectId: 1,
+    };
+
+    const projectHubData = { ...layoutData, projectName: "My Project" };
+
+    test("the project hub renders the three management cards", () => {
+        const { container } = render(ProjectHubPage, {
+            props: { data: projectHubData },
+        });
+
+        expect(container.querySelector(".hub h1")?.textContent).toBe(
+            "My Project",
+        );
+
+        const cards = [...container.querySelectorAll(".cards > a.card")];
+        expect(cards.map((card) => card.getAttribute("href"))).toEqual([
+            "/projects/p1/documents",
+            "/projects/p1/ontologies",
+            "/projects/p1/users",
+        ]);
+        expect(
+            cards.map(
+                (card) => card.querySelector(".card-body h2")?.textContent,
+            ),
+        ).toEqual(["Documents", "Ontologies", "Users"]);
+
+        for (const card of cards) {
+            expect(card.querySelector(".card-icon i.ph")).not.toBeNull();
+            expect(card.querySelector("i.card-arrow")).not.toBeNull();
+        }
+    });
+
+    test("the project hub falls back to a generic heading", () => {
+        const { container } = render(ProjectHubPage, {
+            props: { data: { ...projectHubData, projectName: null } },
+        });
+
+        expect(container.querySelector(".hub h1")?.textContent).toBe(
+            "Project Management",
+        );
     });
 });
